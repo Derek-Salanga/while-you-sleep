@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "While You Sleep",
+    "slug": "while-you-sleep",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon-1024.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon-1024.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F3FA"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.whileyousleep.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "While You Sleep needs camera access so you can record your daily clip for your partner.",
+        "NSMicrophoneUsageDescription": "While You Sleep needs microphone access so your daily clips can include sound.",
+        "NSPhotoLibraryUsageDescription": "Allow While You Sleep to save your recorded clips."
+      }
+    },
+    "android": {
+      "package": "com.whileyousleep.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon-1024.png",
+        "backgroundColor": "#F5F3FA"
+      }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "While You Sleep needs camera access so you can record your daily clip for your partner.",
+          "microphonePermission": "While You Sleep needs microphone access so your daily clips can include sound."
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",
+      "supabaseAnonKey": "sb_publishable_rRuR_xXpVoiKgi6db_t7Gw_L25jTylo"
+    }
+  }
+}
