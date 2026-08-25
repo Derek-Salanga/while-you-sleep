@@ -1,8 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system';
+// expo-file-system's default export moved to a new File/Directory-based
+// API in the SDK 54 version bump; the legacy import keeps getInfoAsync /
+// readAsStringAsync working without a full rewrite.
+import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { colors } from '@/theme/colors';
@@ -21,12 +25,19 @@ export default function RecordScreen({ navigation }: any) {
   const [facing, setFacing] = useState<CameraType>('front');
   const [isRecording, setIsRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   if (!permission) return <View style={styles.container} />;
 
   if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
+        <Pressable
+          style={[styles.closeButton, { top: insets.top + 12 }]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </Pressable>
         <Text style={styles.permissionText}>
           While You Sleep needs camera access to record your daily clip.
         </Text>
@@ -93,7 +104,11 @@ export default function RecordScreen({ navigation }: any) {
       if (insertError) throw insertError;
 
       Alert.alert("Sent!", 'Your clip is on its way.', [
-        { text: 'OK', onPress: () => navigation.navigate('Timeline') },
+        // goBack() rather than navigate('Timeline') — Record was reached
+        // by navigating forward from Timeline, so this returns to that
+        // same screen instance (which reloads clips on focus) instead of
+        // pushing a redundant new one onto the stack.
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
       Alert.alert('Upload failed', err.message);
@@ -110,6 +125,13 @@ export default function RecordScreen({ navigation }: any) {
         facing={facing}
         mode="video"
       />
+      <Pressable
+        style={[styles.closeButton, { top: insets.top + 12 }]}
+        onPress={() => navigation.goBack()}
+        disabled={uploading}
+      >
+        <Text style={styles.closeButtonText}>✕</Text>
+      </Pressable>
       <View style={styles.controls}>
         <Pressable
           style={styles.flipButton}
@@ -144,6 +166,21 @@ export default function RecordScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.ink },
   camera: { flex: 1 },
+  closeButton: {
+    position: 'absolute',
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: colors.surface,
+    fontSize: fontSizes.md,
+    fontFamily: fonts.bodySemiBold,
+  },
   permissionContainer: {
     flex: 1,
     backgroundColor: colors.background,

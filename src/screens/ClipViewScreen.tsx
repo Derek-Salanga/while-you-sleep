@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { ResizeMode, Video } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { Clip } from '@/types';
@@ -13,6 +13,12 @@ export default function ClipViewScreen({ route }: any) {
   const [clip, setClip] = useState<Clip | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const player = useVideoPlayer(videoUrl ?? '', (p) => {
+    if (videoUrl) {
+      p.play();
+    }
+  });
 
   useEffect(() => {
     loadClip();
@@ -68,12 +74,12 @@ export default function ClipViewScreen({ route }: any) {
 
   return (
     <View style={styles.container}>
-      <Video
-        source={{ uri: videoUrl }}
+      <VideoView
         style={styles.video}
-        useNativeControls
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay
+        player={player}
+        allowsFullscreen
+        nativeControls
+        contentFit="contain"
       />
       <Text style={styles.dateLabel}>{clip.recorded_for_date}</Text>
     </View>

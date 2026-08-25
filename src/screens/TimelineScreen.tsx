@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { Clip } from '@/types';
@@ -16,6 +17,7 @@ import { fonts, fontSizes } from '@/theme/typography';
 
 export default function TimelineScreen({ navigation }: any) {
   const { session, pair } = usePairing();
+  const insets = useSafeAreaInsets();
   const [clips, setClips] = useState<Clip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -71,7 +73,7 @@ export default function TimelineScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Timeline</Text>
         <Pressable onPress={() => supabase.auth.signOut()}>

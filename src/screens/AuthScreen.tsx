@@ -44,7 +44,7 @@ export default function AuthScreen() {
     }
   }
 
-  async function handleVerifyCode() {
+    async function handleVerifyCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !code.trim()) return;
     setBusy(true);
@@ -55,8 +55,6 @@ export default function AuthScreen() {
         type: 'email',
       });
       if (error) throw error;
-      // On success, PairingContext's onAuthStateChange listener picks up
-      // the new session automatically — no manual navigation needed.
     } catch (err: any) {
       Alert.alert('Invalid code', err.message);
     } finally {
@@ -74,8 +72,7 @@ export default function AuthScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.title}>While You Sleep</Text>
-      <Text style={styles.subtitle}>
+              <Text style={styles.subtitle}>
         {stage === 'enterEmail'
           ? 'Sign in with your email to get started.'
           : `Enter the code we sent to ${email.trim()}`}
@@ -108,7 +105,7 @@ export default function AuthScreen() {
         </>
       ) : (
         <>
-          <TextInput
+                    <TextInput
             style={[styles.input, styles.codeInput]}
             placeholder="123456"
             placeholderTextColor={colors.muted}

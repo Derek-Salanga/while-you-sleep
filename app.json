@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#F5F3FA"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.whileyousleep.app",
@@ -35,7 +37,8 @@
           "cameraPermission": "While You Sleep needs camera access so you can record your daily clip for your partner.",
           "microphonePermission": "While You Sleep needs microphone access so your daily clips can include sound."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",

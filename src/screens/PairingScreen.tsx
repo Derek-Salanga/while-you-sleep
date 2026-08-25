@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { colors } from '@/theme/colors';
@@ -22,10 +23,24 @@ function generateInviteCode(): string {
 }
 
 export default function PairingScreen() {
-  const { session, refreshPair } = usePairing();
+  const { session, pair, refreshPair } = usePairing();
   const [inviteCode, setInviteCode] = useState('');
-  const [myCode, setMyCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // If a pending invite already exists for this user (e.g. we created one,
+  // then closed and reopened the app before our partner joined), show it
+  // from persisted state rather than losing it on remount.
+  const myCode =
+    pair && !pair.user_b && pair.user_a === session?.user.id
+      ? pair.invite_code
+      : null;
+
+  // Pick up a partner joining while we're sitting on the waiting screen.
+  useFocusEffect(
+    useCallback(() => {
+      refreshPair();
+    }, [refreshPair])
+  );
 
   async function handleCreateInvite() {
     if (!session?.user) return;
@@ -38,7 +53,7 @@ export default function PairingScreen() {
         invite_code: code,
       });
       if (error) throw error;
-      setMyCode(code);
+      await refreshPair();
     } catch (err: any) {
       Alert.alert('Could not create invite', err.message);
     } finally {
@@ -122,6 +137,18 @@ export default function PairingScreen() {
         ) : (
           <Text style={styles.secondaryButtonText}>Join with code</Text>
         )}
+      </Pressable>
+
+      {/* Handy for testing both sides of a pairing on one device: sign
+          out here, sign back in with a different email, and join the
+          code above. Fine to keep for real use too — someone may want
+          to switch accounts before they've paired. */}
+      <Pressable
+        style={styles.signOutLink}
+        onPress={() => supabase.auth.signOut()}
+        disabled={busy}
+      >
+        <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
     </View>
   );
@@ -214,5 +241,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     color: colors.ink,
     fontSize: fontSizes.md,
+  },
+  signOutLink: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  signOutText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
   },
 });

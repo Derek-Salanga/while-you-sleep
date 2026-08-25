@@ -8,7 +8,7 @@ export interface Profile {
 export interface Pair {
   id: string;
   user_a: string;
-  user_b: string;
+  user_b: string | null;
   invite_code: string;
   created_at: string;
 }
@@ -30,5 +30,4 @@ export type RootStackParamList = {
   Home: undefined;
   Record: undefined;
   ClipView: { clipId: string };
-  Timeline: undefined;
 };

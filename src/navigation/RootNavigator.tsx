@@ -16,6 +16,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { session, pair, loading } = usePairing();
+  // A pair row exists as soon as one side creates an invite, with user_b
+  // still null until the partner joins — that's not a completed pairing
+  // yet, so route to Pairing until both sides are set.
+  const isPaired = !!pair?.user_b;
 
   if (loading) {
     return (
@@ -37,7 +41,7 @@ export default function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
-        ) : !pair ? (
+        ) : !isPaired ? (
           <Stack.Screen name="Pairing" component={PairingScreen} />
         ) : (
           <>
@@ -52,7 +56,6 @@ export default function RootNavigator() {
               component={ClipViewScreen}
               options={{ presentation: 'fullScreenModal' }}
             />
-            <Stack.Screen name="Timeline" component={TimelineScreen} />
           </>
         )}
       </Stack.Navigator>
