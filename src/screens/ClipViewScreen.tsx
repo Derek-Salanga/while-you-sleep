@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
-import { fonts, fontSizes } from '@/theme/typography';
+import { fonts } from '@/theme/typography';
 
 export default function ClipViewScreen({ route }: any) {
   const { clipId } = route.params as { clipId: string };

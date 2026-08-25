@@ -8,14 +8,16 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:ios": "eas build --platform ios"
+    "build:ios": "eas build --platform ios",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\""
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "@supabase/supabase-js": "^2.43.4",
-    "@types/react": "~19.1.10",
+    "@sentry/react-native": "~6.3.0",
     "buffer": "^6.0.3",
     "dotenv": "^16.4.5",
     "expo": "^54.0.0",
@@ -35,6 +37,11 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "typescript": "~5.9.2"
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2",
+    "eslint": "^8.57.0",
+    "eslint-config-expo": "^8.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3"
   }
 }
