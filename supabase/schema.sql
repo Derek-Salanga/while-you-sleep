@@ -95,6 +95,35 @@ create policy "clips_update_pair_members" on clips
     )
   );
 
+-- Helper: does the current user already have their own answer for this
+-- pair/date? Used by the select policy below to gate seeing the
+-- partner's row on having answered yourself. This has to be a
+-- `security definer` function rather than an inline subquery on
+-- daily_answers within its own policy — a policy that queries its own
+-- table directly re-triggers that same policy on the subquery's rows,
+-- which Postgres refuses to evaluate ("infinite recursion detected in
+-- policy for relation"). A security definer function runs as its owner
+-- (the table owner, when created via the SQL editor), and table owners
+-- are exempt from their own table's RLS by default, so the lookup
+-- inside it is a plain read instead of recursing back into the policy.
+create or replace function has_own_daily_answer(
+  target_pair_id uuid,
+  target_date date
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from daily_answers
+    where pair_id = target_pair_id
+      and user_id = auth.uid()
+      and answered_for_date = target_date
+  );
+$$;
+
 -- Daily answers: pair members can always see their own row; they can see
 -- their partner's row for a given date only once they've submitted their
 -- own for that same date — this is what actually enforces the "reveal
@@ -110,12 +139,7 @@ create policy "daily_answers_select_own_or_after_answering" on daily_answers
     )
     and (
       auth.uid() = daily_answers.user_id
-      or exists (
-        select 1 from daily_answers mine
-        where mine.pair_id = daily_answers.pair_id
-          and mine.user_id = auth.uid()
-          and mine.answered_for_date = daily_answers.answered_for_date
-      )
+      or has_own_daily_answer(daily_answers.pair_id, daily_answers.answered_for_date)
     )
   );
 create policy "daily_answers_insert_own_as_user" on daily_answers
