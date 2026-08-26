@@ -225,6 +225,18 @@ Not yet tested:
 - The `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) automates
   the stage -> commit -> push -> PR steps of this workflow.
 
+## Claude Code skills
+
+- `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) — see "Git
+  workflow" above; automates stage -> commit -> push -> PR.
+- `ui-ux-pro-max` skill (`.claude/skills/ui-ux-pro-max/`) — third-party
+  UI/UX design-intelligence skill (styles, palettes, typography, font
+  pairings, stack guidance incl. React Native). Installed locally via
+  `uipro init --ai claude`; gitignored and not committed since it's
+  generic tooling unrelated to this app's code. Only available on
+  machines where it's been installed — don't assume it's present when
+  picking up this repo elsewhere.
+
 ## Session checklist
 
 How work with Claude Code is orchestrated in this repo, session to
