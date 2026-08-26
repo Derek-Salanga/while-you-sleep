@@ -10,13 +10,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { formatDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
-
-function toDateString(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
 
 function isSameMonth(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
@@ -39,10 +36,10 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   const loadMonth = useCallback(async () => {
     if (!pair) return;
     setLoading(true);
-    const monthStart = toDateString(
+    const monthStart = formatDateString(
       new Date(refDate.getFullYear(), refDate.getMonth(), 1)
     );
-    const monthEnd = toDateString(
+    const monthEnd = formatDateString(
       new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0)
     );
     const { data, error } = await supabase
