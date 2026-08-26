@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -54,16 +54,39 @@ export default function DailyQuestionScreen() {
     loadAnswers();
   }, [loadAnswers]);
 
+  // No realtime subscription elsewhere in this app, so keep the pattern
+  // consistent: poll while genuinely waiting on the partner, rather than
+  // only refreshing on remount (which meant the reveal never happened
+  // while this screen stayed open).
+  useEffect(() => {
+    if (!myAnswer || partnerAnswer) return;
+    const interval = setInterval(loadAnswers, 15_000);
+    return () => clearInterval(interval);
+  }, [myAnswer, partnerAnswer, loadAnswers]);
+
+  // Guards against a rapid double-tap firing two inserts before the
+  // `submitting` state re-render commits — a ref is synchronous, state
+  // isn't.
+  const submittingRef = useRef(false);
+
   async function handleSubmit() {
-    if (!session?.user || !pair || !draft.trim()) return;
+    if (!session?.user || !pair || !draft.trim() || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
+      // Recomputed here rather than reusing the render-scoped `today` —
+      // that value is fixed at last render, so relying on it could
+      // misdate a submission that happens right after a midnight
+      // rollover with no re-render in between.
+      const answerDate = todayDateString();
       const { data, error } = await supabase
         .from('daily_answers')
         .insert({
           pair_id: pair.id,
           user_id: session.user.id,
-          answered_for_date: today,
+          answered_for_date: answerDate,
           answer_text: draft.trim(),
         })
         .select()
@@ -73,6 +96,7 @@ export default function DailyQuestionScreen() {
     } catch (err: any) {
       Alert.alert('Could not submit answer', err.message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }

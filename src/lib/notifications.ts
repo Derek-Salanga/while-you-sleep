@@ -1,12 +1,24 @@
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-
-// Fixed identifiers so re-scheduling (e.g. on every app launch) replaces
-// the existing request instead of piling up duplicates.
-const QUESTION_REMINDER_ID = 'daily-question-reminder';
-const CLIP_REMINDER_ID = 'daily-clip-reminder';
 
 const REMINDER_HOUR = 20; // 8:00 PM local time, both reminders together
 const REMINDER_MINUTE = 0;
+const ANDROID_CHANNEL_ID = 'daily-reminders';
+
+// Fixed identifiers so re-scheduling (e.g. on every app launch) replaces
+// the existing request instead of piling up duplicates.
+const REMINDERS = [
+  {
+    identifier: 'daily-question-reminder',
+    title: "Today's question is up",
+    body: 'Answer it before your partner does.',
+  },
+  {
+    identifier: 'daily-clip-reminder',
+    title: 'Record your daily clip',
+    body: "Don't forget to send today's clip before you sleep.",
+  },
+];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -29,29 +41,28 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
   }
   if (finalStatus !== 'granted') return;
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: QUESTION_REMINDER_ID,
-    content: {
-      title: "Today's question is up",
-      body: 'Answer it before your partner does.',
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: REMINDER_HOUR,
-      minute: REMINDER_MINUTE,
-    },
-  });
+  // Android 8+ silently drops or de-prioritizes notifications with no
+  // explicit channel; harmless no-op on iOS, so no Platform guard needed
+  // for correctness, but it's genuinely only meaningful on Android.
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: 'Daily reminders',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  }
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: CLIP_REMINDER_ID,
-    content: {
-      title: 'Record your daily clip',
-      body: "Don't forget to send today's clip before you sleep.",
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: REMINDER_HOUR,
-      minute: REMINDER_MINUTE,
-    },
-  });
+  await Promise.all(
+    REMINDERS.map((reminder) =>
+      Notifications.scheduleNotificationAsync({
+        identifier: reminder.identifier,
+        content: { title: reminder.title, body: reminder.body },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: REMINDER_HOUR,
+          minute: REMINDER_MINUTE,
+          channelId: ANDROID_CHANNEL_ID,
+        },
+      })
+    )
+  );
 }

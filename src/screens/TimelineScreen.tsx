@@ -92,7 +92,7 @@ export default function TimelineScreen({ navigation }: any) {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await loadClips();
+    await Promise.all([loadClips(), loadQuestionStatus()]);
     setRefreshing(false);
   }
 

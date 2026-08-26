@@ -25,11 +25,11 @@ export const dailyQuestions: string[] = [
 ];
 
 export function getQuestionForDate(dateStr: string): string {
+  // dayNumber is days since the epoch for any real calendar date this
+  // app passes in, so it's always non-negative — a plain modulo is
+  // enough, no wraparound guard needed.
   const dayNumber = Math.floor(
     new Date(`${dateStr}T00:00:00Z`).getTime() / 86_400_000
   );
-  const index =
-    ((dayNumber % dailyQuestions.length) + dailyQuestions.length) %
-    dailyQuestions.length;
-  return dailyQuestions[index];
+  return dailyQuestions[dayNumber % dailyQuestions.length];
 }

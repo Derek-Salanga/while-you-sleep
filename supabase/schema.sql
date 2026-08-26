@@ -95,13 +95,27 @@ create policy "clips_update_pair_members" on clips
     )
   );
 
--- Daily answers: only visible to/writable by the two members of the pair.
--- No update/delete policy — answers are final once submitted, same as clips.
-create policy "daily_answers_select_pair_members" on daily_answers
+-- Daily answers: pair members can always see their own row; they can see
+-- their partner's row for a given date only once they've submitted their
+-- own for that same date — this is what actually enforces the "reveal
+-- after you've answered" mechanic (the client only decides how to
+-- display it, so the reveal has to be a data-level rule, not just UI).
+-- No update/delete policy — answers are final once submitted (unlike
+-- clips, which does allow an update, e.g. for setting viewed_at).
+create policy "daily_answers_select_own_or_after_answering" on daily_answers
   for select using (
     exists (
       select 1 from pairs p
       where p.id = daily_answers.pair_id and is_pair_member(p, auth.uid())
+    )
+    and (
+      auth.uid() = daily_answers.user_id
+      or exists (
+        select 1 from daily_answers mine
+        where mine.pair_id = daily_answers.pair_id
+          and mine.user_id = auth.uid()
+          and mine.answered_for_date = daily_answers.answered_for_date
+      )
     )
   );
 create policy "daily_answers_insert_own_as_user" on daily_answers
