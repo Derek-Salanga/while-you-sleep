@@ -19,7 +19,7 @@ import { DailyAnswer } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
-export default function DailyQuestionScreen() {
+export default function DailyQuestionScreen({ navigation }: any) {
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const today = todayDateString();
@@ -101,10 +101,22 @@ export default function DailyQuestionScreen() {
     }
   }
 
+  const closeButton = (
+    <Pressable
+      style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+      onPress={() => navigation.goBack()}
+    >
+      <Text style={styles.closeButtonText}>✕ Close</Text>
+    </Pressable>
+  );
+
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+        {closeButton}
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
       </View>
     );
   }
@@ -114,6 +126,7 @@ export default function DailyQuestionScreen() {
       style={[styles.container, { paddingTop: insets.top + 20 }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {closeButton}
       <Text style={styles.title}>Today's question</Text>
       <Text style={styles.question}>{question}</Text>
 
@@ -174,9 +187,19 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  closeButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginBottom: 16,
+  },
+  closeButtonText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
   },
   title: {
     fontFamily: fonts.display,
