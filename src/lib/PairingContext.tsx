@@ -21,6 +21,25 @@ const PairingContext = createContext<PairingContextValue | undefined>(
   undefined
 );
 
+// Supabase project can cold-start with a few seconds of clock drift
+// (e.g. waking from free-tier auto-pause), which makes PostgREST briefly
+// reject an otherwise-valid JWT as "issued at future". It self-corrects
+// within a couple seconds, so retry rather than giving up immediately.
+async function withClockSkewRetry(
+  run: () => Promise<{ error: { message: string } | null }>,
+  retries = 2,
+  delayMs = 1500
+): Promise<{ error: { message: string } | null }> {
+  for (let attempt = 0; ; attempt++) {
+    const result = await run();
+    const isClockSkew = result.error?.message.includes(
+      'JWT issued at future'
+    );
+    if (!isClockSkew || attempt >= retries) return result;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 export function PairingProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [pair, setPair] = useState<Pair | null>(null);
@@ -31,17 +50,22 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
       setPair(null);
       return;
     }
-    const { data, error } = await supabase
-      .from('pairs')
-      .select('*')
-      .or(`user_a.eq.${session.user.id},user_b.eq.${session.user.id}`)
-      .maybeSingle();
+    let latestData: Pair | null = null;
+    const { error } = await withClockSkewRetry(async () => {
+      const { data, error } = await supabase
+        .from('pairs')
+        .select('*')
+        .or(`user_a.eq.${session.user.id},user_b.eq.${session.user.id}`)
+        .maybeSingle();
+      latestData = data ?? null;
+      return { error };
+    });
 
     if (error) {
       console.error('Failed to load pair:', error.message);
       return;
     }
-    setPair(data ?? null);
+    setPair(latestData);
   }, [session]);
 
   useEffect(() => {
@@ -62,12 +86,14 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
   const ensureProfile = useCallback(async () => {
     if (!session?.user) return;
     // Idempotent: only inserts if a profile row doesn't already exist.
-    const { error } = await supabase.from('profiles').upsert(
-      {
-        id: session.user.id,
-        display_name: session.user.email?.split('@')[0] ?? 'Anonymous',
-      },
-      { onConflict: 'id', ignoreDuplicates: true }
+    const { error } = await withClockSkewRetry(async () =>
+      supabase.from('profiles').upsert(
+        {
+          id: session.user.id,
+          display_name: session.user.email?.split('@')[0] ?? 'Anonymous',
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      )
     );
     if (error) console.error('Failed to ensure profile:', error.message);
   }, [session]);

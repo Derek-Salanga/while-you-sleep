@@ -99,17 +99,26 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
+## Known transient error: "JWT issued at future"
+
+Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
+/ `refreshPair` calls. This is PostgREST's server-side JWT `iat` check,
+not a client/device clock issue — most likely explained by the Supabase
+project cold-starting from free-tier auto-pause with a few seconds of
+clock drift before it NTP-syncs. It self-corrects within a couple
+seconds, so `PairingContext.tsx` wraps those two calls in
+`withClockSkewRetry` (short retry with backoff) rather than trying to
+"fix" the skew itself.
+
 ## Testing status (update this section as things get verified)
 
 Confirmed working end-to-end:
 - Email OTP sign-in (send code, receive via Resend, verify)
 - Pairing screen loads
 - Camera recording
-
-Fixed but not yet re-confirmed:
-- Upload (record -> Supabase Storage -> `clips` row) — was broken by
-  the `expo-file-system` deprecation, fixed via the `/legacy` import,
-  needs a fresh end-to-end test to confirm.
+- Upload (record -> Supabase Storage -> `clips` row) — re-confirmed
+  2026-08-25 after the `expo-file-system/legacy` fix; partner device
+  received the clip.
 
 Not yet tested:
 - Full two-user pairing (only the pairing screen loading has been
@@ -124,6 +133,22 @@ Not yet tested:
   Expo workflow currently in use.
 - Recap/highlight-reel generation, streak/mascot mechanic — deferred
   per the original project brief; not core-loop features.
+
+## Git workflow
+
+- No direct commits to `main`. All work happens on a feature branch,
+  created from an up-to-date `main`, and lands via a PR.
+- Branch names: `type/short-description` (e.g. `fix/upload-clock-skew`,
+  `docs/git-workflow`), where `type` matches the conventional-commit
+  type below.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+  `type(optional scope): summary`, e.g. `fix: retry profile upsert on
+  transient clock-skew error`. Common types: `feat`, `fix`, `docs`,
+  `refactor`, `chore`, `test`, `ci`.
+- Open the PR with `gh pr create`; do not auto-merge — merging is the
+  user's call.
+- The `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) automates
+  the stage -> commit -> push -> PR steps of this workflow.
 
 ## Working with this user
 
