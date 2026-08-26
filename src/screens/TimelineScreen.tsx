@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,11 +16,34 @@ import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
+// clips are stored as a plain YYYY-MM-DD string (see todayDateString in
+// RecordScreen) — parse the components directly rather than through
+// `new Date(dateStr)`, which treats it as UTC midnight and can shift a
+// day off in negative-UTC-offset timezones.
+function formatClipDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (isSameDay(date, today)) return 'Today';
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export default function TimelineScreen({ navigation }: any) {
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const [clips, setClips] = useState<Clip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadClips = useCallback(async () => {
     if (!pair) return;
@@ -31,9 +55,13 @@ export default function TimelineScreen({ navigation }: any) {
 
     if (error) {
       console.error('Failed to load clips:', error.message);
+      setLoadError("Couldn't load your clips. Pull down to try again.");
+      setInitialLoading(false);
       return;
     }
+    setLoadError(null);
     setClips(data ?? []);
+    setInitialLoading(false);
   }, [pair]);
 
   useFocusEffect(
@@ -58,16 +86,20 @@ export default function TimelineScreen({ navigation }: any) {
 
     return (
       <Pressable
-        style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
+        style={({ pressed }) => [
+          styles.card,
+          mine ? styles.cardMine : styles.cardPartner,
+          pressed && styles.pressed,
+        ]}
         onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardSender}>
-            {mine ? 'You' : 'Your partner'}
-          </Text>
+          <Text style={styles.cardSender}>{mine ? 'You' : 'Your partner'}</Text>
           {unwatched && <View style={styles.unwatchedDot} />}
         </View>
-        <Text style={styles.cardDate}>{item.recorded_for_date}</Text>
+        <Text style={styles.cardDate}>
+          {formatClipDate(item.recorded_for_date)}
+        </Text>
       </Pressable>
     );
   }
@@ -76,26 +108,36 @@ export default function TimelineScreen({ navigation }: any) {
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Timeline</Text>
-        <Pressable onPress={() => supabase.auth.signOut()}>
+        <Pressable
+          style={({ pressed }) => pressed && styles.pressed}
+          onPress={() => supabase.auth.signOut()}
+        >
           <Text style={styles.signOut}>Sign out</Text>
         </Pressable>
       </View>
-      <FlatList
-        data={clips}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            No clips yet. Record your first one to get started.
-          </Text>
-        }
-      />
+      {initialLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={clips}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {loadError ??
+                'No clips yet. Record your first one to get started.'}
+            </Text>
+          }
+        />
+      )}
       <Pressable
-        style={styles.recordFab}
+        style={({ pressed }) => [styles.recordFab, pressed && styles.pressed]}
         onPress={() => navigation.navigate('Record')}
       >
         <Text style={styles.recordFabText}>Record today's clip</Text>
@@ -122,6 +164,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.muted,
   },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { paddingBottom: 100 },
   card: {
     borderRadius: 20,
@@ -178,10 +221,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 16,
     alignItems: 'center',
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
   recordFabText: {
     fontFamily: fonts.bodySemiBold,
     color: colors.surface,
     fontSize: fontSizes.md,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

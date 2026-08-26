@@ -43,7 +43,7 @@ export default function AuthScreen() {
     }
   }
 
-    async function handleVerifyCode() {
+  async function handleVerifyCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !code.trim()) return;
     setBusy(true);
@@ -71,7 +71,8 @@ export default function AuthScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-              <Text style={styles.subtitle}>
+      <Text style={styles.title}>While You Sleep</Text>
+      <Text style={styles.subtitle}>
         {stage === 'enterEmail'
           ? 'Sign in with your email to get started.'
           : `Enter the code we sent to ${email.trim()}`}
@@ -91,7 +92,11 @@ export default function AuthScreen() {
             onChangeText={setEmail}
           />
           <Pressable
-            style={[styles.button, styles.primaryButton]}
+            style={({ pressed }) => [
+              styles.button,
+              styles.primaryButton,
+              pressed && styles.pressed,
+            ]}
             onPress={handleSendCode}
             disabled={busy || !email.trim()}
           >
@@ -104,7 +109,7 @@ export default function AuthScreen() {
         </>
       ) : (
         <>
-                    <TextInput
+          <TextInput
             style={[styles.input, styles.codeInput]}
             placeholder="123456"
             placeholderTextColor={colors.muted}
@@ -114,7 +119,11 @@ export default function AuthScreen() {
             onChangeText={setCode}
           />
           <Pressable
-            style={[styles.button, styles.primaryButton]}
+            style={({ pressed }) => [
+              styles.button,
+              styles.primaryButton,
+              pressed && styles.pressed,
+            ]}
             onPress={handleVerifyCode}
             disabled={busy || code.trim().length < 6}
           >
@@ -125,14 +134,20 @@ export default function AuthScreen() {
             )}
           </Pressable>
           <Pressable
-            style={styles.linkButton}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed && styles.pressed,
+            ]}
             onPress={handleResend}
             disabled={busy}
           >
             <Text style={styles.linkButtonText}>Resend code</Text>
           </Pressable>
           <Pressable
-            style={styles.linkButton}
+            style={({ pressed }) => [
+              styles.linkButton,
+              pressed && styles.pressed,
+            ]}
             onPress={() => {
               setStage('enterEmail');
               setCode('');
@@ -205,5 +220,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     color: colors.primary,
     fontSize: fontSizes.sm,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

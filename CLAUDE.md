@@ -120,6 +120,13 @@ Confirmed working end-to-end:
   2026-08-25 after the `expo-file-system/legacy` fix; partner device
   received the clip.
 
+Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
+in Expo Go, not a functional re-test):
+- Auth screen's "While You Sleep" title renders
+- Pressed/active feedback shows on buttons across all five screens
+- Timeline clip dates render humanized ("Today" / "Yesterday" / "Aug 25")
+- ClipView close button renders and is tappable
+
 Not yet tested:
 - Full two-user pairing (only the pairing screen loading has been
   tested, not two real accounts completing a pair)

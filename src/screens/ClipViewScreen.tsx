@@ -1,15 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
-import { fonts } from '@/theme/typography';
+import { fonts, fontSizes } from '@/theme/typography';
 
-export default function ClipViewScreen({ route }: any) {
+export default function ClipViewScreen({ route, navigation }: any) {
   const { clipId } = route.params as { clipId: string };
   const { session } = usePairing();
+  const insets = useSafeAreaInsets();
   const [clip, setClip] = useState<Clip | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,10 +64,24 @@ export default function ClipViewScreen({ route }: any) {
     }
   }
 
+  const closeButton = (
+    <Pressable
+      style={({ pressed }) => [
+        styles.closeButton,
+        { top: insets.top + 12 },
+        pressed && styles.pressed,
+      ]}
+      onPress={() => navigation.goBack()}
+    >
+      <Text style={styles.closeButtonText}>✕</Text>
+    </Pressable>
+  );
+
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
+        {closeButton}
       </View>
     );
   }
@@ -68,6 +90,7 @@ export default function ClipViewScreen({ route }: any) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>Couldn't load this clip.</Text>
+        {closeButton}
       </View>
     );
   }
@@ -81,6 +104,7 @@ export default function ClipViewScreen({ route }: any) {
         nativeControls
         contentFit="contain"
       />
+      {closeButton}
       <Text style={styles.dateLabel}>{clip.recorded_for_date}</Text>
     </View>
   );
@@ -104,5 +128,23 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: fonts.body,
     color: colors.surface,
+  },
+  closeButton: {
+    position: 'absolute',
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: colors.surface,
+    fontSize: fontSizes.md,
+    fontFamily: fonts.bodySemiBold,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

@@ -109,7 +109,11 @@ export default function PairingScreen() {
         </View>
       ) : (
         <Pressable
-          style={[styles.button, styles.primaryButton]}
+          style={({ pressed }) => [
+            styles.button,
+            styles.primaryButton,
+            pressed && styles.pressed,
+          ]}
           onPress={handleCreateInvite}
           disabled={busy}
         >
@@ -128,7 +132,11 @@ export default function PairingScreen() {
         onChangeText={setInviteCode}
       />
       <Pressable
-        style={[styles.button, styles.secondaryButton]}
+        style={({ pressed }) => [
+          styles.button,
+          styles.secondaryButton,
+          pressed && styles.pressed,
+        ]}
         onPress={handleJoin}
         disabled={busy || !inviteCode.trim()}
       >
@@ -144,7 +152,7 @@ export default function PairingScreen() {
           code above. Fine to keep for real use too — someone may want
           to switch accounts before they've paired. */}
       <Pressable
-        style={styles.signOutLink}
+        style={({ pressed }) => [styles.signOutLink, pressed && styles.pressed]}
         onPress={() => supabase.auth.signOut()}
         disabled={busy}
       >
@@ -183,6 +191,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardLabel: {
     fontFamily: fonts.body,
@@ -251,5 +264,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: fontSizes.sm,
     color: colors.muted,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

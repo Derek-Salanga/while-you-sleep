@@ -33,7 +33,11 @@ export default function RecordScreen({ navigation }: any) {
     return (
       <View style={styles.permissionContainer}>
         <Pressable
-          style={[styles.closeButton, { top: insets.top + 12 }]}
+          style={({ pressed }) => [
+            styles.closeButton,
+            { top: insets.top + 12 },
+            pressed && styles.pressed,
+          ]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.closeButtonText}>✕</Text>
@@ -41,7 +45,10 @@ export default function RecordScreen({ navigation }: any) {
         <Text style={styles.permissionText}>
           While You Sleep needs camera access to record your daily clip.
         </Text>
-        <Pressable style={styles.button} onPress={requestPermission}>
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          onPress={requestPermission}
+        >
           <Text style={styles.buttonText}>Grant permission</Text>
         </Pressable>
       </View>
@@ -103,7 +110,7 @@ export default function RecordScreen({ navigation }: any) {
       );
       if (insertError) throw insertError;
 
-      Alert.alert("Sent!", 'Your clip is on its way.', [
+      Alert.alert('Clip sent', 'Your clip is on its way.', [
         // goBack() rather than navigate('Timeline') — Record was reached
         // by navigating forward from Timeline, so this returns to that
         // same screen instance (which reloads clips on focus) instead of
@@ -126,7 +133,11 @@ export default function RecordScreen({ navigation }: any) {
         mode="video"
       />
       <Pressable
-        style={[styles.closeButton, { top: insets.top + 12 }]}
+        style={({ pressed }) => [
+          styles.closeButton,
+          { top: insets.top + 12 },
+          pressed && styles.pressed,
+        ]}
         onPress={() => navigation.goBack()}
         disabled={uploading}
       >
@@ -134,19 +145,21 @@ export default function RecordScreen({ navigation }: any) {
       </Pressable>
       <View style={styles.controls}>
         <Pressable
-          style={styles.flipButton}
-          onPress={() =>
-            setFacing((f) => (f === 'front' ? 'back' : 'front'))
-          }
+          style={({ pressed }) => [
+            styles.flipButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))}
           disabled={isRecording || uploading}
         >
           <Text style={styles.flipButtonText}>Flip</Text>
         </Pressable>
 
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.recordButton,
             isRecording && styles.recordButtonActive,
+            pressed && styles.pressed,
           ]}
           onPress={isRecording ? handleStopRecording : handleStartRecording}
           disabled={uploading}
@@ -249,5 +262,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     color: colors.surface,
     fontSize: fontSizes.md,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
