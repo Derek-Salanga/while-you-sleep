@@ -13,3 +13,20 @@ web-build/
 .vscode/
 npm-debug.*
 *.tsbuildinfo
+
+# third-party skills installed via `npx skills add`
+.agents/
+skills-lock.json
+.claude/skills/brandkit
+.claude/skills/design-taste-frontend
+.claude/skills/design-taste-frontend-v1
+.claude/skills/full-output-enforcement
+.claude/skills/gpt-taste
+.claude/skills/high-end-visual-design
+.claude/skills/image-to-code
+.claude/skills/imagegen-frontend-mobile
+.claude/skills/imagegen-frontend-web
+.claude/skills/industrial-brutalist-ui
+.claude/skills/minimalist-ui
+.claude/skills/redesign-existing-projects
+.claude/skills/stitch-design-taste
