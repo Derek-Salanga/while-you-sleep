@@ -255,6 +255,13 @@ palette/type proposals:
 - The `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) automates
   the stage -> commit -> push -> PR steps of this workflow.
 
+## Claude Code skills
+
+- `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) — see "Git
+  workflow" above; automates stage -> commit -> push -> PR.
+- Design-focused skills (`ui-ux-pro-max`, the `Leonxlnx/taste-skill`
+  bundle) — see "Design tooling installed".
+
 ## Session checklist
 
 How work with Claude Code is orchestrated in this repo, session to
