@@ -28,6 +28,16 @@ create table if not exists clips (
   unique (pair_id, sender_id, recorded_for_date)
 );
 
+create table if not exists daily_answers (
+  id uuid primary key default gen_random_uuid(),
+  pair_id uuid not null references pairs (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  answered_for_date date not null,
+  answer_text text not null,
+  created_at timestamptz not null default now(),
+  unique (pair_id, user_id, answered_for_date)
+);
+
 -- Helper: is the given user part of the given pair?
 create or replace function is_pair_member(pair_row pairs, uid uuid)
 returns boolean
@@ -40,6 +50,7 @@ $$;
 alter table profiles enable row level security;
 alter table pairs enable row level security;
 alter table clips enable row level security;
+alter table daily_answers enable row level security;
 
 -- Profiles: users can read/write only their own profile.
 create policy "profiles_select_own" on profiles
@@ -81,6 +92,62 @@ create policy "clips_update_pair_members" on clips
     exists (
       select 1 from pairs p
       where p.id = clips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+-- Helper: does the current user already have their own answer for this
+-- pair/date? Used by the select policy below to gate seeing the
+-- partner's row on having answered yourself. This has to be a
+-- `security definer` function rather than an inline subquery on
+-- daily_answers within its own policy — a policy that queries its own
+-- table directly re-triggers that same policy on the subquery's rows,
+-- which Postgres refuses to evaluate ("infinite recursion detected in
+-- policy for relation"). A security definer function runs as its owner
+-- (the table owner, when created via the SQL editor), and table owners
+-- are exempt from their own table's RLS by default, so the lookup
+-- inside it is a plain read instead of recursing back into the policy.
+create or replace function has_own_daily_answer(
+  target_pair_id uuid,
+  target_date date
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from daily_answers
+    where pair_id = target_pair_id
+      and user_id = auth.uid()
+      and answered_for_date = target_date
+  );
+$$;
+
+-- Daily answers: pair members can always see their own row; they can see
+-- their partner's row for a given date only once they've submitted their
+-- own for that same date — this is what actually enforces the "reveal
+-- after you've answered" mechanic (the client only decides how to
+-- display it, so the reveal has to be a data-level rule, not just UI).
+-- No update/delete policy — answers are final once submitted (unlike
+-- clips, which does allow an update, e.g. for setting viewed_at).
+create policy "daily_answers_select_own_or_after_answering" on daily_answers
+  for select using (
+    exists (
+      select 1 from pairs p
+      where p.id = daily_answers.pair_id and is_pair_member(p, auth.uid())
+    )
+    and (
+      auth.uid() = daily_answers.user_id
+      or has_own_daily_answer(daily_answers.pair_id, daily_answers.answered_for_date)
+    )
+  );
+create policy "daily_answers_insert_own_as_user" on daily_answers
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from pairs p
+      where p.id = daily_answers.pair_id and is_pair_member(p, auth.uid())
     )
   );
 
