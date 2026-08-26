@@ -136,14 +136,17 @@ export default function TimelineScreen({ navigation }: any) {
         </Pressable>
       </View>
       <Pressable
-        style={({ pressed }) => [
-          styles.questionCard,
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
         onPress={() => navigation.navigate('DailyQuestion')}
       >
-        <Text style={styles.questionCardLabel}>Today's question</Text>
+        <Text style={styles.entryCardLabel}>Today's question</Text>
         {!answeredToday && <View style={styles.unwatchedDot} />}
+      </Pressable>
+      <Pressable
+        style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
+        onPress={() => navigation.navigate('MonthlySummary')}
+      >
+        <Text style={styles.entryCardLabel}>Monthly summary</Text>
       </Pressable>
       {initialLoading ? (
         <View style={styles.centered}>
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  questionCard: {
+  entryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -207,7 +210,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     marginBottom: 16,
   },
-  questionCardLabel: {
+  entryCardLabel: {
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.ink,
