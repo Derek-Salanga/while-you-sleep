@@ -150,6 +150,27 @@ Not yet tested:
 - The `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) automates
   the stage -> commit -> push -> PR steps of this workflow.
 
+## Session checklist
+
+How work with Claude Code is orchestrated in this repo, session to
+session:
+
+- The user states a specific goal at the start of each session. Work
+  from that goal, not an inferred one.
+- Confirm we're on a feature branch (not `main`) before starting any
+  work.
+- Checkpoint with the user before destructive actions, and after
+  proposing any nontrivial plan — don't proceed on your own judgment
+  alone.
+- When fixing a bug, explain the root cause, not just the fix.
+- Update the "Testing status" section above before ending a session,
+  reflecting whatever got newly verified (or newly broken).
+- Treat one run of the `commit-push-pr` skill as one coherent unit of
+  work per PR — don't bundle unrelated changes into the same PR just
+  because they happened in the same session.
+- Never decide something is ready to merge. That call is the user's,
+  not Claude's — the PR is the deliverable, not the merge.
+
 ## Working with this user
 
 - iPad/Mac only, no dedicated dev machine. Give exact, copy-pasteable
