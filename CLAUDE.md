@@ -15,6 +15,8 @@ by default — ask the user if design rationale is needed).
 - React Navigation (native stack)
 - expo-camera for recording, expo-video for playback (not expo-av —
   deprecated in this SDK range)
+- expo-notifications for the daily question/clip reminders — local
+  on-device scheduling only, no push-token/server infra
 - ESLint (`eslint-config-expo` + `eslint-config-prettier`) + Prettier
 - Sentry (`@sentry/react-native`) for error/crash tracking — optional,
   no-ops if `EXPO_PUBLIC_SENTRY_DSN` is unset
@@ -33,20 +35,25 @@ npx tsc --noEmit            # type-check (also runs in CI)
 
 ```
 App.tsx                        entry point, Sentry.init + Sentry.wrap
-app.config.js                  Expo config, reads Supabase URL/key from .env
+app.json                       Expo config (plugins, permissions strings, extra.*)
 .env / .env.example            SUPABASE_URL, SUPABASE_ANON_KEY, EXPO_PUBLIC_SENTRY_DSN
 src/
   lib/
     supabase.ts                Supabase client (reads via expo-constants)
     PairingContext.tsx         session + pair state, app-wide
+    date.ts                    todayDateString() — shared YYYY-MM-DD helper
+    notifications.ts           schedules the daily question/clip local reminders
+  data/
+    dailyQuestions.ts          bundled prompt pool + date -> prompt selector
   navigation/
     RootNavigator.tsx          gate: Auth -> Pairing -> Home (Timeline)
   screens/
     AuthScreen.tsx              email OTP sign-in (send code -> verify code)
     PairingScreen.tsx           create/join pair via invite code
     RecordScreen.tsx            camera capture + upload to Supabase Storage
-    TimelineScreen.tsx          card feed of clips
+    TimelineScreen.tsx          card feed of clips + today's-question entry card
     ClipViewScreen.tsx          expo-video playback, marks clip viewed
+    DailyQuestionScreen.tsx     answer/reveal flow for the daily question
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -99,6 +106,24 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
+## Daily Question feature
+
+Each pair gets one shared prompt per day, picked deterministically from
+a bundled list (`src/data/dailyQuestions.ts`) by date — no server-side
+scheduling needed, both partners always see the same prompt. Each
+partner submits one text answer per day (`daily_answers` table, unique
+per pair/user/date, same shape as `clips`'s unique constraint). Answers
+are a reveal mechanic like clips: you can see your partner's answer
+only once you've submitted your own for that day. No editing after
+submit, same as clips.
+
+Two local (on-device, not push) notifications fire daily at 8:00 PM —
+one nudging toward the question, one toward recording the clip. They're
+scheduled once a pairing exists (`RootNavigator`), by fixed identifier
+so re-scheduling replaces rather than duplicates. They fire on schedule
+regardless of whether you've already done either that day — no
+suppression logic yet; a reasonable follow-up, not v1.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -132,6 +157,10 @@ Not yet tested:
   tested, not two real accounts completing a pair)
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
+- Daily Question: answer submission, the reveal-after-both-answer
+  behavior, and the Timeline entry card's answered/not-answered dot
+- Daily local notifications: permission prompt, and that both actually
+  fire at 8:00 PM on a real device
 
 ## Explicitly out of scope for now
 

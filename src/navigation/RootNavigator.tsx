@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { usePairing } from '@/lib/PairingContext';
+import { ensureDailyRemindersScheduled } from '@/lib/notifications';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme/colors';
 
@@ -11,6 +12,7 @@ import PairingScreen from '@/screens/PairingScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
 import RecordScreen from '@/screens/RecordScreen';
 import ClipViewScreen from '@/screens/ClipViewScreen';
+import DailyQuestionScreen from '@/screens/DailyQuestionScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -20,6 +22,17 @@ export default function RootNavigator() {
   // still null until the partner joins — that's not a completed pairing
   // yet, so route to Pairing until both sides are set.
   const isPaired = !!pair?.user_b;
+
+  // Reminders reference "your partner", so only schedule them once a
+  // pairing actually exists. Re-running this is cheap — it replaces the
+  // existing scheduled requests by identifier rather than duplicating.
+  useEffect(() => {
+    if (isPaired) {
+      ensureDailyRemindersScheduled().catch((err) =>
+        console.error('Failed to schedule daily reminders:', err)
+      );
+    }
+  }, [isPaired]);
 
   if (loading) {
     return (
@@ -55,6 +68,10 @@ export default function RootNavigator() {
               name="ClipView"
               component={ClipViewScreen}
               options={{ presentation: 'fullScreenModal' }}
+            />
+            <Stack.Screen
+              name="DailyQuestion"
+              component={DailyQuestionScreen}
             />
           </>
         )}

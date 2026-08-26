@@ -28,6 +28,16 @@ create table if not exists clips (
   unique (pair_id, sender_id, recorded_for_date)
 );
 
+create table if not exists daily_answers (
+  id uuid primary key default gen_random_uuid(),
+  pair_id uuid not null references pairs (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  answered_for_date date not null,
+  answer_text text not null,
+  created_at timestamptz not null default now(),
+  unique (pair_id, user_id, answered_for_date)
+);
+
 -- Helper: is the given user part of the given pair?
 create or replace function is_pair_member(pair_row pairs, uid uuid)
 returns boolean
@@ -40,6 +50,7 @@ $$;
 alter table profiles enable row level security;
 alter table pairs enable row level security;
 alter table clips enable row level security;
+alter table daily_answers enable row level security;
 
 -- Profiles: users can read/write only their own profile.
 create policy "profiles_select_own" on profiles
@@ -81,6 +92,24 @@ create policy "clips_update_pair_members" on clips
     exists (
       select 1 from pairs p
       where p.id = clips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+-- Daily answers: only visible to/writable by the two members of the pair.
+-- No update/delete policy — answers are final once submitted, same as clips.
+create policy "daily_answers_select_pair_members" on daily_answers
+  for select using (
+    exists (
+      select 1 from pairs p
+      where p.id = daily_answers.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+create policy "daily_answers_insert_own_as_user" on daily_answers
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from pairs p
+      where p.id = daily_answers.pair_id and is_pair_member(p, auth.uid())
     )
   );
 

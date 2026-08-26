@@ -9,14 +9,11 @@ import { Buffer } from 'buffer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { todayDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
 const MAX_DURATION_SECONDS = 60;
-
-function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
-}
 
 export default function RecordScreen({ navigation }: any) {
   const { session, pair } = usePairing();

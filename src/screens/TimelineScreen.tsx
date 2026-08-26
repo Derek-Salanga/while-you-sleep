@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { todayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
@@ -44,6 +45,24 @@ export default function TimelineScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [answeredToday, setAnsweredToday] = useState(false);
+
+  const loadQuestionStatus = useCallback(async () => {
+    if (!pair || !session?.user) return;
+    const { data, error } = await supabase
+      .from('daily_answers')
+      .select('id')
+      .eq('pair_id', pair.id)
+      .eq('user_id', session.user.id)
+      .eq('answered_for_date', todayDateString())
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to load question status:', error.message);
+      return;
+    }
+    setAnsweredToday(!!data);
+  }, [pair, session]);
 
   const loadClips = useCallback(async () => {
     if (!pair) return;
@@ -67,7 +86,8 @@ export default function TimelineScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       loadClips();
-    }, [loadClips])
+      loadQuestionStatus();
+    }, [loadClips, loadQuestionStatus])
   );
 
   async function handleRefresh() {
@@ -115,6 +135,16 @@ export default function TimelineScreen({ navigation }: any) {
           <Text style={styles.signOut}>Sign out</Text>
         </Pressable>
       </View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.questionCard,
+          pressed && styles.pressed,
+        ]}
+        onPress={() => navigation.navigate('DailyQuestion')}
+      >
+        <Text style={styles.questionCardLabel}>Today's question</Text>
+        {!answeredToday && <View style={styles.unwatchedDot} />}
+      </Pressable>
       {initialLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} size="large" />
@@ -165,6 +195,23 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  questionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 16,
+  },
+  questionCardLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+  },
   list: { paddingBottom: 100 },
   card: {
     borderRadius: 20,

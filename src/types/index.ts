@@ -24,10 +24,20 @@ export interface Clip {
   created_at: string;
 }
 
+export interface DailyAnswer {
+  id: string;
+  pair_id: string;
+  user_id: string;
+  answered_for_date: string; // YYYY-MM-DD, one answer per user per day
+  answer_text: string;
+  created_at: string;
+}
+
 export type RootStackParamList = {
   Auth: undefined;
   Pairing: undefined;
   Home: undefined;
   Record: undefined;
   ClipView: { clipId: string };
+  DailyQuestion: undefined;
 };
