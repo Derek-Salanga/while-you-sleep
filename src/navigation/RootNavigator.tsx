@@ -44,14 +44,12 @@ export default function RootNavigator() {
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       () => {
+        // No try/catch needed: react-navigation's navigate() doesn't
+        // throw for an unmatched route — if the user isn't paired yet
+        // (no "Home" route mounted), it just no-ops, and the normal
+        // Auth -> Pairing -> Home gating already applies regardless.
         if (navigationRef.isReady()) {
-          try {
-            navigationRef.navigate('Home');
-          } catch (err) {
-            // Not paired yet (no "Home" route mounted) — nothing to do,
-            // the normal Auth -> Pairing -> Home gating already applies.
-            console.error('Could not navigate home from notification:', err);
-          }
+          navigationRef.navigate('Home');
         }
       }
     );
