@@ -229,13 +229,8 @@ Not yet tested:
 
 - `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) — see "Git
   workflow" above; automates stage -> commit -> push -> PR.
-- `ui-ux-pro-max` skill (`.claude/skills/ui-ux-pro-max/`) — third-party
-  UI/UX design-intelligence skill (styles, palettes, typography, font
-  pairings, stack guidance incl. React Native). Installed locally via
-  `uipro init --ai claude`; gitignored and not committed since it's
-  generic tooling unrelated to this app's code. Only available on
-  machines where it's been installed — don't assume it's present when
-  picking up this repo elsewhere.
+- Design-focused skills (`ui-ux-pro-max`, the `Leonxlnx/taste-skill`
+  bundle) — see "Design tooling installed".
 
 ## Session checklist
 
