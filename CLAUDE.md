@@ -197,6 +197,12 @@ Not yet tested:
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
 
+Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
+not a real device): `formatDateString` returns the correct local calendar
+day (not UTC's) for a `Date` at 9pm US Pacific, the case that previously
+broke. Still not tested on an actual device with its timezone set behind
+UTC — that's the one open item on this PR before merge.
+
 ## Design tooling installed
 
 Two unofficial/community Claude Code skills are installed locally for
