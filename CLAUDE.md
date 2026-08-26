@@ -197,6 +197,36 @@ Not yet tested:
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
 
+## Design tooling installed
+
+Two unofficial/community Claude Code skills are installed locally for
+design work — neither is app-specific, both are generic tooling:
+
+- **UI UX Pro Max** (`.claude/skills/ui-ux-pro-max/`) — third-party
+  design-intelligence skill with searchable UI styles, palettes, and
+  UX guidelines.
+- **Taste Skill** (`Leonxlnx/taste-skill` on GitHub) — third-party
+  anti-generic-UI skill, installed as a bundle of several locally
+  symlinked skill names (`design-taste-frontend`, `gpt-taste`,
+  `minimalist-ui`, `brandkit`, etc., see `skills-lock.json`).
+  Primarily web-oriented, but its `imagegen-frontend-mobile` sub-skill
+  and underlying principles (e.g. the em-dash ban) apply here too.
+
+Both are gitignored, not committed.
+
+## Design identity
+
+This app's palette, typography, and icon motif are already established
+in `src/theme/` and are locked down — the design skills above are tools
+to use *within* these constraints, not sources to consult for new
+palette/type proposals:
+
+- **Palette:** `#6A85F1` night-blue = "you", `#FFC670` day-orange =
+  "partner" (`src/theme/colors.ts`).
+- **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
+- **Icon motif:** the "crossover split" (see `colors.ts`'s header
+  comment and the original project brief).
+
 ## Explicitly out of scope for now
 
 - Home screen widgets (day-counter, distance-counter) — needs a native
