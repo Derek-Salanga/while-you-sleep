@@ -51,9 +51,13 @@ src/
     AuthScreen.tsx              email OTP sign-in (send code -> verify code)
     PairingScreen.tsx           create/join pair via invite code
     RecordScreen.tsx            camera capture + upload to Supabase Storage
-    TimelineScreen.tsx          card feed of clips + today's-question entry card
-    ClipViewScreen.tsx          expo-video playback, marks clip viewed
+    TimelineScreen.tsx          card feed of clips + question/summary entry cards
+    ClipViewScreen.tsx          expo-video playback; optional `queue` param
+                                plays a sequential reel (Monthly Summary) instead
+                                of a single clip
     DailyQuestionScreen.tsx     answer/reveal flow for the daily question
+    MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
+                                month's clips" reel
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -124,6 +128,25 @@ so re-scheduling replaces rather than duplicates. They fire on schedule
 regardless of whether you've already done either that day — no
 suppression logic yet; a reasonable follow-up, not v1.
 
+## Monthly Summary feature
+
+Deliberately scoped as stats + sequential playback, not an actual
+stitched highlight-reel video file — that would need native
+video-processing tooling (e.g. ffmpeg-kit) that Expo Go doesn't
+support, meaning a move to a custom EAS Dev Client build. Asked the
+user explicitly before building; they chose to stay in Expo Go.
+
+No new table — computed entirely from `clips` by querying
+`recorded_for_date` within the viewed month's range. `MonthlySummaryScreen`
+shows: counts (yours/partner's/days both posted), a per-day calendar
+grid (a dot per person who posted that day, not aligned to actual
+weekdays — a simple wrapped grid, not a literal calendar layout), and a
+"watch this month's clips" button. That button navigates to
+`ClipView` with a `queue` of chronologically-ordered clip ids;
+`ClipViewScreen` auto-advances on `playToEnd` when a queue is present,
+otherwise behaves exactly as before (single clip, manual controls,
+no auto-advance) for the normal Timeline-card tap path.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -170,14 +193,21 @@ Not yet tested:
 - Daily local notifications: permission prompt, both firing at 8:00 PM
   on a real device, and that tapping one routes to Home (deliberately
   deferred by the user for now)
+- Monthly Summary: stats/grid correctness against real multi-day data,
+  month navigation, and the sequential reel's auto-advance +
+  end-of-queue behavior in `ClipViewScreen`
 
 ## Explicitly out of scope for now
 
 - Home screen widgets (day-counter, distance-counter) — needs a native
   config plugin (e.g. `@bacons/apple-targets`) outside the managed
   Expo workflow currently in use.
-- Recap/highlight-reel generation, streak/mascot mechanic — deferred
-  per the original project brief; not core-loop features.
+- Actual stitched highlight-reel video generation — Monthly Summary
+  covers the "recap" need via stats + sequential playback instead (see
+  "Monthly Summary feature" above); a real compiled video file is a
+  bigger lift (native video-processing tooling, moving off Expo Go).
+- Streak/mascot mechanic ("Tamagotchi") — deferred per the original
+  project brief; not a core-loop feature yet.
 
 ## Git workflow
 

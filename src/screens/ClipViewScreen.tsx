@@ -15,31 +15,46 @@ import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
 export default function ClipViewScreen({ route, navigation }: any) {
-  const { clipId } = route.params as { clipId: string };
+  const { clipId, queue } = route.params as {
+    clipId: string;
+    queue?: string[];
+  };
   const { session } = usePairing();
   const insets = useSafeAreaInsets();
+  const [queueIndex, setQueueIndex] = useState(0);
   const [clip, setClip] = useState<Clip | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const activeClipId = queue ? queue[queueIndex] : clipId;
+  const isQueueFinished = !!queue && queueIndex >= queue.length;
+
   const player = useVideoPlayer(videoUrl ?? '', (p) => {
-    if (videoUrl) {
-      p.play();
+    if (!videoUrl) return;
+    p.play();
+    // Sequential reel mode (Monthly Summary): auto-advance when a clip
+    // finishes instead of leaving the viewer on a frozen last frame.
+    if (queue) {
+      p.addListener('playToEnd', () => setQueueIndex((i) => i + 1));
     }
   });
 
   useEffect(() => {
-    loadClip();
+    if (isQueueFinished) {
+      navigation.goBack();
+      return;
+    }
+    loadClip(activeClipId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clipId]);
+  }, [activeClipId, isQueueFinished]);
 
-  async function loadClip() {
+  async function loadClip(id: string) {
     setLoading(true);
     try {
       const { data: clipData, error } = await supabase
         .from('clips')
         .select('*')
-        .eq('id', clipId)
+        .eq('id', id)
         .single();
       if (error) throw error;
       setClip(clipData);
@@ -55,7 +70,7 @@ export default function ClipViewScreen({ route, navigation }: any) {
         await supabase
           .from('clips')
           .update({ viewed_at: new Date().toISOString() })
-          .eq('id', clipId);
+          .eq('id', id);
       }
     } catch (err: any) {
       console.error('Failed to load clip:', err.message);
@@ -105,7 +120,10 @@ export default function ClipViewScreen({ route, navigation }: any) {
         contentFit="contain"
       />
       {closeButton}
-      <Text style={styles.dateLabel}>{clip.recorded_for_date}</Text>
+      <Text style={styles.dateLabel}>
+        {clip.recorded_for_date}
+        {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
+      </Text>
     </View>
   );
 }

@@ -15,6 +15,7 @@ import TimelineScreen from '@/screens/TimelineScreen';
 import RecordScreen from '@/screens/RecordScreen';
 import ClipViewScreen from '@/screens/ClipViewScreen';
 import DailyQuestionScreen from '@/screens/DailyQuestionScreen';
+import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -96,6 +97,10 @@ export default function RootNavigator() {
             <Stack.Screen
               name="DailyQuestion"
               component={DailyQuestionScreen}
+            />
+            <Stack.Screen
+              name="MonthlySummary"
+              component={MonthlySummaryScreen}
             />
           </>
         )}

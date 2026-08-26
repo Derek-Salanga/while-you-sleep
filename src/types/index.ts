@@ -38,6 +38,11 @@ export type RootStackParamList = {
   Pairing: undefined;
   Home: undefined;
   Record: undefined;
-  ClipView: { clipId: string };
+  // `queue`, when present, is the full ordered list of clip ids for a
+  // sequential reel (Monthly Summary's "watch this month's clips") —
+  // `clipId` is just queue[0] in that case. Absent for a normal
+  // single-clip tap from Timeline.
+  ClipView: { clipId: string; queue?: string[] };
   DailyQuestion: undefined;
+  MonthlySummary: undefined;
 };
