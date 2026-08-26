@@ -152,15 +152,24 @@ in Expo Go, not a functional re-test):
 - Timeline clip dates render humanized ("Today" / "Yesterday" / "Aug 25")
 - ClipView close button renders and is tappable
 
+Confirmed on `feat/daily-question` (2026-08-26, Expo Go, one-sided —
+only one partner's account exercised so far):
+- Answer submission works end-to-end against the live Supabase project
+  (this is what surfaced and confirmed the RLS self-recursion bug in
+  the select policy, since fixed via a `security definer` function)
+- DailyQuestionScreen's close button navigates back to Timeline
+
 Not yet tested:
 - Full two-user pairing (only the pairing screen loading has been
   tested, not two real accounts completing a pair)
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
-- Daily Question: answer submission, the reveal-after-both-answer
-  behavior, and the Timeline entry card's answered/not-answered dot
-- Daily local notifications: permission prompt, and that both actually
-  fire at 8:00 PM on a real device
+- Daily Question: the reveal-after-both-answer behavior specifically
+  (needs a second account), and the Timeline entry card's
+  answered/not-answered dot
+- Daily local notifications: permission prompt, both firing at 8:00 PM
+  on a real device, and that tapping one routes to Home (deliberately
+  deferred by the user for now)
 
 ## Explicitly out of scope for now
 
