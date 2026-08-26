@@ -134,6 +134,22 @@ Not yet tested:
 - Recap/highlight-reel generation, streak/mascot mechanic — deferred
   per the original project brief; not core-loop features.
 
+## Git workflow
+
+- No direct commits to `main`. All work happens on a feature branch,
+  created from an up-to-date `main`, and lands via a PR.
+- Branch names: `type/short-description` (e.g. `fix/upload-clock-skew`,
+  `docs/git-workflow`), where `type` matches the conventional-commit
+  type below.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+  `type(optional scope): summary`, e.g. `fix: retry profile upsert on
+  transient clock-skew error`. Common types: `feat`, `fix`, `docs`,
+  `refactor`, `chore`, `test`, `ci`.
+- Open the PR with `gh pr create`; do not auto-merge — merging is the
+  user's call.
+- The `commit-push-pr` skill (`.claude/skills/commit-push-pr/`) automates
+  the stage -> commit -> push -> PR steps of this workflow.
+
 ## Working with this user
 
 - iPad/Mac only, no dedicated dev machine. Give exact, copy-pasteable
