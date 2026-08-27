@@ -4,7 +4,6 @@ import NavIcon from '@/components/NavIcon';
 import { NavIconKey } from '@/theme/navIcons';
 import { MainTabParamList } from '@/types';
 import { colors } from '@/theme/colors';
-import { fonts, fontSizes } from '@/theme/typography';
 
 import HomeScreen from '@/screens/HomeScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
@@ -20,25 +19,14 @@ const TAB_ICONS: Record<keyof MainTabParamList, NavIconKey> = {
   Settings: 'settings',
 };
 
-const TAB_LABELS: Record<keyof MainTabParamList, string> = {
-  Home: 'Home',
-  Timeline: 'Timeline',
-  MonthlySummary: 'Month',
-  Settings: 'Settings',
-};
-
 export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarLabel: TAB_LABELS[route.name as keyof MainTabParamList],
-        tabBarLabelStyle: {
-          fontFamily: fonts.bodyMedium,
-          fontSize: fontSizes.xs,
-        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
