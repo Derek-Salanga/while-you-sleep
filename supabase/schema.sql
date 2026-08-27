@@ -158,7 +158,7 @@ create policy "daily_answers_insert_own_as_user" on daily_answers
 create table if not exists pair_trips (
   pair_id uuid primary key references pairs (id) on delete cascade,
   target_date date not null,
-  location text,
+  country_code text, -- ISO 3166-1 alpha-2, e.g. 'JP' -- see src/data/countries.ts
   set_by uuid not null references auth.users (id) on delete cascade,
   updated_at timestamptz not null default now()
 );

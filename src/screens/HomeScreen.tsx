@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, TextInput } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform, TextInput, Modal, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -9,6 +9,7 @@ import { todayDateString, formatDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairTrip, PairAnniversary } from '@/types';
+import { countries, flagEmoji, countryName } from '@/data/countries';
 
 function daysBetween(fromDate: string, toDate: string): number {
   return Math.round(
@@ -40,7 +41,9 @@ export default function HomeScreen({ navigation }: any) {
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
   const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
-  const [pickerLocation, setPickerLocation] = useState('');
+  const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(null);
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
 
   const loadQuestionStatus = useCallback(async () => {
     if (!pair || !session?.user) return;
@@ -99,7 +102,7 @@ export default function HomeScreen({ navigation }: any) {
 
   const startEditingTrip = () => {
     setPickerDate(trip ? new Date(trip.target_date + 'T00:00:00') : new Date());
-    setPickerLocation(trip?.location ?? '');
+    setPickerCountryCode(trip?.country_code ?? null);
     setEditingTrip(true);
   };
 
@@ -111,7 +114,7 @@ export default function HomeScreen({ navigation }: any) {
         {
           pair_id: pair.id,
           target_date: formatDateString(pickerDate),
-          location: pickerLocation.trim() || null,
+          country_code: pickerCountryCode,
           set_by: session.user.id,
         },
         { onConflict: 'pair_id' }
@@ -126,6 +129,12 @@ export default function HomeScreen({ navigation }: any) {
     setTrip(data);
     setEditingTrip(false);
   };
+
+  const filteredCountries = useMemo(() => {
+    const query = countrySearch.trim().toLowerCase();
+    if (!query) return countries;
+    return countries.filter((c) => c.name.toLowerCase().includes(query));
+  }, [countrySearch]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
@@ -145,18 +154,21 @@ export default function HomeScreen({ navigation }: any) {
       {editingTrip ? (
         <View style={styles.editCard}>
           <Text style={styles.pickerLabel}>Where are you meeting?</Text>
-          <TextInput
-            style={styles.pickerInput}
-            placeholder="Tokyo, Japan"
-            placeholderTextColor={colors.muted}
-            value={pickerLocation}
-            onChangeText={setPickerLocation}
-          />
+          <Pressable
+            style={({ pressed }) => [styles.pickerInput, pressed && styles.pressed]}
+            onPress={() => setCountryPickerVisible(true)}
+          >
+            <Text style={pickerCountryCode ? styles.pickerInputText : styles.pickerInputPlaceholder}>
+              {pickerCountryCode
+                ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
+                : 'Select a country'}
+            </Text>
+          </Pressable>
           <DateTimePicker
             value={pickerDate}
             mode="date"
             minimumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
             onChange={(_, date) => date && setPickerDate(date)}
           />
           <Pressable
@@ -181,7 +193,7 @@ export default function HomeScreen({ navigation }: any) {
             <View>
               <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
               <Text style={styles.tripDate}>
-                {trip.location ? `${trip.location} · ` : ''}
+                {trip.country_code ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · ` : ''}
                 {formatLongDate(trip.target_date)}
               </Text>
             </View>
@@ -196,6 +208,50 @@ export default function HomeScreen({ navigation }: any) {
       >
         <Text style={styles.recordFabText}>Record today's clip</Text>
       </Pressable>
+      <Modal
+        visible={countryPickerVisible}
+        animationType="slide"
+        onRequestClose={() => setCountryPickerVisible(false)}
+      >
+        <View style={[styles.countryModal, { paddingTop: insets.top + 20 }]}>
+          <TextInput
+            style={styles.pickerInput}
+            placeholder="Search countries"
+            placeholderTextColor={colors.muted}
+            value={countrySearch}
+            onChangeText={setCountrySearch}
+            autoFocus
+          />
+          <FlatList
+            data={filteredCountries}
+            keyExtractor={(item) => item.code}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <Pressable
+                style={({ pressed }) => [styles.countryRow, pressed && styles.pressed]}
+                onPress={() => {
+                  setPickerCountryCode(item.code);
+                  setCountryPickerVisible(false);
+                  setCountrySearch('');
+                }}
+              >
+                <Text style={styles.countryRowText}>
+                  {flagEmoji(item.code)}  {item.name}
+                </Text>
+              </Pressable>
+            )}
+          />
+          <Pressable
+            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            onPress={() => {
+              setCountryPickerVisible(false);
+              setCountrySearch('');
+            }}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -294,6 +350,16 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginBottom: 12,
   },
+  pickerInputText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+  },
+  pickerInputPlaceholder: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.muted,
+  },
   pickerSave: {
     backgroundColor: colors.primary,
     borderRadius: 16,
@@ -314,5 +380,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.muted,
+  },
+  countryModal: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 20,
+  },
+  countryRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  countryRowText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
   },
 });

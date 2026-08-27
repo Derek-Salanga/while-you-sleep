@@ -83,7 +83,7 @@ export default function SettingsScreen() {
             value={anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date()}
             mode="date"
             maximumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
             onChange={(_, date) => date && handleSaveAnniversary(date)}
           />
         </View>
@@ -144,7 +144,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
-    alignItems: 'flex-start',
   },
   signOutButton: {
     backgroundColor: colors.surface,

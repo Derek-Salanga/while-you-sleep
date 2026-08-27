@@ -38,7 +38,7 @@ export interface DailyAnswer {
 export interface PairTrip {
   pair_id: string;
   target_date: string; // YYYY-MM-DD, the shared "next visit" date
-  location: string | null;
+  country_code: string | null; // ISO 3166-1 alpha-2, see src/data/countries.ts
   set_by: string;
   updated_at: string;
 }
