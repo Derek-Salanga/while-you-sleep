@@ -187,11 +187,13 @@ the app already uses — not anchored to a shared/destination timezone.
 app, so there's no per-user timezone data to anchor to without adding
 new infrastructure; explicitly deferred, not an oversight.
 
-### Date picker: two real-device bugs, both from the same cause
+### Date picker: three real-device crash rounds
 
-Both date pickers (trip and anniversary, below) went through two
-rounds of real-device fixes, both caused by how
-`@react-native-community/datetimepicker` was embedded:
+Both date pickers (trip and anniversary, below) went through three
+rounds of real-device fixes, all caused by how
+`@react-native-community/datetimepicker` (and its container) was
+embedded — see also [[feedback_datetimepicker_no_modal]] in memory for
+the reusable lesson:
 
 1. **Wrapping the picker in a custom RN `Modal` at all.** Android's
    `display="default"` is itself an imperative native dialog; mounting
@@ -213,9 +215,26 @@ rounds of real-device fixes, both caused by how
    `alignItems: 'flex-start'`, which would have shrunk the inline
    calendar back down to its intrinsic width and reproduced the
    original clipping bug on that screen specifically — removed.
+3. **A second `display="inline"` picker mounting in a different,
+   already-mounted tab.** Crashed after setting a trip date on Home,
+   then opening the Settings anniversary picker — the first time two
+   *different* screens' pickers had been opened in the same app
+   session. `@react-navigation/bottom-tabs` keeps all tab screens
+   mounted across tab switches by default (no `unmountOnBlur`), so a
+   stale native picker instance from Home was plausibly still alive in
+   the background when Settings mounted its own. Two independent
+   mitigations applied together rather than a fourth blind guess at
+   display mode alone: added `unmountOnBlur: true` to the tab
+   navigator (`MainTabs.tsx`) — free, since every screen already
+   re-fetches on focus via `useFocusEffect` — and switched both
+   pickers from `"inline"` (`UICalendarView`, iOS 14+) to `"spinner"`
+   (the classic `UIDatePicker` wheel, in the library since iOS 2), the
+   most battle-tested presentation mode. Trades calendar-grid polish
+   for reliability after two prior modes both crashed.
 
-Current state (both pickers): no `Modal`, `display="inline"` on iOS,
-`display="default"` on Android. Not yet re-verified on a real device.
+Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the
+tab navigator, `display="spinner"` on iOS, `display="default"` on
+Android. Not yet re-verified on a real device.
 
 ### Anniversary day-counter
 
@@ -277,17 +296,21 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: found broken twice on real-
-  device passes (2026-08-27) — see "Date picker: two real-device bugs"
-  under "Trips/Goals feature" above for both. First: tapping the trip
-  card crashed the app, and the calendar was mostly clipped/not
-  visible for both pickers (custom `Modal` wrapping). Second, after
-  that fix: tapping the trip card crashed again (iOS `display="compact"`'s
-  popover). Trip location is now a country picker (with flag) instead
-  of free text, per the user's follow-up request — that part hasn't
-  been tested at all yet either. Not yet re-verified on a real device
-  since the latest fix. Still needs both a single-account pass (set/edit
-  a trip incl. country, and an anniversary date, confirm both persist
+- Trips/Goals and anniversary day-counter: found broken three times on
+  real-device passes (2026-08-27) — see "Date picker: three real-device
+  crash rounds" under "Trips/Goals feature" above for all three. (1)
+  tapping the trip card crashed the app, and the calendar was mostly
+  clipped/not visible for both pickers (custom `Modal` wrapping); (2)
+  after that fix, tapping the trip card crashed again (iOS
+  `display="compact"`'s popover); (3) after that fix, setting a trip
+  date then opening the Settings anniversary picker crashed (a second
+  `display="inline"` picker mounting in a different, already-mounted
+  tab). Trip location is now a country picker (with flag) instead of
+  free text, per the user's follow-up request, and the trip
+  card/edit-form both now have an "Our next trip" title — neither has
+  been tested at all yet. Not yet re-verified on a real device since
+  the latest fix. Still needs both a single-account pass (set/edit a
+  trip incl. country, and an anniversary date, confirm both persist
   and the countdown/day-count are correct) and a two-account pass
   (confirm either partner can set or overwrite either one and both see
   the same values)
