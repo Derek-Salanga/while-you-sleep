@@ -19,7 +19,17 @@ by default — ask the user if design rationale is needed).
   on-device scheduling only, no push-token/server infra
 - ESLint (`eslint-config-expo` + `eslint-config-prettier`) + Prettier
 - Sentry (`@sentry/react-native`) for error/crash tracking — optional,
-  no-ops if `EXPO_PUBLIC_SENTRY_DSN` is unset
+  no-ops if `EXPO_PUBLIC_SENTRY_DSN` is unset. Actually wired up in
+  `App.tsx` as of 2026-08-27 (this line described the intended design
+  before that — the dependency was installed but never initialized).
+  **Expo Go caveat:** Sentry's JS SDK works fine in Expo Go for
+  unhandled JS exceptions and explicit `captureMessage`/breadcrumbs,
+  but true native-level crashes (e.g. the fragment-manager crash from
+  the date-picker saga below) aren't caught without the native Sentry
+  SDK compiled into the binary, which needs a custom EAS Dev Client —
+  a bigger workflow shift, not made unilaterally. `EXPO_PUBLIC_SENTRY_DSN`
+  is not yet set in this user's `.env`; get one free at sentry.io
+  (Platform: React Native) to actually start receiving reports.
 
 ## Commands
 
@@ -191,9 +201,9 @@ the app already uses — not anchored to a shared/destination timezone.
 app, so there's no per-user timezone data to anchor to without adding
 new infrastructure; explicitly deferred, not an oversight.
 
-### Date picker: four real-device bug rounds
+### Date picker: five real-device bug rounds
 
-Both date pickers (trip and anniversary, below) went through four
+Both date pickers (trip and anniversary, below) went through five
 rounds of real-device fixes, all caused by how
 `@react-native-community/datetimepicker` (and its container) was
 embedded — see also [[feedback_datetimepicker_no_modal]] in memory for
@@ -249,11 +259,34 @@ the reusable lesson:
    RN's Yoga layout can hand a native view a zero-size frame for a
    render or two after a screen transition, and `UIDatePicker` is
    known to reset its displayed date when that happens.
+5. **Same Dec 31, 1969 symptom, still reproducing after (4).** Since
+   both of (4)'s hardening fixes were in place and it still happened,
+   both hypotheses were most likely wrong — time to stop guessing and
+   get real evidence instead of a sixth blind fix, which is also what
+   the user explicitly asked for ("set up a logger... for future
+   debugging purposes"). Two things done: added `console.warn` calls
+   at `SettingsScreen.tsx`'s three key points (row fetched from
+   Supabase, computed picker value on open, every `onChange` firing)
+   so a repro shows exactly what value is in play at each step — these
+   are temporary and should come out once the bug's actually found,
+   not permanent instrumentation; and actually wired up
+   `Sentry.init`/`Sentry.wrap` in `App.tsx` (previously just an
+   unused dependency, see "Environment" above) for durable signal on
+   whatever comes next. Also spotted and fixed one concrete asymmetry
+   while investigating: the trip picker has `minimumDate={new Date()}`,
+   which would silently clamp away any stray native-default epoch
+   value; the anniversary picker had no lower bound at all, so nothing
+   would stop an epoch default from being accepted and possibly echoed
+   back through `onChange`. Added `minimumDate` there too (100 years
+   back — no real anniversary is older). Plausible real fix, but
+   unconfirmed without a repro showing the new logs.
 
 Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the
 tab navigator, `display="spinner"` on iOS in a fixed-height container,
 `display="default"` on Android, dates always parsed through
-`parseDateString()`. Not yet re-verified on a real device.
+`parseDateString()`, both pickers now have a `minimumDate`. Debug
+`console.warn` calls are live in `SettingsScreen.tsx` — remove once
+this is confirmed fixed. Not yet re-verified on a real device.
 
 ### Anniversary day-counter
 
@@ -321,9 +354,9 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: found broken four times on
-  real-device passes (2026-08-27) — see "Date picker: four real-device
-  bug rounds" under "Trips/Goals feature" above for all four. (1)
+- Trips/Goals and anniversary day-counter: found broken five times on
+  real-device passes (2026-08-27) — see "Date picker: five real-device
+  bug rounds" under "Trips/Goals feature" above for all five. (1)
   tapping the trip card crashed the app, and the calendar was mostly
   clipped/not visible for both pickers (custom `Modal` wrapping); (2)
   after that fix, tapping the trip card crashed again (iOS
@@ -332,15 +365,21 @@ Not yet tested:
   `display="inline"` picker mounting in a different, already-mounted
   tab); (4) after that fix, the anniversary wheel showed Dec 31, 1969
   instead of the previously-set date in the same "trip, then
-  anniversary" sequence — no crash this time, and no confirmed root
-  cause (no stack trace available), so two plausible fixes were
-  applied together (see the numbered section above). Trip location is
-  now a country picker (with flag) instead of free text, the trip
-  card/edit-form have an "Our next trip"/"until we see each other
-  again" title, and the anniversary picker now requires an explicit
-  Save — none of this has been tested at all yet. Not yet re-verified
-  on a real device since the latest fix. Still needs both a
-  single-account pass (set/edit a trip incl. country, and an
+  anniversary" sequence; (5) after that fix, the exact same symptom
+  still reproduced, meaning (4)'s two hardening attempts were most
+  likely not the actual cause — see the numbered section for what's
+  different this round: temporary `console.warn` debug logging plus an
+  actual `Sentry.init`/`Sentry.wrap` wire-up in `App.tsx` (was an
+  unused dependency until now — `EXPO_PUBLIC_SENTRY_DSN` still isn't
+  set in this user's `.env`, so nothing reports yet), and a
+  `minimumDate` added to the anniversary picker (unconfirmed fix,
+  worth checking the new logs against even if it doesn't fully resolve
+  it). Trip location is now a country picker (with flag) instead of
+  free text, the trip card/edit-form have an "Our next trip"/"until we
+  see each other again" title, and the anniversary picker now requires
+  an explicit Save — none of this has been tested at all yet. Not yet
+  re-verified on a real device since the latest fix. Still needs both
+  a single-account pass (set/edit a trip incl. country, and an
   anniversary date, confirm both persist, show the correct previously-
   set value when reopened, and the countdown/day-count are correct)
   and a two-account pass (confirm either partner can set or overwrite

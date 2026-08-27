@@ -10,6 +10,12 @@ import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
 
+// The trip picker's minimumDate={new Date()} incidentally clamps away any
+// stray native-default epoch value; this picker had no lower bound at all,
+// which is a suspected cause of it showing Dec 31, 1969 -- a real
+// anniversary is never this old, so this doubles as validation.
+const ANNIVERSARY_MIN_DATE = new Date(new Date().getFullYear() - 100, 0, 1);
+
 export default function SettingsScreen() {
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
@@ -29,6 +35,7 @@ export default function SettingsScreen() {
       console.error('Failed to load anniversary:', error.message);
       return;
     }
+    console.warn('[anniversary] loaded row:', data);
     setAnniversary(data);
   }, [pair]);
 
@@ -39,7 +46,14 @@ export default function SettingsScreen() {
   );
 
   const startEditingAnniversary = () => {
-    setPickerDate(parseDateString(anniversary?.anniversary_date));
+    const parsed = parseDateString(anniversary?.anniversary_date);
+    console.warn(
+      '[anniversary] opening picker; raw =',
+      anniversary?.anniversary_date,
+      'parsed =',
+      parsed.toString()
+    );
+    setPickerDate(parsed);
     setEditingAnniversary(true);
   };
 
@@ -74,9 +88,13 @@ export default function SettingsScreen() {
             <DateTimePicker
               value={pickerDate}
               mode="date"
+              minimumDate={ANNIVERSARY_MIN_DATE}
               maximumDate={new Date()}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => date && setPickerDate(date)}
+              onChange={(_, date) => {
+                console.warn('[anniversary picker] onChange fired with', date);
+                if (date) setPickerDate(date);
+              }}
             />
           </View>
           <Pressable
