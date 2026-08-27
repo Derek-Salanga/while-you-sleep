@@ -39,7 +39,8 @@
         }
       ],
       "expo-video",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",

@@ -19,7 +19,17 @@ by default — ask the user if design rationale is needed).
   on-device scheduling only, no push-token/server infra
 - ESLint (`eslint-config-expo` + `eslint-config-prettier`) + Prettier
 - Sentry (`@sentry/react-native`) for error/crash tracking — optional,
-  no-ops if `EXPO_PUBLIC_SENTRY_DSN` is unset
+  no-ops if `EXPO_PUBLIC_SENTRY_DSN` is unset. Actually wired up in
+  `App.tsx` as of 2026-08-27 (this line described the intended design
+  before that — the dependency was installed but never initialized).
+  **Expo Go caveat:** Sentry's JS SDK works fine in Expo Go for
+  unhandled JS exceptions and explicit `captureMessage`/breadcrumbs,
+  but true native-level crashes (e.g. the fragment-manager crash from
+  the date-picker saga below) aren't caught without the native Sentry
+  SDK compiled into the binary, which needs a custom EAS Dev Client —
+  a bigger workflow shift, not made unilaterally. `EXPO_PUBLIC_SENTRY_DSN`
+  is not yet set in this user's `.env`; get one free at sentry.io
+  (Platform: React Native) to actually start receiving reports.
 
 ## Commands
 
@@ -147,6 +157,153 @@ weekdays — a simple wrapped grid, not a literal calendar layout), and a
 otherwise behaves exactly as before (single clip, manual controls,
 no auto-advance) for the normal Timeline-card tap path.
 
+## Trips/Goals feature
+
+Scoped as a single shared "next visit" countdown, not multiple/past
+trips — the least-defined item on the original feature backlog, so the
+mechanic was picked via AskUserQuestion before building: one active
+trip (date + meeting country), either partner can set/edit it, shown
+as a card on Home. Tapping the card reveals an inline edit form (a
+country picker + native date picker,
+`@react-native-community/datetimepicker`) in place of the card; saving
+is one upsert on `pair_id`. The set-state card reads top to bottom:
+country/date line, the countdown, then a muted "until we see each
+other again" label at the bottom — per user request, deliberately not
+the more literal "Our next trip" (still used as the edit form's own
+header, a different context, unchanged).
+
+The meeting location is a country picked from a full-screen searchable
+list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
+names, generated once via Node's `Intl.DisplayNames` rather than a
+runtime dependency or an on-device `Intl` call, since Hermes ICU
+completeness varies by build), not free text — started as a text
+field, changed after the user asked for a country list + flag. The
+flag is computed, not an image asset: a flag emoji is just two
+"regional indicator" code points spelling out the ISO code (e.g.
+`JP` → 🇯🇵), see `flagEmoji()` in that file. `pair_trips.country_code`
+stores the code; `countryName()` resolves it back to a display name at
+render time.
+
+New `pair_trips` table, one row per pair (`pair_id` is the primary
+key — there's nothing else to key on since it's a singleton value, not
+a per-day record like `clips`/`daily_answers`). RLS reuses
+`is_pair_member`, same read/write-by-either-partner shape as `clips`'
+policies — no reveal-gating, since there's nothing to hide here.
+`HomeScreen.tsx` fetches/saves it inline (matching the rest of the
+codebase's per-screen query style, no data-layer file). `set_by` is
+overwritten on every edit, so it just tracks who set it most recently,
+not a history.
+
+The countdown ("N days") is computed from each device's own local
+calendar day (`todayDateString()`), the same convention the rest of
+the app already uses — not anchored to a shared/destination timezone.
+`profiles.timezone` exists in the schema but is unused anywhere in the
+app, so there's no per-user timezone data to anchor to without adding
+new infrastructure; explicitly deferred, not an oversight.
+
+### Date picker: five real-device bug rounds
+
+Both date pickers (trip and anniversary, below) went through five
+rounds of real-device fixes, all caused by how
+`@react-native-community/datetimepicker` (and its container) was
+embedded — see also [[feedback_datetimepicker_no_modal]] in memory for
+the reusable lesson:
+
+1. **Wrapping the picker in a custom RN `Modal` at all.** Android's
+   `display="default"` is itself an imperative native dialog; mounting
+   it inside `Modal`'s separate native window is a documented
+   fragment-manager crash in this library. iOS's `display="inline"`
+   inside that same narrow bottom-sheet `Modal` didn't have the layout
+   width it needed, clipping most of the calendar. Fixed by dropping
+   the custom `Modal` entirely — both pickers render directly in the
+   screen now, in an inline edit section that replaces the card/row
+   while active.
+2. **`display="compact"` on iOS**, tried as the fix for (1). Compact
+   mode presents its calendar as a native popover, which is a known
+   crash source specifically on iPad (this user's real-device
+   target) when the presenting view's context isn't set up exactly
+   right — hit immediately on the very next trip-card tap after fixing
+   (1). Reverted to `display="inline"`, which (now that neither picker
+   is Modal-wrapped) has the layout room it needs without clipping and
+   has no popover to crash. Settings' anniversary edit card also had
+   `alignItems: 'flex-start'`, which would have shrunk the inline
+   calendar back down to its intrinsic width and reproduced the
+   original clipping bug on that screen specifically — removed.
+3. **A second `display="inline"` picker mounting in a different,
+   already-mounted tab.** Crashed after setting a trip date on Home,
+   then opening the Settings anniversary picker — the first time two
+   *different* screens' pickers had been opened in the same app
+   session. `@react-navigation/bottom-tabs` keeps all tab screens
+   mounted across tab switches by default (no `unmountOnBlur`), so a
+   stale native picker instance from Home was plausibly still alive in
+   the background when Settings mounted its own. Two independent
+   mitigations applied together rather than a fourth blind guess at
+   display mode alone: added `unmountOnBlur: true` to the tab
+   navigator (`MainTabs.tsx`) — free, since every screen already
+   re-fetches on focus via `useFocusEffect` — and switched both
+   pickers from `"inline"` (`UICalendarView`, iOS 14+) to `"spinner"`
+   (the classic `UIDatePicker` wheel, in the library since iOS 2), the
+   most battle-tested presentation mode. Trades calendar-grid polish
+   for reliability after two prior modes both crashed.
+4. **Anniversary wheel showed Dec 31, 1969** (the Unix epoch, shifted a
+   day by a negative UTC offset) when opened right after setting a
+   trip date. No stack trace to confirm the exact mechanism — this
+   isn't a crash, so nothing for Sentry to catch even if it's
+   configured — so two plausible causes were hardened together rather
+   than guessing once blind: added `parseDateString()` to
+   `src/lib/date.ts`, used everywhere a stored date string is parsed
+   for picker/display use, so an Invalid Date can never reach a native
+   picker (some coerce `NaN` timestamps to epoch 0 instead of
+   erroring); and wrapped both spinner pickers in a fixed-height
+   (`216`, `UIDatePicker`'s intrinsic spinner height) container, since
+   RN's Yoga layout can hand a native view a zero-size frame for a
+   render or two after a screen transition, and `UIDatePicker` is
+   known to reset its displayed date when that happens.
+5. **Same Dec 31, 1969 symptom, still reproducing after (4).** Since
+   both of (4)'s hardening fixes were in place and it still happened,
+   both hypotheses were most likely wrong — time to stop guessing and
+   get real evidence instead of a sixth blind fix, which is also what
+   the user explicitly asked for ("set up a logger... for future
+   debugging purposes"). Two things done: added `console.warn` calls
+   at `SettingsScreen.tsx`'s three key points (row fetched from
+   Supabase, computed picker value on open, every `onChange` firing)
+   so a repro shows exactly what value is in play at each step — these
+   are temporary and should come out once the bug's actually found,
+   not permanent instrumentation; and actually wired up
+   `Sentry.init`/`Sentry.wrap` in `App.tsx` (previously just an
+   unused dependency, see "Environment" above) for durable signal on
+   whatever comes next. Also spotted and fixed one concrete asymmetry
+   while investigating: the trip picker has `minimumDate={new Date()}`,
+   which would silently clamp away any stray native-default epoch
+   value; the anniversary picker had no lower bound at all, so nothing
+   would stop an epoch default from being accepted and possibly echoed
+   back through `onChange`. Added `minimumDate` there too (100 years
+   back — no real anniversary is older). Plausible real fix, but
+   unconfirmed without a repro showing the new logs.
+
+Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the
+tab navigator, `display="spinner"` on iOS in a fixed-height container,
+`display="default"` on Android, dates always parsed through
+`parseDateString()`, both pickers now have a `minimumDate`. Debug
+`console.warn` calls are live in `SettingsScreen.tsx` — remove once
+this is confirmed fixed. Not yet re-verified on a real device.
+
+### Anniversary day-counter
+
+A separate, independent feature sharing the same shape: a single
+shared "together since" date per pair, in its own `pair_anniversary`
+table (not a column on `pair_trips` — deliberately kept separate since
+it's a distinct feature with a different entry point). Set from a row
+on `SettingsScreen.tsx` (native date picker, `maximumDate` capped at
+today), shown read-only on Home as "N days together" under the title.
+Same RLS shape as `pair_trips`, same local-calendar-day math.
+
+Originally saved on every `onChange` (i.e. every wheel-stop), with no
+way to review before it took effect — changed to stage the picked date
+locally and only save on an explicit Save button (Cancel discards),
+mirroring the trip form's existing Save/Cancel pattern in
+`HomeScreen.tsx`, per user request.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -197,6 +354,36 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
+- Trips/Goals and anniversary day-counter: found broken five times on
+  real-device passes (2026-08-27) — see "Date picker: five real-device
+  bug rounds" under "Trips/Goals feature" above for all five. (1)
+  tapping the trip card crashed the app, and the calendar was mostly
+  clipped/not visible for both pickers (custom `Modal` wrapping); (2)
+  after that fix, tapping the trip card crashed again (iOS
+  `display="compact"`'s popover); (3) after that fix, setting a trip
+  date then opening the Settings anniversary picker crashed (a second
+  `display="inline"` picker mounting in a different, already-mounted
+  tab); (4) after that fix, the anniversary wheel showed Dec 31, 1969
+  instead of the previously-set date in the same "trip, then
+  anniversary" sequence; (5) after that fix, the exact same symptom
+  still reproduced, meaning (4)'s two hardening attempts were most
+  likely not the actual cause — see the numbered section for what's
+  different this round: temporary `console.warn` debug logging plus an
+  actual `Sentry.init`/`Sentry.wrap` wire-up in `App.tsx` (was an
+  unused dependency until now — `EXPO_PUBLIC_SENTRY_DSN` still isn't
+  set in this user's `.env`, so nothing reports yet), and a
+  `minimumDate` added to the anniversary picker (unconfirmed fix,
+  worth checking the new logs against even if it doesn't fully resolve
+  it). Trip location is now a country picker (with flag) instead of
+  free text, the trip card/edit-form have an "Our next trip"/"until we
+  see each other again" title, and the anniversary picker now requires
+  an explicit Save — none of this has been tested at all yet. Not yet
+  re-verified on a real device since the latest fix. Still needs both
+  a single-account pass (set/edit a trip incl. country, and an
+  anniversary date, confirm both persist, show the correct previously-
+  set value when reopened, and the countdown/day-count are correct)
+  and a two-account pass (confirm either partner can set or overwrite
+  either one and both see the same values)
 
 Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
 not a real device): `formatDateString` returns the correct local calendar

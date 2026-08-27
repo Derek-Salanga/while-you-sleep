@@ -18,3 +18,16 @@ export function formatDateString(d: Date): string {
 export function todayDateString(): string {
   return formatDateString(new Date());
 }
+
+// Parses a YYYY-MM-DD string back into a local-midnight Date, falling
+// back to "now" for a missing/malformed value rather than ever handing
+// a native picker an Invalid Date -- some native date pickers coerce
+// that to the Unix epoch instead of erroring, which (west of UTC) shows
+// up on screen as Dec 31, 1969.
+export function parseDateString(dateStr: string | null | undefined): Date {
+  if (dateStr) {
+    const parsed = new Date(`${dateStr}T00:00:00`);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
