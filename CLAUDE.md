@@ -51,7 +51,11 @@ src/
   lib/
     supabase.ts                Supabase client (reads via expo-constants)
     PairingContext.tsx         session + pair state, app-wide
-    date.ts                    todayDateString() — shared YYYY-MM-DD helper
+    date.ts                    YYYY-MM-DD helpers — LOCAL (picked dates)
+                               vs UTC (shared day boundary); see
+                               "Two day boundaries" below
+    date.test.ts               standalone self-check for the above,
+                               run with `node src/lib/date.test.ts`
     notifications.ts           schedules the daily question/clip local reminders
   data/
     dailyQuestions.ts          bundled prompt pool + date -> prompt selector
@@ -431,6 +435,59 @@ file to compress. Not yet verified on a real device — worth confirming
 actual clip file sizes land in the expected range and playback quality
 is still acceptable at 720p for a phone-screen daily clip.
 
+## Two day boundaries: local vs. the pair's shared (UTC) day
+
+`src/lib/date.ts` deliberately exposes two conventions. Mixing them up
+causes real bugs, so pick by *purpose*, not by whichever is nearby:
+
+- **A calendar date the user picked on a wheel** (trip date,
+  anniversary) → `formatDateString()` / `todayDateString()`, which use
+  LOCAL components. Picking "June 19" must store `2026-06-19` whatever
+  the device's offset, so these must never go through `toISOString()`.
+  Also used for comparing a picked date against "today" (is this trip
+  in the past?) and for countdowns off those dates — all of which
+  should feel local.
+- **The shared day boundary both partners key off** (which question is
+  today's, which day a clip counts for) → `sharedTodayDateString()` /
+  `sharedYesterdayDateString()`, which are UTC.
+
+**Why the shared one is UTC:** originally everything used the local
+day. For a pair spanning timezones that leaves a window where each
+partner is on a different calendar day — they'd be served *different*
+daily questions, and their clips would land under different
+`recorded_for_date` values instead of pairing up as answers to each
+other. UTC is the one clock every device already agrees on without
+adding a per-pair timezone anchor (`profiles.timezone` exists in the
+schema but is still unused, and there's no UI to set one).
+
+**Accepted tradeoffs**, both deliberate:
+1. UTC midnight is an odd local hour for most people. Notably, for
+   anyone far enough west the 8:00 PM local reminder fires *after* the
+   UTC day has already rolled over — e.g. at UTC-7, 8pm local is 03:00
+   UTC, so the reminder arrives already pointing at the next day's
+   question. The reminder stays on local time (an "8pm your time" nudge
+   is the point); moving it, or moving the boundary to a per-pair
+   anchor, are the two ways to close this if it turns out to matter.
+2. `MonthlySummaryScreen` still builds its month bounds from local
+   components while clips are now UTC-stamped, so a clip recorded near
+   a month edge can land in the adjacent month's summary. Left alone —
+   it's a month-granularity stats view that isn't verified against real
+   multi-day data yet, and fixing it properly means deciding whether
+   "this month" itself is local or UTC.
+
+`src/lib/date.test.ts` is a standalone self-check (no test framework in
+this repo by design). Run it under several timezones — that's what
+actually proves the split holds:
+
+```bash
+for tz in UTC America/Los_Angeles Asia/Tokyo; do TZ=$tz node src/lib/date.test.ts; done
+```
+
+It's excluded from `tsconfig.json` (`exclude: ["**/*.test.ts"]`) because
+it imports with an explicit `.ts` extension, which Node's ESM resolver
+requires and this tsconfig would otherwise reject. Never bundled by
+Metro — nothing in the app imports it.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -493,6 +550,14 @@ Not yet tested:
   answered/not-answered dot is correct. Needs a two-account pass.
   Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
   confirmed on a device that had the old two-reminder version installed.
+- The UTC shared day boundary (see "Two day boundaries" above) on real
+  devices: that two partners in *different* timezones see the same
+  daily question and that their clips pair up as the same day's
+  answers, especially during the window where their local dates
+  disagree. `date.test.ts` covers the helper logic, but only a
+  two-timezone real-device pass exercises the actual behavior. Also
+  worth eyeballing Timeline's "Today"/"Yesterday" labels near the
+  boundary, since those now compare on UTC rather than local.
 - Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
   resulting clip file size on a real device, and that playback quality
   still looks acceptable at 720p — see "Video capture" above

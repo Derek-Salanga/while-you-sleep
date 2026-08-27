@@ -5,7 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
+import {
+  todayDateString,
+  sharedTodayDateString,
+  formatDateString,
+  parseDateString,
+} from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairTrip, PairAnniversary } from '@/types';
@@ -55,7 +60,7 @@ export default function HomeScreen({ navigation }: any) {
       .select('id')
       .eq('pair_id', pair.id)
       .eq('sender_id', session.user.id)
-      .eq('recorded_for_date', todayDateString())
+      .eq('recorded_for_date', sharedTodayDateString())
       .maybeSingle();
 
     if (error) {

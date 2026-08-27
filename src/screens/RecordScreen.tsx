@@ -19,7 +19,7 @@ import { Buffer } from 'buffer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { todayDateString } from '@/lib/date';
+import { sharedTodayDateString } from '@/lib/date';
 import { getQuestionForDate } from '@/data/dailyQuestions';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
@@ -47,7 +47,9 @@ export default function RecordScreen({ navigation }: any) {
   const [uploading, setUploading] = useState(false);
   const insets = useSafeAreaInsets();
 
-  const today = todayDateString();
+  // Shared (UTC) boundary, not local — both partners must be on the same
+  // question and stamp clips with the same date. See src/lib/date.ts.
+  const today = sharedTodayDateString();
   const question = getQuestionForDate(today);
 
   const [phase, setPhase] = useState<Phase>('loading');

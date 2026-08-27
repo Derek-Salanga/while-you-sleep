@@ -12,29 +12,29 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
-// clips are stored as a plain YYYY-MM-DD string (see todayDateString in
-// RecordScreen) — parse the components directly rather than through
-// `new Date(dateStr)`, which treats it as UTC midnight and can shift a
-// day off in negative-UTC-offset timezones.
+// clips are stamped with the pair's shared (UTC) day — see
+// sharedTodayDateString in src/lib/date.ts — so Today/Yesterday compare
+// against that same boundary, not the device's local one. Both sides are
+// plain YYYY-MM-DD strings, so a string compare is exact and needs no
+// Date construction at all.
+//
+// The fallback still builds a Date from the literal components rather
+// than `new Date(dateStr)` (which parses as UTC midnight and can display
+// a day off west of UTC) — it's only rendering the stored calendar date.
 function formatClipDate(dateStr: string): string {
+  if (dateStr === sharedTodayDateString()) return 'Today';
+  if (dateStr === sharedYesterdayDateString()) return 'Yesterday';
+
   const [year, month, day] = dateStr.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  const isSameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
-
-  if (isSameDay(date, today)) return 'Today';
-  if (isSameDay(date, yesterday)) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function TimelineScreen({ navigation }: any) {
