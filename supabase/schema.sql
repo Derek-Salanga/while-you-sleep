@@ -347,3 +347,137 @@ create policy "clip_files_pair_members_write" on storage.objects
         and is_pair_member(p, auth.uid())
     )
   );
+
+-- ---------------------------------------------------------------------
+-- Storage cleanup: orphaned clip files
+-- ---------------------------------------------------------------------
+--
+-- WHY THIS ISN'T A DELETE TRIGGER ON `clips`.
+--
+-- `storage.objects` is metadata only -- the actual bytes live in the S3
+-- backend, and only the Storage API deletes both. Supabase's docs are
+-- explicit: "Deleting objects via a SQL query will not remove the object
+-- from the bucket and will result in the object being orphaned." So a
+-- trigger doing `delete from storage.objects` is worse than doing
+-- nothing: the blob survives *and* loses the metadata row the Storage
+-- API needs to ever find it again. Native cascade-on-row-delete is still
+-- an open feature request, not a supported feature.
+--
+-- A trigger *can* work by calling the Storage API over HTTP (pg_net),
+-- but it's the wrong tool here for a structural reason: the orphans this
+-- app produces mostly don't come from DELETEs.
+--   1. `clips` has no DELETE policy, so no client can delete a clip.
+--   2. Rows do vanish via `on delete cascade` when a pair or an
+--      auth.users row goes -- no app code runs there.
+--   3. Until the useUploadClip fix that landed with this section, a
+--      re-record on a different platform changed the path's extension
+--      (.mov on iOS, .mp4 on Android) and orphaned the old file *with
+--      the row still present*. No DELETE ever fires for that one.
+--
+-- So cleanup is reconciliation, not a delete hook: re-derive the orphan
+-- set from current state on a schedule. That covers all three cases,
+-- is idempotent, and self-heals -- a request that fails tonight is
+-- simply re-found and retried tomorrow, because the file is still
+-- orphaned. A fire-and-forget trigger gets one shot and no retry.
+--
+-- SETUP (one-time, live project -- see "Storage cleanup" in CLAUDE.md):
+--   1. Enable `pg_net` and `pg_cron` (Dashboard -> Database ->
+--      Extensions), or run the create extension statements below.
+--   2. Store a server-side API key in Vault. Use a **secret key**
+--      (`sb_secret_...`, Settings -> API Keys), NOT the legacy
+--      `service_role` JWT -- legacy keys are deleted late 2026, and this
+--      job would then fail silently (see "Errors are not surfaced" in
+--      CLAUDE.md). The Vault secret's *name* stays `service_role_key`
+--      either way; that string is just what the lookup below matches.
+--      Run this ONCE with the real key, from the SQL editor -- never
+--      commit the key:
+--        select vault.create_secret(
+--          '<sb_secret_...>',
+--          'service_role_key',
+--          'Storage API auth for cleanup_orphaned_clip_files'
+--        );
+
+create extension if not exists pg_net;
+create extension if not exists pg_cron;
+
+-- Deletes every object in the `clips` bucket with no matching
+-- clips.storage_path. Returns how many deletions it queued.
+--
+-- `grace_period` is a safety margin, not a tuning knob: a file is
+-- uploaded before its row is inserted, so a just-uploaded file is
+-- briefly a legitimate orphan. A day is far longer than that window and
+-- costs nothing, since orphans aren't urgent.
+--
+-- ponytail: one HTTP request per orphan -- net.http_delete takes no
+-- body, so the Storage API's batch form (DELETE /object/clips with a
+-- {"prefixes": [...]} body) isn't reachable from pg_net. max_deletions
+-- caps a single run; if that limit is ever actually hit, move this to an
+-- Edge Function that can batch, rather than raising the cap.
+create or replace function cleanup_orphaned_clip_files(
+  grace_period interval default interval '1 day',
+  max_deletions int default 200
+)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  -- The project's public URL -- already client-visible by design (it
+  -- ships in the app alongside the anon key), so it isn't a secret.
+  project_url text := 'https://lgzcvryexckjrwlipenr.supabase.co';
+  service_key text;
+  orphan record;
+  queued int := 0;
+begin
+  select decrypted_secret into service_key
+  from vault.decrypted_secrets
+  where name = 'service_role_key';
+
+  if service_key is null then
+    raise exception
+      'Vault secret "service_role_key" not found -- see setup step 2 in schema.sql';
+  end if;
+
+  for orphan in
+    select o.name
+    from storage.objects o
+    where o.bucket_id = 'clips'
+      and o.created_at < now() - grace_period
+      and not exists (
+        select 1 from public.clips c where c.storage_path = o.name
+      )
+    order by o.created_at
+    limit max_deletions
+  loop
+    -- No URL-encoding needed: paths are `<uuid>/<uuid>/<YYYY-MM-DD>`,
+    -- and the slashes are meant to stay literal path separators.
+    perform net.http_delete(
+      url => project_url || '/storage/v1/object/clips/' || orphan.name,
+      headers => jsonb_build_object(
+        'Authorization', 'Bearer ' || service_key,
+        'apikey', service_key
+      )
+    );
+    queued := queued + 1;
+  end loop;
+
+  return queued;
+end;
+$$;
+
+-- security definer + a service_role key means this must never be
+-- callable from the client. Postgres grants EXECUTE to public on new
+-- functions by default, so revoking is not optional.
+revoke all on function cleanup_orphaned_clip_files(interval, int)
+  from public, anon, authenticated;
+
+-- Nightly, off the hour to avoid the top-of-hour crowd. cron.schedule
+-- upserts by job name, so re-running this file doesn't duplicate it.
+-- Results land in cron.job_run_details; the HTTP responses land in
+-- net._http_response, which pg_net prunes after 6 hours on its own.
+select cron.schedule(
+  'cleanup-orphaned-clip-files',
+  '17 4 * * *',
+  $cron$ select public.cleanup_orphaned_clip_files(); $cron$
+);
