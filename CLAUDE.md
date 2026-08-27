@@ -152,24 +152,23 @@ no auto-advance) for the normal Timeline-card tap path.
 Scoped as a single shared "next visit" countdown, not multiple/past
 trips — the least-defined item on the original feature backlog, so the
 mechanic was picked via AskUserQuestion before building: one active
-trip (date + free-text meeting location, e.g. "Tokyo, Japan"), either
-partner can set/edit it, shown as a card on Home. Tapping the card
-reveals an inline edit form (location text field + native date picker,
+trip (date + meeting country), either partner can set/edit it, shown
+as a card on Home. Tapping the card reveals an inline edit form (a
+country picker + native date picker,
 `@react-native-community/datetimepicker`) in place of the card; saving
 is one upsert on `pair_id`.
 
-The date picker is rendered directly in the screen, **not** inside a
-custom RN `Modal`, and uses `display="compact"` on iOS /
-`display="default"` on Android rather than `"inline"` everywhere. Both
-platform's real-device testing surfaced why: Android's `"default"`
-display is itself an imperative native dialog, and mounting it inside
-`Modal`'s separate native window is a documented fragment-manager
-crash in this library; iOS's `"inline"` needs real layout width that a
-padded bottom-sheet `Modal` wasn't giving it, clipping most of the
-calendar. `"compact"`/`"default"` rendered inline sidestep both —
-each platform handles its own picker presentation natively, no custom
-sheet chrome required. Same fix applied to the anniversary picker in
-`SettingsScreen.tsx` below.
+The meeting location is a country picked from a full-screen searchable
+list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
+names, generated once via Node's `Intl.DisplayNames` rather than a
+runtime dependency or an on-device `Intl` call, since Hermes ICU
+completeness varies by build), not free text — started as a text
+field, changed after the user asked for a country list + flag. The
+flag is computed, not an image asset: a flag emoji is just two
+"regional indicator" code points spelling out the ISO code (e.g.
+`JP` → 🇯🇵), see `flagEmoji()` in that file. `pair_trips.country_code`
+stores the code; `countryName()` resolves it back to a display name at
+render time.
 
 New `pair_trips` table, one row per pair (`pair_id` is the primary
 key — there's nothing else to key on since it's a singleton value, not
@@ -187,6 +186,36 @@ the app already uses — not anchored to a shared/destination timezone.
 `profiles.timezone` exists in the schema but is unused anywhere in the
 app, so there's no per-user timezone data to anchor to without adding
 new infrastructure; explicitly deferred, not an oversight.
+
+### Date picker: two real-device bugs, both from the same cause
+
+Both date pickers (trip and anniversary, below) went through two
+rounds of real-device fixes, both caused by how
+`@react-native-community/datetimepicker` was embedded:
+
+1. **Wrapping the picker in a custom RN `Modal` at all.** Android's
+   `display="default"` is itself an imperative native dialog; mounting
+   it inside `Modal`'s separate native window is a documented
+   fragment-manager crash in this library. iOS's `display="inline"`
+   inside that same narrow bottom-sheet `Modal` didn't have the layout
+   width it needed, clipping most of the calendar. Fixed by dropping
+   the custom `Modal` entirely — both pickers render directly in the
+   screen now, in an inline edit section that replaces the card/row
+   while active.
+2. **`display="compact"` on iOS**, tried as the fix for (1). Compact
+   mode presents its calendar as a native popover, which is a known
+   crash source specifically on iPad (this user's real-device
+   target) when the presenting view's context isn't set up exactly
+   right — hit immediately on the very next trip-card tap after fixing
+   (1). Reverted to `display="inline"`, which (now that neither picker
+   is Modal-wrapped) has the layout room it needs without clipping and
+   has no popover to crash. Settings' anniversary edit card also had
+   `alignItems: 'flex-start'`, which would have shrunk the inline
+   calendar back down to its intrinsic width and reproduced the
+   original clipping bug on that screen specifically — removed.
+
+Current state (both pickers): no `Modal`, `display="inline"` on iOS,
+`display="default"` on Android. Not yet re-verified on a real device.
 
 ### Anniversary day-counter
 
@@ -248,16 +277,20 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: found broken on first real-
-  device pass (2026-08-27) — tapping the trip card crashed the app,
-  and the date picker calendar was mostly clipped/not visible for both
-  the trip and anniversary pickers. Root cause and fix: see "Trips/Goals
-  feature" above (custom `Modal` wrapping the native date picker). Not
-  yet re-verified on a real device since the fix. Still needs both a
-  single-account pass (set/edit a trip and an anniversary date, confirm
-  both persist and the countdown/day-count are correct) and a
-  two-account pass (confirm either partner can set or overwrite either
-  one and both see the same values)
+- Trips/Goals and anniversary day-counter: found broken twice on real-
+  device passes (2026-08-27) — see "Date picker: two real-device bugs"
+  under "Trips/Goals feature" above for both. First: tapping the trip
+  card crashed the app, and the calendar was mostly clipped/not
+  visible for both pickers (custom `Modal` wrapping). Second, after
+  that fix: tapping the trip card crashed again (iOS `display="compact"`'s
+  popover). Trip location is now a country picker (with flag) instead
+  of free text, per the user's follow-up request — that part hasn't
+  been tested at all yet either. Not yet re-verified on a real device
+  since the latest fix. Still needs both a single-account pass (set/edit
+  a trip incl. country, and an anniversary date, confirm both persist
+  and the countdown/day-count are correct) and a two-account pass
+  (confirm either partner can set or overwrite either one and both see
+  the same values)
 
 Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
 not a real device): `formatDateString` returns the correct local calendar
