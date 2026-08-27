@@ -655,10 +655,17 @@ Confirmed working end-to-end:
   confirmed on Home ("...with [nickname]") and Timeline (both sender
   labels), and that edits persist and reload correctly. Confirmed
   2026-08-27 after applying the `profiles_select_pair_partner` RLS
-  policy to the live project. **Not yet applied to the live project:**
-  the `profiles_display_name_check` (<= 20 chars) constraint — blocked
-  on renaming two pre-existing test-account rows first, see "Partner
-  nicknames" above.
+  policy to the live project. The `profiles_display_name_check`
+  (<= 20 chars) constraint **is** applied on the live project as of
+  2026-08-27 — this section previously recorded it as still pending.
+  Applying it surfaced a real bug: `ensureProfile` seeded
+  `display_name` from the email prefix with no truncation, and
+  `dereksalanga+partner2` is 21 chars, so the client was handing the DB
+  a default it was guaranteed to reject ("new row for relation
+  \"profiles\" violates check constraint"). Now sliced to 20 at the
+  source, matching SettingsScreen's `maxLength`. Any write path that
+  generates a `display_name` has to respect that cap itself — the
+  constraint is the source of truth, not a backstop.
 
 Confirmed on the live project (2026-08-27, `feat/storage-orphan-cleanup`):
 storage orphan cleanup works end to end. `pg_net` + `pg_cron` enabled,
