@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, Platform, TextInput } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -38,7 +38,7 @@ export default function HomeScreen({ navigation }: any) {
   const [answeredToday, setAnsweredToday] = useState(false);
   const [trip, setTrip] = useState<PairTrip | null>(null);
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
-  const [pickerVisible, setPickerVisible] = useState(false);
+  const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [pickerLocation, setPickerLocation] = useState('');
 
@@ -97,10 +97,10 @@ export default function HomeScreen({ navigation }: any) {
     }, [loadQuestionStatus, loadTrip, loadAnniversary])
   );
 
-  const openPicker = () => {
+  const startEditingTrip = () => {
     setPickerDate(trip ? new Date(trip.target_date + 'T00:00:00') : new Date());
     setPickerLocation(trip?.location ?? '');
-    setPickerVisible(true);
+    setEditingTrip(true);
   };
 
   const handleSaveTrip = async () => {
@@ -124,7 +124,7 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
     setTrip(data);
-    setPickerVisible(false);
+    setEditingTrip(false);
   };
 
   return (
@@ -142,63 +142,60 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.entryCardLabel}>Today's question</Text>
         {!answeredToday && <View style={styles.unwatchedDot} />}
       </Pressable>
-      <Pressable style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]} onPress={openPicker}>
-        {trip ? (
-          <View>
-            <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
-            <Text style={styles.tripDate}>
-              {trip.location ? `${trip.location} · ` : ''}
-              {formatLongDate(trip.target_date)}
-            </Text>
-          </View>
-        ) : (
-          <Text style={styles.entryCardLabel}>Plan your next visit</Text>
-        )}
-      </Pressable>
+      {editingTrip ? (
+        <View style={styles.editCard}>
+          <Text style={styles.pickerLabel}>Where are you meeting?</Text>
+          <TextInput
+            style={styles.pickerInput}
+            placeholder="Tokyo, Japan"
+            placeholderTextColor={colors.muted}
+            value={pickerLocation}
+            onChangeText={setPickerLocation}
+          />
+          <DateTimePicker
+            value={pickerDate}
+            mode="date"
+            minimumDate={new Date()}
+            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            onChange={(_, date) => date && setPickerDate(date)}
+          />
+          <Pressable
+            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            onPress={handleSaveTrip}
+          >
+            <Text style={styles.pickerSaveText}>Save</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            onPress={() => setEditingTrip(false)}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
+          onPress={startEditingTrip}
+        >
+          {trip ? (
+            <View>
+              <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
+              <Text style={styles.tripDate}>
+                {trip.location ? `${trip.location} · ` : ''}
+                {formatLongDate(trip.target_date)}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+          )}
+        </Pressable>
+      )}
       <Pressable
         style={({ pressed }) => [styles.recordFab, pressed && styles.pressed]}
         onPress={() => navigation.navigate('Record')}
       >
         <Text style={styles.recordFabText}>Record today's clip</Text>
       </Pressable>
-      <Modal
-        visible={pickerVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPickerVisible(false)}
-      >
-        <View style={styles.pickerBackdrop}>
-          <View style={styles.pickerSheet}>
-            <Text style={styles.pickerLabel}>Where are you meeting?</Text>
-            <TextInput
-              style={styles.pickerInput}
-              placeholder="Tokyo, Japan"
-              placeholderTextColor={colors.muted}
-              value={pickerLocation}
-              onChangeText={setPickerLocation}
-            />
-            <DateTimePicker
-              value={pickerDate}
-              mode="date"
-              minimumDate={new Date()}
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={(_, date) => date && setPickerDate(date)}
-            />
-            <Pressable
-              style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
-              onPress={handleSaveTrip}
-            >
-              <Text style={styles.pickerSaveText}>Save</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
-              onPress={() => setPickerVisible(false)}
-            >
-              <Text style={styles.pickerCloseText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -272,16 +269,13 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  pickerBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  pickerSheet: {
+  editCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+    marginBottom: 16,
   },
   pickerLabel: {
     fontFamily: fonts.bodySemiBold,
@@ -305,7 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
   pickerSaveText: {
     fontFamily: fonts.bodySemiBold,

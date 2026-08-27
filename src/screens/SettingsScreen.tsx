@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -14,7 +14,7 @@ export default function SettingsScreen() {
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
-  const [pickerVisible, setPickerVisible] = useState(false);
+  const [editingAnniversary, setEditingAnniversary] = useState(false);
 
   const loadAnniversary = useCallback(async () => {
     if (!pair) return;
@@ -53,7 +53,7 @@ export default function SettingsScreen() {
       return;
     }
     setAnniversary(data);
-    if (Platform.OS !== 'ios') setPickerVisible(false);
+    setEditingAnniversary(false);
   };
 
   return (
@@ -64,7 +64,7 @@ export default function SettingsScreen() {
       )}
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-        onPress={() => setPickerVisible(true)}
+        onPress={() => setEditingAnniversary((v) => !v)}
       >
         <Text style={styles.rowLabel}>Anniversary</Text>
         <Text style={styles.rowValue}>
@@ -77,6 +77,17 @@ export default function SettingsScreen() {
             : 'Not set'}
         </Text>
       </Pressable>
+      {editingAnniversary && (
+        <View style={styles.editCard}>
+          <DateTimePicker
+            value={anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date()}
+            mode="date"
+            maximumDate={new Date()}
+            display={Platform.OS === 'ios' ? 'compact' : 'default'}
+            onChange={(_, date) => date && handleSaveAnniversary(date)}
+          />
+        </View>
+      )}
       <Pressable
         style={({ pressed }) => [
           styles.signOutButton,
@@ -86,32 +97,6 @@ export default function SettingsScreen() {
       >
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
-      <Modal
-        visible={pickerVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPickerVisible(false)}
-      >
-        <View style={styles.pickerBackdrop}>
-          <View style={styles.pickerSheet}>
-            <DateTimePicker
-              value={anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date()}
-              mode="date"
-              maximumDate={new Date()}
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={(_, date) => date && handleSaveAnniversary(date)}
-            />
-            {Platform.OS === 'ios' && (
-              <Pressable
-                style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
-                onPress={() => setPickerVisible(false)}
-              >
-                <Text style={styles.pickerCloseText}>Done</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -152,6 +137,15 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.muted,
   },
+  editCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+    marginBottom: 16,
+    alignItems: 'flex-start',
+  },
   signOutButton: {
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -167,26 +161,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
-  },
-  pickerBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  pickerSheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-  },
-  pickerClose: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  pickerCloseText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.primary,
   },
 });
