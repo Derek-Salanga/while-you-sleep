@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { todayDateString, formatDateString } from '@/lib/date';
+import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairTrip, PairAnniversary } from '@/types';
@@ -101,7 +101,7 @@ export default function HomeScreen({ navigation }: any) {
   );
 
   const startEditingTrip = () => {
-    setPickerDate(trip ? new Date(trip.target_date + 'T00:00:00') : new Date());
+    setPickerDate(parseDateString(trip?.target_date));
     setPickerCountryCode(trip?.country_code ?? null);
     setEditingTrip(true);
   };
@@ -165,13 +165,15 @@ export default function HomeScreen({ navigation }: any) {
                 : 'Select a country'}
             </Text>
           </Pressable>
-          <DateTimePicker
-            value={pickerDate}
-            mode="date"
-            minimumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => date && setPickerDate(date)}
-          />
+          <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+            <DateTimePicker
+              value={pickerDate}
+              mode="date"
+              minimumDate={new Date()}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, date) => date && setPickerDate(date)}
+            />
+          </View>
           <Pressable
             style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
             onPress={handleSaveTrip}
@@ -367,6 +369,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
     color: colors.muted,
+  },
+  // Fixed height so the native spinner never lays out with a zero-size
+  // frame mid-transition -- iOS's UIDatePicker can reset its displayed
+  // value to the Unix epoch if that happens.
+  spinnerBox: {
+    height: 216,
   },
   pickerSave: {
     backgroundColor: colors.primary,

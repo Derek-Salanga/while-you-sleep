@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { formatDateString } from '@/lib/date';
+import { formatDateString, parseDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
@@ -39,7 +39,7 @@ export default function SettingsScreen() {
   );
 
   const startEditingAnniversary = () => {
-    setPickerDate(anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date());
+    setPickerDate(parseDateString(anniversary?.anniversary_date));
     setEditingAnniversary(true);
   };
 
@@ -70,13 +70,15 @@ export default function SettingsScreen() {
       )}
       {editingAnniversary ? (
         <View style={styles.editCard}>
-          <DateTimePicker
-            value={pickerDate}
-            mode="date"
-            maximumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => date && setPickerDate(date)}
-          />
+          <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+            <DateTimePicker
+              value={pickerDate}
+              mode="date"
+              maximumDate={new Date()}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, date) => date && setPickerDate(date)}
+            />
+          </View>
           <Pressable
             style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
             onPress={handleSaveAnniversary}
@@ -98,7 +100,7 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>Anniversary</Text>
           <Text style={styles.rowValue}>
             {anniversary
-              ? new Date(anniversary.anniversary_date + 'T00:00:00').toLocaleDateString('en-US', {
+              ? parseDateString(anniversary.anniversary_date).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
@@ -163,6 +165,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
+  },
+  // Fixed height so the native spinner never lays out with a zero-size
+  // frame mid-transition -- iOS's UIDatePicker can reset its displayed
+  // value to the Unix epoch if that happens.
+  spinnerBox: {
+    height: 216,
   },
   pickerSave: {
     backgroundColor: colors.primary,
