@@ -660,6 +660,24 @@ Confirmed working end-to-end:
   on renaming two pre-existing test-account rows first, see "Partner
   nicknames" above.
 
+Confirmed on the live project (2026-08-27, `feat/storage-orphan-cleanup`):
+storage orphan cleanup works end to end. `pg_net` + `pg_cron` enabled,
+the `service_role_key` Vault secret created (holding an `sb_secret_…`
+key, not the legacy `service_role` JWT — legacy keys are deleted late
+2026, so a job keyed on one would have silently stopped working). A
+deliberately-uploaded junk file was seen as an orphan, removed by
+`select cleanup_orphaned_clip_files(interval '0')`, and confirmed gone
+from the bucket, with `net._http_response` showing
+`200 {"message":"Successfully deleted"}` — i.e. the file left S3, not
+just `storage.objects`.
+
+Also confirmed by that pass: **`postgres` can read `storage.objects`**
+(the counts query returned 5 files against 5 `clips` rows, not 0), which
+is what the whole `security definer` design rests on — if that had come
+back 0, the function could never have found an orphan. And 0 orphans
+across a real bucket means the `.mov`/`.mp4` path bug never fired here,
+as expected on a single-platform device.
+
 Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
 in Expo Go, not a functional re-test):
 - Auth screen's "While You Sleep" title renders
@@ -700,18 +718,16 @@ Not yet tested:
 - Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
   resulting clip file size on a real device, and that playback quality
   still looks acceptable at 720p — see "Video capture" above
-- Storage orphan cleanup (see "Storage cleanup" above): nothing is
-  verified on the live project yet. Needs, in order: `pg_net` + `pg_cron`
-  enabled; the `service_role_key` Vault secret created; the dry-run
-  SELECT (the function's own orphan query, run standalone) returning a
-  sensible list — **if it returns nothing where the dashboard shows
-  files, `postgres` can't read `storage.objects` under RLS and the
-  `security definer` function won't work either**; one manual
-  `select cleanup_orphaned_clip_files()` deleting exactly those files and
-  nothing else; and `cron.job_run_details` showing the scheduled run
-  firing the next night. Also unverified: that clips still play after the
-  extensionless-path + MIME-type change (this is the one that can break
-  playback — worth checking on both iOS and Android).
+- Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
+  (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
+  `cron.job_run_details`. The function itself is confirmed (below); only
+  the schedule that invokes it is untested, since it hadn't come around
+  yet.
+- The extensionless `storage_path` + real-MIME-type change in
+  `useUploadClip` — **the change most likely to break playback**, and
+  entirely untested. Needs a record-and-play pass; ideally on both iOS
+  and Android, since the whole point is that the two platforms now write
+  to the same path.
 - TanStack Query data layer (see "Data layer" above) — nothing about it
   is device-verified yet. Needs: Timeline loads + pull-to-refresh still
   works; **recording a clip makes it appear on Timeline with no manual
