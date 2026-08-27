@@ -32,10 +32,11 @@ export default function MainTabs() {
         const config = TAB_CONFIG[route.name as keyof MainTabParamList];
         return {
           headerShown: false,
-          // Each screen already re-fetches its data on focus (useFocusEffect),
-          // so unmounting on blur is safe -- and keeps a screen's native
-          // DateTimePicker instance from lingering in the background when
-          // the user switches tabs.
+          // Safe because no screen holds unsaved state across a tab switch:
+          // the react-query-backed ones (Timeline) refetch on remount, and
+          // the rest still re-fetch on focus via useFocusEffect. Also keeps
+          // a screen's native DateTimePicker instance from lingering in the
+          // background when the user switches tabs.
           unmountOnBlur: true,
           tabBarShowLabel: false,
           tabBarAccessibilityLabel: config.accessibilityLabel,

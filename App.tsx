@@ -2,6 +2,7 @@ import React from 'react';
 import * as Sentry from '@sentry/react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PairingProvider } from '@/lib/PairingContext';
 import RootNavigator from '@/navigation/RootNavigator';
 
@@ -14,13 +15,21 @@ if (sentryDsn) {
   Sentry.init({ dsn: sentryDsn });
 }
 
+// Stock defaults on purpose: staleTime 0 means a screen refetches when it
+// remounts (which is how tab focus already works -- see unmountOnBlur in
+// MainTabs), and the built-in retry-with-backoff covers the transient
+// "JWT issued at future" error PairingContext used to hand-roll a retry for.
+const queryClient = new QueryClient();
+
 function App() {
   return (
     <SafeAreaProvider>
-      <PairingProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </PairingProvider>
+      <QueryClientProvider client={queryClient}>
+        <PairingProvider>
+          <StatusBar style="dark" />
+          <RootNavigator />
+        </PairingProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }
