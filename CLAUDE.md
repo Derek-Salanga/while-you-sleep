@@ -154,9 +154,22 @@ trips — the least-defined item on the original feature backlog, so the
 mechanic was picked via AskUserQuestion before building: one active
 trip (date + free-text meeting location, e.g. "Tokyo, Japan"), either
 partner can set/edit it, shown as a card on Home. Tapping the card
-opens a bottom-sheet modal with a location text field and a native
-date picker (`@react-native-community/datetimepicker`); saving is one
-upsert on `pair_id`.
+reveals an inline edit form (location text field + native date picker,
+`@react-native-community/datetimepicker`) in place of the card; saving
+is one upsert on `pair_id`.
+
+The date picker is rendered directly in the screen, **not** inside a
+custom RN `Modal`, and uses `display="compact"` on iOS /
+`display="default"` on Android rather than `"inline"` everywhere. Both
+platform's real-device testing surfaced why: Android's `"default"`
+display is itself an imperative native dialog, and mounting it inside
+`Modal`'s separate native window is a documented fragment-manager
+crash in this library; iOS's `"inline"` needs real layout width that a
+padded bottom-sheet `Modal` wasn't giving it, clipping most of the
+calendar. `"compact"`/`"default"` rendered inline sidestep both —
+each platform handles its own picker presentation natively, no custom
+sheet chrome required. Same fix applied to the anniversary picker in
+`SettingsScreen.tsx` below.
 
 New `pair_trips` table, one row per pair (`pair_id` is the primary
 key — there's nothing else to key on since it's a singleton value, not
@@ -235,16 +248,14 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: not tested at all yet. The
-  original `pair_trips` table (date only, no `location` column yet)
-  was run against the live Supabase project on 2026-08-26, but the
-  newer `location` column and the whole `pair_anniversary` table/RLS
-  have not been run there yet — needed before any of this can work.
-  The Home trip card, its location+date picker modal, the Settings
-  anniversary row, and the "N days together" line have only been
-  type-checked and linted, not run in Expo Go. Needs both a
-  single-account pass (set/edit a trip and an anniversary date,
-  confirm both persist and the countdown/day-count are correct) and a
+- Trips/Goals and anniversary day-counter: found broken on first real-
+  device pass (2026-08-27) — tapping the trip card crashed the app,
+  and the date picker calendar was mostly clipped/not visible for both
+  the trip and anniversary pickers. Root cause and fix: see "Trips/Goals
+  feature" above (custom `Modal` wrapping the native date picker). Not
+  yet re-verified on a real device since the fix. Still needs both a
+  single-account pass (set/edit a trip and an anniversary date, confirm
+  both persist and the countdown/day-count are correct) and a
   two-account pass (confirm either partner can set or overwrite either
   one and both see the same values)
 
