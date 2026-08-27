@@ -335,6 +335,30 @@ locally and only save on an explicit Save button (Cancel discards),
 mirroring the trip form's existing Save/Cancel pattern in
 `HomeScreen.tsx`, per user request.
 
+### Partner nicknames
+
+`profiles.display_name` already existed (defaulted to the email
+prefix, e.g. `dereksalanga+partner2`) but had no edit UI and no way
+for a partner to read it — `profiles_select_own` was the only RLS
+policy on that table. Added a `profiles_select_pair_partner` policy
+(read-only; write stays own-row-only via the existing
+`profiles_update_own`) and a "Nickname" row under Settings (inline
+edit, same pattern as the anniversary picker). `PairingContext.tsx`
+now exposes `myProfile`/`partnerProfile`/`refreshProfiles`, shared
+across screens rather than each fetching its own. Home's
+"N days together" reads "...with [partner's nickname]"; Timeline's
+"You"/"Your partner" labels use the nicknames, falling back to the old
+text if a profile hasn't loaded yet.
+
+Capped at 20 characters — started at 40 (arbitrary), the user asked
+for 15, then two pre-existing test-account rows turned out to already
+be 21 chars (the email-prefix default, not real nicknames), so 20 was
+picked instead of chasing the default text upward again; those two
+rows still need renaming before the DB `check` constraint can be
+applied to the live project (client-side `maxLength={20}` is already
+live either way). See "Testing status" below for exactly what's
+confirmed vs. still pending.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -359,6 +383,14 @@ Confirmed working end-to-end:
 - Upload (record -> Supabase Storage -> `clips` row) — re-confirmed
   2026-08-25 after the `expo-file-system/legacy` fix; partner device
   received the clip.
+- Partner nicknames (PR #17): set on both of two real paired accounts,
+  confirmed on Home ("...with [nickname]") and Timeline (both sender
+  labels), and that edits persist and reload correctly. Confirmed
+  2026-08-27 after applying the `profiles_select_pair_partner` RLS
+  policy to the live project. **Not yet applied to the live project:**
+  the `profiles_display_name_check` (<= 20 chars) constraint — blocked
+  on renaming two pre-existing test-account rows first, see "Partner
+  nicknames" above.
 
 Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
 in Expo Go, not a functional re-test):
