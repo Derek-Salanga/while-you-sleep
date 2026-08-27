@@ -297,8 +297,13 @@ session:
   manual patching in `nano` has caused duplicated content before.
 - Prefers being told the reasoning behind a fix briefly, not just the
   fix itself.
-- Communication style: answer-first, numbered steps, minimal preamble
-  (see globally-installed "I have ADHD" skill). Prefer minimal,
-  non-over-engineered solutions (see globally-installed Ponytail
-  skill) — don't add abstraction, config options, or dependencies
-  beyond what the task actually needs.
+- Communication style: answer-first, numbered steps, minimal preamble.
+  The globally-installed "I have ADHD" skill can produce this on
+  request via `/i-have-adhd`, or persistently via its always-on flag
+  (`touch ~/.claude/.i-have-adhd-always`) — it's disabled for
+  automatic model invocation otherwise, so apply this style directly
+  rather than assuming the skill is already doing it.
+- Prefer minimal, non-over-engineered solutions — don't add
+  abstraction, config options, or dependencies beyond what the task
+  actually needs (see globally-installed Ponytail skill, which is
+  model-invocable and can be applied directly).
