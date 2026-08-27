@@ -3,7 +3,9 @@
 
 create table if not exists profiles (
   id uuid primary key references auth.users (id) on delete cascade,
-  display_name text not null default 'Anonymous',
+  -- 15 chars mirrors the TextInput's maxLength in SettingsScreen.tsx --
+  -- kept here too so the limit holds for any write that isn't that form.
+  display_name text not null default 'Anonymous' check (char_length(display_name) <= 15),
   timezone text,
   created_at timestamptz not null default now()
 );
