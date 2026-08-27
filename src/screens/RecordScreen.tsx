@@ -11,14 +11,10 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-// expo-file-system's default export moved to a new File/Directory-based
-// API in the SDK 54 version bump; the legacy import keeps getInfoAsync /
-// readAsStringAsync working without a full rewrite.
-import * as FileSystem from 'expo-file-system/legacy';
-import { Buffer } from 'buffer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { useUploadClip } from '@/hooks/mutations';
 import { sharedTodayDateString } from '@/lib/date';
 import { getQuestionForDate } from '@/data/dailyQuestions';
 import { Clip } from '@/types';
@@ -44,8 +40,9 @@ export default function RecordScreen({ navigation }: any) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('front');
   const [isRecording, setIsRecording] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const insets = useSafeAreaInsets();
+  const uploadClip = useUploadClip();
+  const uploading = uploadClip.isPending;
 
   // Shared (UTC) boundary, not local — both partners must be on the same
   // question and stamp clips with the same date. See src/lib/date.ts.
@@ -57,7 +54,8 @@ export default function RecordScreen({ navigation }: any) {
   const [partnerClip, setPartnerClip] = useState<Clip | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
-  const [secondsRemaining, setSecondsRemaining] = useState(MAX_DURATION_SECONDS);
+  const [secondsRemaining, setSecondsRemaining] =
+    useState(MAX_DURATION_SECONDS);
 
   // Purely a display countdown -- recordAsync's own maxDuration is what
   // actually stops the recording, this just mirrors it on screen.
@@ -81,7 +79,7 @@ export default function RecordScreen({ navigation }: any) {
       .eq('recorded_for_date', today);
 
     if (error) {
-      console.error('Failed to load today\'s clips:', error.message);
+      console.error("Failed to load today's clips:", error.message);
       setPhase('camera');
       return;
     }
@@ -142,50 +140,20 @@ export default function RecordScreen({ navigation }: any) {
 
   async function handleSend() {
     if (!session?.user || !pair || !pendingUri) return;
-    setUploading(true);
     try {
-      const fileInfo = await FileSystem.getInfoAsync(pendingUri);
-      if (!fileInfo.exists) throw new Error('Recorded file not found.');
-
-      const fileExt = pendingUri.split('.').pop() ?? 'mov';
-      const storagePath = `${pair.id}/${session.user.id}/${today}.${fileExt}`;
-
-      const fileData = await FileSystem.readAsStringAsync(pendingUri, {
-        encoding: FileSystem.EncodingType.Base64,
+      const clip = await uploadClip.mutateAsync({
+        pairId: pair.id,
+        senderId: session.user.id,
+        uri: pendingUri,
+        date: today,
+        caption: captionDraft,
       });
-
-      const { error: uploadError } = await supabase.storage
-        .from('clips')
-        .upload(storagePath, Buffer.from(fileData, 'base64'), {
-          contentType: `video/${fileExt}`,
-          upsert: true,
-        });
-      if (uploadError) throw uploadError;
-
-      const { data, error: insertError } = await supabase
-        .from('clips')
-        .upsert(
-          {
-            pair_id: pair.id,
-            sender_id: session.user.id,
-            storage_path: storagePath,
-            recorded_for_date: today,
-            caption_text: captionDraft.trim() || null,
-          },
-          { onConflict: 'pair_id,sender_id,recorded_for_date' }
-        )
-        .select()
-        .single();
-      if (insertError) throw insertError;
-
-      setMyClip(data as Clip);
+      setMyClip(clip);
       setPendingUri(null);
       setCaptionDraft('');
       setPhase('revealed');
     } catch (err: any) {
       Alert.alert('Upload failed', err.message);
-    } finally {
-      setUploading(false);
     }
   }
 
@@ -218,7 +186,10 @@ export default function RecordScreen({ navigation }: any) {
     return (
       <View style={[styles.revealContainer, { paddingTop: insets.top + 20 }]}>
         <Pressable
-          style={({ pressed }) => [styles.textCloseButton, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.textCloseButton,
+            pressed && styles.pressed,
+          ]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.textCloseButtonText}>✕ Close</Text>
@@ -233,8 +204,13 @@ export default function RecordScreen({ navigation }: any) {
               <Text style={styles.answerCaption}>{myClip.caption_text}</Text>
             )}
             <Pressable
-              style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
-              onPress={() => navigation.navigate('ClipView', { clipId: myClip!.id })}
+              style={({ pressed }) => [
+                styles.watchButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() =>
+                navigation.navigate('ClipView', { clipId: myClip!.id })
+              }
             >
               <Text style={styles.watchButtonText}>Watch your clip</Text>
             </Pressable>
@@ -244,17 +220,26 @@ export default function RecordScreen({ navigation }: any) {
             <View style={[styles.answerCard, styles.answerCardPartner]}>
               <Text style={styles.answerLabel}>Your partner</Text>
               {partnerClip.caption_text && (
-                <Text style={styles.answerCaption}>{partnerClip.caption_text}</Text>
+                <Text style={styles.answerCaption}>
+                  {partnerClip.caption_text}
+                </Text>
               )}
               <Pressable
-                style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
-                onPress={() => navigation.navigate('ClipView', { clipId: partnerClip.id })}
+                style={({ pressed }) => [
+                  styles.watchButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() =>
+                  navigation.navigate('ClipView', { clipId: partnerClip.id })
+                }
               >
                 <Text style={styles.watchButtonText}>Watch their clip</Text>
               </Pressable>
             </View>
           ) : (
-            <Text style={styles.waiting}>Waiting for your partner to answer…</Text>
+            <Text style={styles.waiting}>
+              Waiting for your partner to answer…
+            </Text>
           )}
         </View>
       </View>
@@ -288,7 +273,9 @@ export default function RecordScreen({ navigation }: any) {
       >
         {closeButton}
         <Text style={styles.reviewTitle}>Add a caption?</Text>
-        <Text style={styles.reviewSubtitle}>Optional -- goes alongside your clip.</Text>
+        <Text style={styles.reviewSubtitle}>
+          Optional -- goes alongside your clip.
+        </Text>
         <TextInput
           style={styles.captionInput}
           placeholder="Say a bit more…"
@@ -310,7 +297,10 @@ export default function RecordScreen({ navigation }: any) {
           )}
         </Pressable>
         <Pressable
-          style={({ pressed }) => [styles.retakeButton, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.retakeButton,
+            pressed && styles.pressed,
+          ]}
           onPress={handleRetake}
           disabled={uploading}
         >

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,9 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { useClips } from '@/hooks/queries';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
@@ -40,41 +39,17 @@ function formatClipDate(dateStr: string): string {
 export default function TimelineScreen({ navigation }: any) {
   const { session, pair, myProfile, partnerProfile } = usePairing();
   const insets = useSafeAreaInsets();
-  const [clips, setClips] = useState<Clip[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const loadClips = useCallback(async () => {
-    if (!pair) return;
-    const { data, error } = await supabase
-      .from('clips')
-      .select('*')
-      .eq('pair_id', pair.id)
-      .order('recorded_for_date', { ascending: false });
-
-    if (error) {
-      console.error('Failed to load clips:', error.message);
-      setLoadError("Couldn't load your clips. Pull down to try again.");
-      setInitialLoading(false);
-      return;
-    }
-    setLoadError(null);
-    setClips(data ?? []);
-    setInitialLoading(false);
-  }, [pair]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadClips();
-    }, [loadClips])
-  );
-
-  async function handleRefresh() {
-    setRefreshing(true);
-    await loadClips();
-    setRefreshing(false);
-  }
+  // No useFocusEffect refetch anymore: the tab navigator unmounts this
+  // screen on blur, so a tab switch remounts and refetches, and coming back
+  // from ClipView refetches because marking a clip viewed invalidates
+  // ['clips'].
+  const {
+    data: clips = [],
+    isLoading,
+    isRefetching,
+    refetch,
+    error,
+  } = useClips(pair?.id);
 
   function isMine(clip: Clip): boolean {
     return clip.sender_id === session?.user.id;
@@ -95,7 +70,9 @@ export default function TimelineScreen({ navigation }: any) {
       >
         <View style={styles.cardHeader}>
           <Text style={styles.cardSender}>
-            {mine ? myProfile?.display_name ?? 'You' : partnerProfile?.display_name ?? 'Your partner'}
+            {mine
+              ? (myProfile?.display_name ?? 'You')
+              : (partnerProfile?.display_name ?? 'Your partner')}
           </Text>
           {unwatched && <View style={styles.unwatchedDot} />}
         </View>
@@ -109,7 +86,7 @@ export default function TimelineScreen({ navigation }: any) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Timeline</Text>
-      {initialLoading ? (
+      {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
@@ -120,12 +97,13 @@ export default function TimelineScreen({ navigation }: any) {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
           }
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {loadError ??
-                'No clips yet. Record your first one to get started.'}
+              {error
+                ? "Couldn't load your clips. Pull down to try again."
+                : 'No clips yet. Record your first one to get started.'}
             </Text>
           }
         />

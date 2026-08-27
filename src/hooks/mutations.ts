@@ -1,0 +1,84 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+// expo-file-system's default export moved to a new File/Directory-based
+// API in the SDK 54 version bump; the legacy import keeps getInfoAsync /
+// readAsStringAsync working without a full rewrite.
+import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
+import { supabase } from '@/lib/supabase';
+import { Clip } from '@/types';
+
+interface UploadClipInput {
+  pairId: string;
+  senderId: string;
+  uri: string;
+  date: string; // shared (UTC) day -- see sharedTodayDateString in src/lib/date.ts
+  caption: string;
+}
+
+export function useUploadClip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      pairId,
+      senderId,
+      uri,
+      date,
+      caption,
+    }: UploadClipInput): Promise<Clip> => {
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      if (!fileInfo.exists) throw new Error('Recorded file not found.');
+
+      const fileExt = uri.split('.').pop() ?? 'mov';
+      const storagePath = `${pairId}/${senderId}/${date}.${fileExt}`;
+
+      const fileData = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const { error: uploadError } = await supabase.storage
+        .from('clips')
+        .upload(storagePath, Buffer.from(fileData, 'base64'), {
+          contentType: `video/${fileExt}`,
+          upsert: true,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data, error: insertError } = await supabase
+        .from('clips')
+        .upsert(
+          {
+            pair_id: pairId,
+            sender_id: senderId,
+            storage_path: storagePath,
+            recorded_for_date: date,
+            caption_text: caption.trim() || null,
+          },
+          { onConflict: 'pair_id,sender_id,recorded_for_date' }
+        )
+        .select()
+        .single();
+      if (insertError) throw insertError;
+
+      return data as Clip;
+    },
+    // Timeline picks the new clip up on its own instead of waiting for a
+    // focus event or a pull-to-refresh.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clips'] }),
+  });
+}
+
+// Clearing the Timeline's unwatched dot is the whole point of invalidating
+// here -- the row itself is written and forgotten.
+export function useMarkClipViewed() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clipId: string) => {
+      const { error } = await supabase
+        .from('clips')
+        .update({ viewed_at: new Date().toISOString() })
+        .eq('id', clipId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clips'] }),
+  });
+}

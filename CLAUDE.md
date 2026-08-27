@@ -12,6 +12,9 @@ by default — ask the user if design rationale is needed).
   below before touching any Expo package version)
 - TypeScript
 - Supabase: Auth (email OTP), Postgres with Row Level Security, Storage
+- TanStack Query (`@tanstack/react-query` v5) as the data layer — see
+  "Data layer" below. Partially adopted: some screens still query
+  Supabase inline.
 - React Navigation (native stack)
 - expo-camera for recording, expo-video for playback (not expo-av —
   deprecated in this SDK range)
@@ -57,6 +60,9 @@ src/
     date.test.ts               standalone self-check for the above,
                                run with `node src/lib/date.test.ts`
     notifications.ts           schedules the daily question/clip local reminders
+  hooks/
+    queries.ts                 usePair / useProfile / useClips / useClip
+    mutations.ts               useUploadClip / useMarkClipViewed
   data/
     dailyQuestions.ts          bundled prompt pool + date -> prompt selector
   navigation/
@@ -504,6 +510,54 @@ it imports with an explicit `.ts` extension, which Node's ESM resolver
 requires and this tsconfig would otherwise reject. Never bundled by
 Metro — nothing in the app imports it.
 
+## Data layer (TanStack Query)
+
+Added because every screen hand-rolled `useState` + `useEffect` around
+its own Supabase call: `TimelineScreen` needed a `useFocusEffect`
+refetch just to notice new clips, and nothing connected posting a clip
+to the Timeline showing it.
+
+`App.tsx` holds one module-level `QueryClient` with **stock defaults**,
+wrapped outside `PairingProvider` (the context consumes query hooks).
+The defaults are load-bearing, so don't "tune" them casually:
+`staleTime: 0` is what makes a remount refetch, which is how tab focus
+works here (`unmountOnBlur: true` in `MainTabs.tsx`), and the default
+retry-with-backoff is what replaced `withClockSkewRetry` (see below).
+
+Query keys are plain arrays, no key factory — there are four of them:
+`['pair', userId]`, `['profile', userId]`, `['clips', pairId]`,
+`['clip', clipId]`. Both mutations invalidate `['clips']` on success,
+which is what makes the Timeline update on its own.
+
+`useClip` deliberately returns `{ clip, videoUrl }` — the row fetch and
+the 10-minute signed Storage URL in one `queryFn` — because
+`ClipViewScreen` can never use one without the other. Note it does *not*
+match the `['clips', …]` prefix, so invalidating the list never refetches
+it (which is why the mark-viewed effect in `ClipViewScreen` can't loop).
+
+`PairingContext` keeps its exact public API (`session`, `pair`,
+`loading`, `refreshPair`, `myProfile`, `partnerProfile`,
+`refreshProfiles`) but is now a thin wrapper over `usePair` /
+`useProfile` — so screens read pair/profile data from one cache instead
+of a second copy. `session` and the `onAuthStateChange` listener are
+still plain state, and `loading` still means only "the auth session
+hasn't resolved yet" (`RootNavigator`'s gate depends on that).
+`useProfile` is called twice (mine, partner) rather than the old single
+`.in('id', [...])` — two cheap requests, but the partner one stays
+`enabled: false` until `partnerId` resolves.
+
+**Partially adopted, on purpose.** Migrated: `TimelineScreen`,
+`ClipViewScreen`, `PairingContext`, and `RecordScreen`'s upload.
+Still querying Supabase inline: `HomeScreen`, `SettingsScreen`,
+`MonthlySummaryScreen`, `PairingScreen`, and `RecordScreen`'s
+`loadTodayClips` (+ its 15s partner-reveal poll). Those still rely on
+`useFocusEffect` refetching, so `unmountOnBlur` must stay.
+
+Not done, both deliberate: no `focusManager`/`AppState` wiring (so
+returning from background doesn't refetch on its own — add if that feels
+stale in practice), and no AsyncStorage cache persistence (offline reads
+are their own backlog item).
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -511,9 +565,13 @@ Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
 not a client/device clock issue — most likely explained by the Supabase
 project cold-starting from free-tier auto-pause with a few seconds of
 clock drift before it NTP-syncs. It self-corrects within a couple
-seconds, so `PairingContext.tsx` wraps those two calls in
-`withClockSkewRetry` (short retry with backoff) rather than trying to
-"fix" the skew itself.
+seconds, so it's retried rather than "fixed" client-side.
+
+`PairingContext.tsx` used to hand-roll this as a `withClockSkewRetry`
+wrapper (2 retries, 1500ms apart). That's gone — since those calls are
+now react-query queries/mutations, the library's default retry (3
+attempts, exponential backoff) covers it, and covers strictly more than
+the old wrapper did. Nothing special is configured for it.
 
 ## Testing status (update this section as things get verified)
 
@@ -577,6 +635,18 @@ Not yet tested:
 - Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
   resulting clip file size on a real device, and that playback quality
   still looks acceptable at 720p — see "Video capture" above
+- TanStack Query data layer (see "Data layer" above) — nothing about it
+  is device-verified yet. Needs: Timeline loads + pull-to-refresh still
+  works; **recording a clip makes it appear on Timeline with no manual
+  refresh** (the headline change — the upload mutation invalidating
+  `['clips']`); watching a partner's clip clears its unwatched dot on
+  Timeline immediately on return, without a focus refetch; the Monthly
+  Summary reel still auto-advances and exits at the end of its queue;
+  and the `PairingContext` rewire hasn't regressed anything —
+  Settings nickname edit still re-renders on Home/Timeline
+  (`refreshProfiles`), a fresh join still gates into MainTabs
+  (`refreshPair`), and cold start doesn't surface "JWT issued at future"
+  now that `withClockSkewRetry` is gone.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right

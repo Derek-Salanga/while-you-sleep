@@ -8,9 +8,9 @@ import {
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { Clip } from '@/types';
+import { useClip } from '@/hooks/queries';
+import { useMarkClipViewed } from '@/hooks/mutations';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
@@ -22,12 +22,15 @@ export default function ClipViewScreen({ route, navigation }: any) {
   const { session } = usePairing();
   const insets = useSafeAreaInsets();
   const [queueIndex, setQueueIndex] = useState(0);
-  const [clip, setClip] = useState<Clip | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const activeClipId = queue ? queue[queueIndex] : clipId;
   const isQueueFinished = !!queue && queueIndex >= queue.length;
+
+  // useClip returns the row and its signed playback URL together -- one
+  // loading state, since neither is usable without the other.
+  const { data, isLoading } = useClip(activeClipId);
+  const clip = data?.clip ?? null;
+  const videoUrl = data?.videoUrl ?? null;
 
   const player = useVideoPlayer(videoUrl ?? '', (p) => {
     if (!videoUrl) return;
@@ -40,44 +43,19 @@ export default function ClipViewScreen({ route, navigation }: any) {
   });
 
   useEffect(() => {
-    if (isQueueFinished) {
-      navigation.goBack();
-      return;
-    }
-    loadClip(activeClipId);
+    if (isQueueFinished) navigation.goBack();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeClipId, isQueueFinished]);
+  }, [isQueueFinished]);
 
-  async function loadClip(id: string) {
-    setLoading(true);
-    try {
-      const { data: clipData, error } = await supabase
-        .from('clips')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      setClip(clipData);
-
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('clips')
-        .createSignedUrl(clipData.storage_path, 60 * 10);
-      if (urlError) throw urlError;
-      setVideoUrl(signedUrlData.signedUrl);
-
-      const isRecipient = clipData.sender_id !== session?.user.id;
-      if (isRecipient && !clipData.viewed_at) {
-        await supabase
-          .from('clips')
-          .update({ viewed_at: new Date().toISOString() })
-          .eq('id', id);
-      }
-    } catch (err: any) {
-      console.error('Failed to load clip:', err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Invalidates ['clips'] on success, which is what clears the Timeline's
+  // unwatched dot. Can't loop: that key doesn't match this screen's
+  // ['clip', id] query, so `clip` here never changes underneath us.
+  const { mutate: markViewed } = useMarkClipViewed();
+  useEffect(() => {
+    if (!clip || !session?.user) return;
+    const isRecipient = clip.sender_id !== session.user.id;
+    if (isRecipient && !clip.viewed_at) markViewed(clip.id);
+  }, [clip, session, markViewed]);
 
   const closeButton = (
     <Pressable
@@ -92,7 +70,7 @@ export default function ClipViewScreen({ route, navigation }: any) {
     </Pressable>
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.primary} size="large" />
