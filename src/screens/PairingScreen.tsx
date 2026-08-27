@@ -65,25 +65,14 @@ export default function PairingScreen() {
     if (!session?.user || !inviteCode.trim()) return;
     setBusy(true);
     try {
-      const { data: existingPair, error: findError } = await supabase
-        .from('pairs')
-        .select('*')
-        .eq('invite_code', inviteCode.trim().toUpperCase())
-        .is('user_b', null)
-        .maybeSingle();
-
-      if (findError) throw findError;
-      if (!existingPair) {
-        Alert.alert('Invite not found', 'Double-check the code and try again.');
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from('pairs')
-        .update({ user_b: session.user.id })
-        .eq('id', existingPair.id);
-
-      if (updateError) throw updateError;
+      // Server-side lookup-and-claim by exact code (join_pair_by_code in
+      // supabase/schema.sql) -- not a client SELECT+UPDATE, which would
+      // need a policy exposing every open pair to every user just to find
+      // one by code.
+      const { error } = await supabase.rpc('join_pair_by_code', {
+        code: inviteCode.trim().toUpperCase(),
+      });
+      if (error) throw error;
       await refreshPair();
     } catch (err: any) {
       Alert.alert('Could not join', err.message);

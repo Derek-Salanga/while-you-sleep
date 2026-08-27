@@ -60,16 +60,50 @@ create policy "profiles_upsert_own" on profiles
 create policy "profiles_update_own" on profiles
   for update using (auth.uid() = id);
 
--- Pairs: a user can see/create pairs they belong to, or an open invite
--- (user_b is null) so they can look up and join by code.
-create policy "pairs_select_member_or_open" on pairs
+-- Pairs: a user can only see pairs they're already a member of. Joining
+-- an open pair by invite code is NOT done via a client SELECT+UPDATE --
+-- that would require a policy exposing every open (user_b is null) pair
+-- to every authenticated user, which lets anyone enumerate all pending
+-- invite codes and claim a stranger's pair without ever knowing their
+-- code. Joining goes through join_pair_by_code() below instead, a
+-- security definer function that looks up the exact code server-side
+-- and is the only path that can ever set user_b.
+create policy "pairs_select_own" on pairs
   for select using (
-    auth.uid() = user_a or auth.uid() = user_b or user_b is null
+    auth.uid() = user_a or auth.uid() = user_b
   );
 create policy "pairs_insert_self_as_a" on pairs
   for insert with check (auth.uid() = user_a);
-create policy "pairs_update_join" on pairs
-  for update using (user_b is null or auth.uid() = user_a or auth.uid() = user_b);
+create policy "pairs_update_members_only" on pairs
+  for update using (auth.uid() = user_a or auth.uid() = user_b);
+
+-- Joins an open pair by exact invite code. security definer so it can
+-- look up a not-yet-joined pair (by code, not by scanning every open
+-- pair) and claim it atomically without needing a broad SELECT/UPDATE
+-- policy exposed to the client -- see the comment on pairs' policies
+-- above for why that would be a vulnerability.
+create or replace function join_pair_by_code(code text)
+returns pairs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  joined_pair pairs;
+begin
+  update pairs
+  set user_b = auth.uid()
+  where invite_code = code
+    and user_b is null
+  returning * into joined_pair;
+
+  if joined_pair is null then
+    raise exception 'Invite code not found or already claimed';
+  end if;
+
+  return joined_pair;
+end;
+$$;
 
 -- Clips: only visible to/writable by the two members of the pair.
 create policy "clips_select_pair_members" on clips
