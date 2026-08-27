@@ -34,7 +34,7 @@ function formatLongDate(dateString: string): string {
 }
 
 export default function HomeScreen({ navigation }: any) {
-  const { session, pair } = usePairing();
+  const { session, pair, partnerProfile } = usePairing();
   const insets = useSafeAreaInsets();
   const [answeredToday, setAnsweredToday] = useState(false);
   const [trip, setTrip] = useState<PairTrip | null>(null);
@@ -149,6 +149,7 @@ export default function HomeScreen({ navigation }: any) {
       {anniversary && (
         <Text style={styles.anniversaryText}>
           {daysBetween(anniversary.anniversary_date, todayDateString())} days together
+          {partnerProfile ? ` with ${partnerProfile.display_name}` : ''}
         </Text>
       )}
       <Pressable
