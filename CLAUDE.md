@@ -359,6 +359,42 @@ applied to the live project (client-side `maxLength={20}` is already
 live either way). See "Testing status" below for exactly what's
 confirmed vs. still pending.
 
+## Video capture: capped at capture time, not compressed after
+
+`RecordScreen.tsx` originally uploaded whatever `expo-camera` handed
+back with no size control — fine on a phone that defaults to a modest
+recording quality, but a single 4K-capable device could turn a 60s
+clip into hundreds of MB against Supabase's 1GB free-tier bucket.
+
+Considered and rejected post-capture compression
+(`react-native-compressor`, `ffmpeg-kit`-style libraries): these ship
+native iOS/Android code needing autolinking at build time, which
+Expo Go can't load — same constraint already noted for Monthly
+Summary's recap-video idea, which is why that shipped as stats +
+sequential playback instead. Moving to that class of tooling means an
+EAS Dev Client, a bigger workflow shift not made unilaterally.
+`expo-video-thumbnails` was also considered and ruled out — it extracts
+a static image frame from a video, unrelated to compression.
+
+Used `expo-camera`'s own capture-time controls instead — already
+installed, no new dependency, no eject: `videoQuality="720p"` and
+`videoBitrate={2_500_000}` (2.5 Mbps) as props on `CameraView`, plus
+`codec: 'hvc1'` (HEVC) passed to `recordAsync()` on iOS only (no
+Android equivalent in this API; `videoQuality`/`videoBitrate` still
+apply there). Caps a full 60s clip at roughly 19MB regardless of the
+source device's camera capabilities — HEVC brings iOS clips in
+smaller still, since it roughly halves size vs. H.264 at the same
+visual quality. Every iPhone since the 7 supports HEVC, so no real
+device compatibility concern.
+
+Tradeoff: this caps quality going in rather than compressing an
+already-recorded file, so there's no lever to shrink a clip *after*
+it's captured. Doesn't matter for this app's flow — clips are recorded
+fresh each time, never imported, so there's no pre-existing full-quality
+file to compress. Not yet verified on a real device — worth confirming
+actual clip file sizes land in the expected range and playback quality
+is still acceptable at 720p for a phone-screen daily clip.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -408,6 +444,9 @@ only one partner's account exercised so far):
   opened from — Home, as of the bottom-tab-nav change)
 
 Not yet tested:
+- Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
+  resulting clip file size on a real device, and that playback quality
+  still looks acceptable at 720p — see "Video capture" above
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily Question: the reveal-after-both-answer behavior specifically
