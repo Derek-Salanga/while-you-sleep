@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, TextInput, Modal, FlatList } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, TextInput, Modal, FlatList, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -108,6 +108,13 @@ export default function HomeScreen({ navigation }: any) {
 
   const handleSaveTrip = async () => {
     if (!pair || !session?.user) return;
+    // Enforced here rather than via the picker's minimumDate prop -- passing
+    // a bound to the native date picker is what caused the Dec 31, 1969
+    // display bug. Today itself is allowed ("Today" is a valid countdown).
+    if (formatDateString(pickerDate) < todayDateString()) {
+      Alert.alert("That's in the past", 'Pick today or a later date for your next trip.');
+      return;
+    }
     const { data, error } = await supabase
       .from('pair_trips')
       .upsert(
@@ -165,11 +172,13 @@ export default function HomeScreen({ navigation }: any) {
                 : 'Select a country'}
             </Text>
           </Pressable>
+          {/* No minimumDate: see the matching comment in SettingsScreen.tsx.
+              A past trip date already renders sensibly ("N days ago"), so
+              there's nothing to validate on save here. */}
           <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
             <DateTimePicker
               value={pickerDate}
               mode="date"
-              minimumDate={new Date()}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={(_, date) => date && setPickerDate(date)}
             />

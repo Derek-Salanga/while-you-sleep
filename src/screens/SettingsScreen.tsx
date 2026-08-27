@@ -1,20 +1,14 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { formatDateString, parseDateString } from '@/lib/date';
+import { formatDateString, parseDateString, todayDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
-
-// The trip picker's minimumDate={new Date()} incidentally clamps away any
-// stray native-default epoch value; this picker had no lower bound at all,
-// which is a suspected cause of it showing Dec 31, 1969 -- a real
-// anniversary is never this old, so this doubles as validation.
-const ANNIVERSARY_MIN_DATE = new Date(new Date().getFullYear() - 100, 0, 1);
 
 export default function SettingsScreen() {
   const { session, pair } = usePairing();
@@ -35,7 +29,6 @@ export default function SettingsScreen() {
       console.error('Failed to load anniversary:', error.message);
       return;
     }
-    console.warn('[anniversary] loaded row:', data);
     setAnniversary(data);
   }, [pair]);
 
@@ -46,19 +39,18 @@ export default function SettingsScreen() {
   );
 
   const startEditingAnniversary = () => {
-    const parsed = parseDateString(anniversary?.anniversary_date);
-    console.warn(
-      '[anniversary] opening picker; raw =',
-      anniversary?.anniversary_date,
-      'parsed =',
-      parsed.toString()
-    );
-    setPickerDate(parsed);
+    setPickerDate(parseDateString(anniversary?.anniversary_date));
     setEditingAnniversary(true);
   };
 
   const handleSaveAnniversary = async () => {
     if (!pair || !session?.user) return;
+    // Replaces the picker's old maximumDate bound -- a future anniversary
+    // would render a negative "N days together" on Home.
+    if (formatDateString(pickerDate) > todayDateString()) {
+      Alert.alert("That's in the future", 'Pick a date on or before today.');
+      return;
+    }
     const { data, error } = await supabase
       .from('pair_anniversary')
       .upsert(
@@ -84,17 +76,16 @@ export default function SettingsScreen() {
       )}
       {editingAnniversary ? (
         <View style={styles.editCard}>
+          {/* No minimumDate/maximumDate: passing a `new Date()` (which carries
+              a time component) as a bound to a mode="date" picker is the
+              suspected cause of the Dec 31, 1969 display bug. Range is
+              validated on save instead. */}
           <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
             <DateTimePicker
               value={pickerDate}
               mode="date"
-              minimumDate={ANNIVERSARY_MIN_DATE}
-              maximumDate={new Date()}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => {
-                console.warn('[anniversary picker] onChange fired with', date);
-                if (date) setPickerDate(date);
-              }}
+              onChange={(_, date) => date && setPickerDate(date)}
             />
           </View>
           <Pressable
