@@ -678,6 +678,25 @@ back 0, the function could never have found an orphan. And 0 orphans
 across a real bucket means the `.mov`/`.mp4` path bug never fired here,
 as expected on a single-platform device.
 
+Confirmed on a real device (2026-08-27, `feat/storage-orphan-cleanup`,
+iOS/Expo Go): the extensionless `storage_path` + real-MIME-type change
+records **and plays back** on both accounts of a pair. The stored object
+is `<pair>/<sender>/2026-08-27` with no extension and
+`mimetype = video/quicktime`, and playback works with no extension in
+the signed URL — which was the open question, since the player then has
+only Content-Type to go on. Old `.mov` clips recorded before the change
+still play alongside the new ones, so the transition needs no backfill.
+
+Also settled by that pass, open since PR #18: **capture-time compression
+holds**. A full-length clip came in at 8.9 MB, right against the ~9.4 MB
+the 720p/2.5 Mbps cap predicts for 30s, and short clips at 0.7-1.1 MB.
+Playback quality was not separately graded beyond "plays properly".
+
+Note both accounts had posted for the same day before this check, so it
+confirms both clips are watchable once revealed — it does **not**
+exercise the reveal-gating block (that a partner's clip is hidden
+*before* you've posted your own), which is still untested.
+
 Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
 in Expo Go, not a functional re-test):
 - Auth screen's "While You Sleep" title renders
@@ -715,19 +734,17 @@ Not yet tested:
   two-timezone real-device pass exercises the actual behavior. Also
   worth eyeballing Timeline's "Today"/"Yesterday" labels near the
   boundary, since those now compare on UTC rather than local.
-- Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
-  resulting clip file size on a real device, and that playback quality
-  still looks acceptable at 720p — see "Video capture" above
 - Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
   (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
   `cron.job_run_details`. The function itself is confirmed (below); only
   the schedule that invokes it is untested, since it hadn't come around
   yet.
-- The extensionless `storage_path` + real-MIME-type change in
-  `useUploadClip` — **the change most likely to break playback**, and
-  entirely untested. Needs a record-and-play pass; ideally on both iOS
-  and Android, since the whole point is that the two platforms now write
-  to the same path.
+- The extensionless `storage_path` change **on Android** (`video/mp4`).
+  iOS is confirmed (below), but the point of the change is that the two
+  platforms write to the same path, and that cross-platform case is the
+  one that can't be exercised on this user's iPad-only setup. Until an
+  Android device runs it, the `.mov`/`.mp4` collision it fixes stays
+  theoretically-fixed rather than demonstrated.
 - TanStack Query data layer (see "Data layer" above) — nothing about it
   is device-verified yet. Needs: Timeline loads + pull-to-refresh still
   works; **recording a clip makes it appear on Timeline with no manual
