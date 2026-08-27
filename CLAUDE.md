@@ -204,14 +204,9 @@ day (not UTC's) for a `Date` at 9pm US Pacific, the case that previously
 broke. Still not tested on an actual device with its timezone set behind
 UTC — that's the one open item on this PR before merge.
 
-Confirmed on `feat/bottom-tab-nav` (2026-08-27, static checks only —
-`tsc`, lint, and a full Metro bundle export — no simulator/device
-available this session): all imports/types resolve. Not yet tested on
-a real device: tab bar renders with correct icons/colors and no
-labels, tapping each tab, Record/Daily Question still reachable from
-Home, ClipView reachable from Timeline and from Monthly Summary's
-reel, sign-out from Settings, and that a notification tap still lands
-on the Home tab.
+Confirmed on a real device (2026-08-27): the bottom tab bar
+(`feat/bottom-tab-nav` — Home/Timeline/Month/Settings, icon-only)
+works as expected.
 
 ## Design tooling installed
 
