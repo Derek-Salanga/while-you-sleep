@@ -1,8 +1,19 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { utcTimeToLocal } from './date';
 
-const REMINDER_HOUR = 20; // 8:00 PM local time
-const REMINDER_MINUTE = 0;
+// 8:00 PM UTC, not local -- deliberately pinned to the same clock the
+// pair's shared day boundary uses (see "Two day boundaries" in
+// CLAUDE.md). At a local 8pm, anyone far enough west was reminded
+// *after* the UTC day had already rolled over, so the nudge pointed at
+// the next day's question. 20:00 UTC always lands 4 hours before the
+// boundary, so it always refers to the day it's actually reminding about,
+// and both partners get it at the same moment.
+//
+// Tradeoff: the local hour now varies by timezone (13:00 at UTC-7, 05:00
+// in Tokyo) rather than being a consistent evening nudge everywhere.
+const REMINDER_UTC_HOUR = 20;
+const REMINDER_UTC_MINUTE = 0;
 const ANDROID_CHANNEL_ID = 'daily-reminders';
 
 // Fixed identifier so re-scheduling (e.g. on every app launch) replaces
@@ -60,6 +71,22 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
     )
   );
 
+  // The DAILY trigger takes a device-local hour/minute with no timezone
+  // field, so translate the target UTC time for this device.
+  //
+  // This is recomputed on every call, which matters: a DST transition
+  // shifts which local time corresponds to 20:00 UTC, and the already-
+  // scheduled trigger is a fixed local hour, so it would drift an hour
+  // off. Re-scheduling replaces by identifier, so the next launch after
+  // a transition self-corrects. Between the transition and that launch
+  // the reminder can be an hour early/late -- acceptable for a nudge,
+  // and the alternative (an app that must be open to stay correct) isn't
+  // better.
+  const { hour, minute } = utcTimeToLocal(
+    REMINDER_UTC_HOUR,
+    REMINDER_UTC_MINUTE
+  );
+
   await Promise.all(
     REMINDERS.map((reminder) =>
       Notifications.scheduleNotificationAsync({
@@ -67,8 +94,8 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
         content: { title: reminder.title, body: reminder.body },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: REMINDER_HOUR,
-          minute: REMINDER_MINUTE,
+          hour,
+          minute,
           channelId: ANDROID_CHANNEL_ID,
         },
       })

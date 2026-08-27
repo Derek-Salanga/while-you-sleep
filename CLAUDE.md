@@ -170,13 +170,30 @@ written to — no screen ever showed historical answers, so nothing
 about removing `DailyQuestionScreen` makes old data newly inaccessible;
 it's just retained rather than deleted.
 
-One local (on-device, not push) reminder now fires daily at 8:00 PM,
-scheduled once a pairing exists (`RootNavigator`), by fixed identifier
-so re-scheduling replaces rather than duplicates — previously two
-separate reminders (question + clip). `notifications.ts` explicitly
-cancels the old `daily-clip-reminder` identifier on every schedule call
-so a device that already had it scheduled from before this merge
-doesn't keep firing a reminder for a flow that no longer exists.
+One local (on-device, not push) reminder now fires daily at **20:00
+UTC** — not 8pm local — scheduled once a pairing exists
+(`RootNavigator`), by fixed identifier so re-scheduling replaces rather
+than duplicates. Previously two separate reminders (question + clip) at
+8pm local. `notifications.ts` explicitly cancels the old
+`daily-clip-reminder` identifier on every schedule call so a device that
+already had it scheduled from before this merge doesn't keep firing a
+reminder for a flow that no longer exists.
+
+Pinned to UTC so it lines up with the pair's shared day boundary (see
+"Two day boundaries" below): at a local 8pm, anyone far enough west was
+reminded *after* the UTC day had already rolled over, so the nudge
+pointed at the next day's question. 20:00 UTC always lands 4 hours
+before the boundary, and both partners get it simultaneously. Tradeoff:
+the local hour now varies (13:00 at UTC-7, 05:00 in Tokyo) instead of
+being a consistent evening nudge.
+
+expo-notifications' `DAILY` trigger takes a device-local hour/minute
+with no timezone field, so `utcTimeToLocal()` (`src/lib/date.ts`)
+translates it per device. It returns minutes as well as hours because
+not every offset is a whole hour — India is UTC+5:30, Nepal +5:45 — and
+it's recomputed on every call so a DST transition self-corrects on the
+next app launch (between the transition and that launch the reminder can
+be an hour off).
 
 ## Monthly Summary feature
 
@@ -461,13 +478,12 @@ adding a per-pair timezone anchor (`profiles.timezone` exists in the
 schema but is still unused, and there's no UI to set one).
 
 **Accepted tradeoffs**, both deliberate:
-1. UTC midnight is an odd local hour for most people. Notably, for
-   anyone far enough west the 8:00 PM local reminder fires *after* the
-   UTC day has already rolled over — e.g. at UTC-7, 8pm local is 03:00
-   UTC, so the reminder arrives already pointing at the next day's
-   question. The reminder stays on local time (an "8pm your time" nudge
-   is the point); moving it, or moving the boundary to a per-pair
-   anchor, are the two ways to close this if it turns out to matter.
+1. UTC midnight is an odd local hour for most people. The daily
+   reminder was **moved to 20:00 UTC** to match (see "Daily Question
+   feature" above) — at a local 8pm, anyone far enough west was
+   reminded after the boundary had already rolled, pointing them at the
+   next day's question. The cost is that the reminder's local hour now
+   varies by timezone rather than always being an evening nudge.
 2. `MonthlySummaryScreen` still builds its month bounds from local
    components while clips are now UTC-stamped, so a clip recorded near
    a month edge can land in the adjacent month's summary. Left alone —
@@ -563,9 +579,12 @@ Not yet tested:
   still looks acceptable at 720p — see "Video capture" above
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
-- Daily local notifications: permission prompt, both firing at 8:00 PM
-  on a real device, and that tapping one routes to Home (deliberately
-  deferred by the user for now)
+- Daily local notification: permission prompt, firing at the right
+  local time for 20:00 UTC on a real device, and that tapping it routes
+  to Home (deliberately deferred by the user for now). `date.test.ts`
+  covers the `utcTimeToLocal()` conversion, but nothing has verified
+  that expo-notifications actually fires at the converted time on a
+  device — worth checking on a device whose timezone isn't UTC.
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`

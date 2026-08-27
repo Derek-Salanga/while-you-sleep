@@ -18,6 +18,7 @@ import {
   formatDateString,
   sharedTodayDateString,
   sharedYesterdayDateString,
+  utcTimeToLocal,
 } from './date.ts';
 
 // 2026-06-18 20:00 US Pacific == 2026-06-19 03:00 UTC. This is exactly the
@@ -61,7 +62,29 @@ assert.equal(
   'a locally-picked calendar date must store as that same date'
 );
 
+// The daily reminder is pinned to 20:00 UTC but expo-notifications only
+// accepts a device-local hour/minute, so this conversion is what keeps
+// the two aligned. Whatever local time it returns must refer back to the
+// same instant -- checked here by converting forward and reading the UTC
+// hour back off a Date built from the local result.
+const reminder = utcTimeToLocal(20, 0, instant);
+const roundTrip = new Date(instant);
+roundTrip.setHours(reminder.hour, reminder.minute, 0, 0);
+assert.equal(
+  roundTrip.getUTCHours(),
+  20,
+  'local reminder time must map back to 20:00 UTC'
+);
+assert.equal(
+  roundTrip.getUTCMinutes(),
+  0,
+  'local reminder time must map back to :00 -- sub-hour offsets (India ' +
+    'UTC+5:30, Nepal UTC+5:45) break if the minute is assumed unchanged'
+);
+
 console.log(
   `ok  TZ=${Intl.DateTimeFormat().resolvedOptions().timeZone}  ` +
-    `shared=${sharedForInstant}  local=${localForInstant}`
+    `shared=${sharedForInstant}  local=${localForInstant}  ` +
+    `reminder=${String(reminder.hour).padStart(2, '0')}:` +
+    `${String(reminder.minute).padStart(2, '0')} local`
 );

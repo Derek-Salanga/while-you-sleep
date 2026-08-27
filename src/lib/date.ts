@@ -51,6 +51,26 @@ export function sharedYesterdayDateString(now: Date = new Date()): string {
   return new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
 }
 
+// Converts a UTC wall-clock time into the equivalent LOCAL hour/minute
+// for this device.
+//
+// expo-notifications' DAILY trigger only takes a device-local hour and
+// minute — there's no timezone field — so scheduling something at a
+// fixed UTC time means translating it per device first.
+//
+// Returns minutes as well as hours on purpose: not every offset is a
+// whole hour (India is UTC+5:30, Nepal UTC+5:45), so assuming the minute
+// carries through unchanged would misfire by 30-45 minutes there.
+export function utcTimeToLocal(
+  utcHour: number,
+  utcMinute = 0,
+  now: Date = new Date()
+): { hour: number; minute: number } {
+  const target = new Date(now);
+  target.setUTCHours(utcHour, utcMinute, 0, 0);
+  return { hour: target.getHours(), minute: target.getMinutes() };
+}
+
 // Parses a YYYY-MM-DD string back into a local-midnight Date, falling
 // back to "now" for a missing/malformed value rather than ever handing
 // a native picker an Invalid Date -- some native date pickers coerce
