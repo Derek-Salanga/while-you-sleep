@@ -152,7 +152,11 @@ no auto-advance) for the normal Timeline-card tap path.
 Scoped as a single shared "next visit" countdown, not multiple/past
 trips — the least-defined item on the original feature backlog, so the
 mechanic was picked via AskUserQuestion before building: one active
-trip, either partner can set/edit it, shown as a card on Home.
+trip (date + free-text meeting location, e.g. "Tokyo, Japan"), either
+partner can set/edit it, shown as a card on Home. Tapping the card
+opens a bottom-sheet modal with a location text field and a native
+date picker (`@react-native-community/datetimepicker`); saving is one
+upsert on `pair_id`.
 
 New `pair_trips` table, one row per pair (`pair_id` is the primary
 key — there's nothing else to key on since it's a singleton value, not
@@ -160,10 +164,26 @@ a per-day record like `clips`/`daily_answers`). RLS reuses
 `is_pair_member`, same read/write-by-either-partner shape as `clips`'
 policies — no reveal-gating, since there's nothing to hide here.
 `HomeScreen.tsx` fetches/saves it inline (matching the rest of the
-codebase's per-screen query style, no data-layer file), with a native
-date picker (`@react-native-community/datetimepicker`) in a bottom
-sheet modal. `set_by` is overwritten on every edit, so it just tracks
-who set it most recently, not a history.
+codebase's per-screen query style, no data-layer file). `set_by` is
+overwritten on every edit, so it just tracks who set it most recently,
+not a history.
+
+The countdown ("N days") is computed from each device's own local
+calendar day (`todayDateString()`), the same convention the rest of
+the app already uses — not anchored to a shared/destination timezone.
+`profiles.timezone` exists in the schema but is unused anywhere in the
+app, so there's no per-user timezone data to anchor to without adding
+new infrastructure; explicitly deferred, not an oversight.
+
+### Anniversary day-counter
+
+A separate, independent feature sharing the same shape: a single
+shared "together since" date per pair, in its own `pair_anniversary`
+table (not a column on `pair_trips` — deliberately kept separate since
+it's a distinct feature with a different entry point). Set from a row
+on `SettingsScreen.tsx` (native date picker, `maximumDate` capped at
+today), shown read-only on Home as "N days together" under the title.
+Same RLS shape as `pair_trips`, same local-calendar-day math.
 
 ## Known transient error: "JWT issued at future"
 
@@ -215,12 +235,18 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals: not tested at all yet — the `pair_trips` table/RLS
-  hasn't been run against the live Supabase project, and the Home card
-  + date picker have only been type-checked and linted, not run in
-  Expo Go. Needs both a single-account pass (set/edit a date, confirm
-  it persists) and a two-account pass (confirm either partner can set
-  or overwrite it and both see the same value)
+- Trips/Goals and anniversary day-counter: not tested at all yet. The
+  original `pair_trips` table (date only, no `location` column yet)
+  was run against the live Supabase project on 2026-08-26, but the
+  newer `location` column and the whole `pair_anniversary` table/RLS
+  have not been run there yet — needed before any of this can work.
+  The Home trip card, its location+date picker modal, the Settings
+  anniversary row, and the "N days together" line have only been
+  type-checked and linted, not run in Expo Go. Needs both a
+  single-account pass (set/edit a trip and an anniversary date,
+  confirm both persist and the countdown/day-count are correct) and a
+  two-account pass (confirm either partner can set or overwrite either
+  one and both see the same values)
 
 Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
 not a real device): `formatDateString` returns the correct local calendar
