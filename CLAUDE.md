@@ -350,7 +350,11 @@ seconds, so `PairingContext.tsx` wraps those two calls in
 
 Confirmed working end-to-end:
 - Email OTP sign-in (send code, receive via Resend, verify)
-- Pairing screen loads
+- Full two-user pairing: create invite on one account, join with a
+  second real account via `join_pair_by_code` — confirmed 2026-08-27
+  after applying the invite-code RLS fix (PR #16) to the live project.
+  Reject path also confirmed (reusing an already-claimed code shows the
+  function's error message, not a silent failure).
 - Camera recording
 - Upload (record -> Supabase Storage -> `clips` row) — re-confirmed
   2026-08-25 after the `expo-file-system/legacy` fix; partner device
@@ -372,8 +376,6 @@ only one partner's account exercised so far):
   opened from — Home, as of the bottom-tab-nav change)
 
 Not yet tested:
-- Full two-user pairing (only the pairing screen loading has been
-  tested, not two real accounts completing a pair)
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily Question: the reveal-after-both-answer behavior specifically
