@@ -83,7 +83,7 @@ export default function SettingsScreen() {
             value={anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date()}
             mode="date"
             maximumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(_, date) => date && handleSaveAnniversary(date)}
           />
         </View>

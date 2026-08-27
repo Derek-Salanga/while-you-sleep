@@ -153,6 +153,7 @@ export default function HomeScreen({ navigation }: any) {
       </Pressable>
       {editingTrip ? (
         <View style={styles.editCard}>
+          <Text style={styles.tripCardTitle}>Our next trip</Text>
           <Text style={styles.pickerLabel}>Where are you meeting?</Text>
           <Pressable
             style={({ pressed }) => [styles.pickerInput, pressed && styles.pressed]}
@@ -168,7 +169,7 @@ export default function HomeScreen({ navigation }: any) {
             value={pickerDate}
             mode="date"
             minimumDate={new Date()}
-            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(_, date) => date && setPickerDate(date)}
           />
           <Pressable
@@ -191,6 +192,7 @@ export default function HomeScreen({ navigation }: any) {
         >
           {trip ? (
             <View>
+              <Text style={styles.tripCardTitle}>Our next trip</Text>
               <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
               <Text style={styles.tripDate}>
                 {trip.country_code ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · ` : ''}
@@ -286,6 +288,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.ink,
+  },
+  tripCardTitle: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    marginBottom: 4,
   },
   tripCountdown: {
     fontFamily: fonts.bodySemiBold,
