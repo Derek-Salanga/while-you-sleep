@@ -1,17 +1,32 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { todayDateString } from '@/lib/date';
+import { todayDateString, formatDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
+import { PairTrip } from '@/types';
+
+function tripCountdownLabel(targetDate: string): string {
+  const diffDays = Math.round(
+    (new Date(targetDate + 'T00:00:00').getTime() -
+      new Date(todayDateString() + 'T00:00:00').getTime()) /
+      86400000
+  );
+  if (diffDays === 0) return 'Today';
+  if (diffDays < 0) return `${-diffDays} days ago`;
+  return `${diffDays} days`;
+}
 
 export default function HomeScreen({ navigation }: any) {
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const [answeredToday, setAnsweredToday] = useState(false);
+  const [trip, setTrip] = useState<PairTrip | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const loadQuestionStatus = useCallback(async () => {
     if (!pair || !session?.user) return;
@@ -30,11 +45,54 @@ export default function HomeScreen({ navigation }: any) {
     setAnsweredToday(!!data);
   }, [pair, session]);
 
+  const loadTrip = useCallback(async () => {
+    if (!pair) return;
+    const { data, error } = await supabase
+      .from('pair_trips')
+      .select('*')
+      .eq('pair_id', pair.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to load trip:', error.message);
+      return;
+    }
+    setTrip(data);
+  }, [pair]);
+
   useFocusEffect(
     useCallback(() => {
       loadQuestionStatus();
-    }, [loadQuestionStatus])
+      loadTrip();
+    }, [loadQuestionStatus, loadTrip])
   );
+
+  const handleSaveTrip = async (date: Date) => {
+    if (!pair || !session?.user) return;
+    const { data, error } = await supabase
+      .from('pair_trips')
+      .upsert(
+        { pair_id: pair.id, target_date: formatDateString(date), set_by: session.user.id },
+        { onConflict: 'pair_id' }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to save trip:', error.message);
+      return;
+    }
+    setTrip(data);
+    if (Platform.OS !== 'ios') setPickerVisible(false);
+  };
+
+  const handlePickerChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS !== 'ios' && event.type !== 'set') {
+      setPickerVisible(false);
+      return;
+    }
+    if (date) handleSaveTrip(date);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
@@ -47,11 +105,55 @@ export default function HomeScreen({ navigation }: any) {
         {!answeredToday && <View style={styles.unwatchedDot} />}
       </Pressable>
       <Pressable
+        style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
+        onPress={() => setPickerVisible(true)}
+      >
+        {trip ? (
+          <View>
+            <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
+            <Text style={styles.tripDate}>
+              {new Date(trip.target_date + 'T00:00:00').toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+        )}
+      </Pressable>
+      <Pressable
         style={({ pressed }) => [styles.recordFab, pressed && styles.pressed]}
         onPress={() => navigation.navigate('Record')}
       >
         <Text style={styles.recordFabText}>Record today's clip</Text>
       </Pressable>
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={styles.pickerBackdrop}>
+          <View style={styles.pickerSheet}>
+            <DateTimePicker
+              value={trip ? new Date(trip.target_date + 'T00:00:00') : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={handlePickerChange}
+            />
+            {Platform.OS === 'ios' && (
+              <Pressable
+                style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+                onPress={() => setPickerVisible(false)}
+              >
+                <Text style={styles.pickerCloseText}>Done</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -81,6 +183,17 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     color: colors.ink,
   },
+  tripCountdown: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+  },
+  tripDate: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    marginTop: 2,
+  },
   unwatchedDot: {
     width: 8,
     height: 8,
@@ -107,5 +220,26 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  pickerBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  pickerClose: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  pickerCloseText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.primary,
   },
 });

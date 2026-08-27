@@ -151,6 +151,51 @@ create policy "daily_answers_insert_own_as_user" on daily_answers
     )
   );
 
+-- Pair trips: a single shared "next visit" date per pair. Either partner
+-- can read, set, or overwrite it — no reveal-gating (unlike
+-- daily_answers), no per-day rows (unlike clips). Absence of a row means
+-- no date is set yet; the client upserts on pair_id to set/edit it.
+create table if not exists pair_trips (
+  pair_id uuid primary key references pairs (id) on delete cascade,
+  target_date date not null,
+  set_by uuid not null references auth.users (id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+
+alter table pair_trips enable row level security;
+
+create policy "pair_trips_select_pair_members" on pair_trips
+  for select using (
+    exists (
+      select 1 from pairs p
+      where p.id = pair_trips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+create policy "pair_trips_insert_pair_members" on pair_trips
+  for insert with check (
+    auth.uid() = set_by
+    and exists (
+      select 1 from pairs p
+      where p.id = pair_trips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+create policy "pair_trips_update_pair_members" on pair_trips
+  for update using (
+    exists (
+      select 1 from pairs p
+      where p.id = pair_trips.pair_id and is_pair_member(p, auth.uid())
+    )
+  )
+  with check (
+    auth.uid() = set_by
+    and exists (
+      select 1 from pairs p
+      where p.id = pair_trips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);

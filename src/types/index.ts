@@ -35,6 +35,13 @@ export interface DailyAnswer {
   created_at: string;
 }
 
+export interface PairTrip {
+  pair_id: string;
+  target_date: string; // YYYY-MM-DD, the shared "next visit" date
+  set_by: string;
+  updated_at: string;
+}
+
 export type MainTabParamList = {
   Home: undefined;
   Timeline: undefined;
