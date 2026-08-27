@@ -667,6 +667,15 @@ Confirmed working end-to-end:
   generates a `display_name` has to respect that cap itself — the
   constraint is the source of truth, not a backstop.
 
+Confirmed by the user against PR #20's checklist before merging
+(2026-08-27): the TanStack Query data layer (see "Data layer" above) —
+Timeline loads and pull-to-refresh still works, recording a clip makes it
+appear on Timeline with no manual refresh (the headline change), watching
+a partner's clip clears its unwatched dot on return, the Monthly Summary
+reel still auto-advances, and the `PairingContext` rewire regressed
+nothing (nickname edits, a fresh join, and cold start all still behave).
+Reported as a pass rather than re-verified here.
+
 Confirmed on the live project (2026-08-27, `feat/storage-orphan-cleanup`):
 storage orphan cleanup works end to end. `pg_net` + `pg_cron` enabled,
 the `service_role_key` Vault secret created (holding an `sb_secret_…`
@@ -752,18 +761,6 @@ Not yet tested:
   one that can't be exercised on this user's iPad-only setup. Until an
   Android device runs it, the `.mov`/`.mp4` collision it fixes stays
   theoretically-fixed rather than demonstrated.
-- TanStack Query data layer (see "Data layer" above) — nothing about it
-  is device-verified yet. Needs: Timeline loads + pull-to-refresh still
-  works; **recording a clip makes it appear on Timeline with no manual
-  refresh** (the headline change — the upload mutation invalidating
-  `['clips']`); watching a partner's clip clears its unwatched dot on
-  Timeline immediately on return, without a focus refetch; the Monthly
-  Summary reel still auto-advances and exits at the end of its queue;
-  and the `PairingContext` rewire hasn't regressed anything —
-  Settings nickname edit still re-renders on Home/Timeline
-  (`refreshProfiles`), a fresh join still gates into MainTabs
-  (`refreshPair`), and cold start doesn't surface "JWT issued at future"
-  now that `withClockSkewRetry` is gone.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right
