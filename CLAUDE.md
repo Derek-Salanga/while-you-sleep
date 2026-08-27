@@ -60,12 +60,13 @@ src/
   screens/
     AuthScreen.tsx              email OTP sign-in (send code -> verify code)
     PairingScreen.tsx           create/join pair via invite code
-    RecordScreen.tsx            camera capture + upload to Supabase Storage
+    RecordScreen.tsx            shows today's question, captures the video
+                                answer (+ optional caption), reveal state
+                                once both partners have posted
     TimelineScreen.tsx          card feed of clips + question/summary entry cards
     ClipViewScreen.tsx          expo-video playback; optional `queue` param
                                 plays a sequential reel (Monthly Summary) instead
                                 of a single clip
-    DailyQuestionScreen.tsx     answer/reveal flow for the daily question
     MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
                                 month's clips" reel
   theme/
@@ -120,23 +121,58 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
-## Daily Question feature
+## Daily Question feature (video daily question, merged with the clip)
 
 Each pair gets one shared prompt per day, picked deterministically from
 a bundled list (`src/data/dailyQuestions.ts`) by date — no server-side
-scheduling needed, both partners always see the same prompt. Each
-partner submits one text answer per day (`daily_answers` table, unique
-per pair/user/date, same shape as `clips`'s unique constraint). Answers
-are a reveal mechanic like clips: you can see your partner's answer
-only once you've submitted your own for that day. No editing after
-submit, same as clips.
+scheduling needed, both partners always see the same prompt.
 
-Two local (on-device, not push) notifications fire daily at 8:00 PM —
-one nudging toward the question, one toward recording the clip. They're
+**Originally a standalone text-answer feature** (`daily_answers` table,
+its own `DailyQuestionScreen`, separate from the general daily clip).
+**Merged into the clip itself** per user request: there's no more
+separate free-form diary clip and text answer — the one daily video
+*is* the answer to today's question, capped at 30s (down from the old
+general clip's 60s) since it's now always a direct answer, not a
+free-form update. `RecordScreen.tsx` shows the question as an overlay
+while framing the shot, and after recording adds an optional short-text
+caption step (`clips.caption_text`, nullable) before sending — "answer
+in both video and text" per the user's request when scoping this.
+`DailyQuestionScreen.tsx` and its `DailyQuestion` nav route are removed
+entirely; `Record` is now the single entry point, reached from one
+merged Home card (previously two: a "Today's question" card and a
+separate "Record today's clip" button).
+
+`RecordScreen` has four phases: `loading` (checking today's clips),
+`camera` (question overlay + capture), `review` (caption input +
+Send/Retake — no video preview, just re-record if you don't like it),
+and `revealed` (your answer + your partner's, once they've posted —
+tapping either navigates to the existing `ClipViewScreen` rather than
+building inline playback). Landing back on this screen later in the
+day (e.g. partner posts after you) goes straight to `revealed` without
+ever requesting camera permission, since only the `camera`/`review`
+phases need it.
+
+Same reveal mechanic `daily_answers` had: you can't see your partner's
+clip for a given day until you've posted your own for that day. This
+now applies to `clips` generally (`has_own_clip()`, mirroring
+`has_own_daily_answer()`) — not just going forward, since RLS can't
+distinguish "old" from "new" rows. In practice this only matters for a
+day you haven't posted on yet; past days are almost always already
+mutually visible by the time anyone looks back at them. Flagged to and
+accepted by the user before implementing.
+
+`daily_answers` and its RLS policies are left in place, just no longer
+written to — no screen ever showed historical answers, so nothing
+about removing `DailyQuestionScreen` makes old data newly inaccessible;
+it's just retained rather than deleted.
+
+One local (on-device, not push) reminder now fires daily at 8:00 PM,
 scheduled once a pairing exists (`RootNavigator`), by fixed identifier
-so re-scheduling replaces rather than duplicates. They fire on schedule
-regardless of whether you've already done either that day — no
-suppression logic yet; a reasonable follow-up, not v1.
+so re-scheduling replaces rather than duplicates — previously two
+separate reminders (question + clip). `notifications.ts` explicitly
+cancels the old `daily-clip-reminder` identifier on every schedule call
+so a device that already had it scheduled from before this merge
+doesn't keep firing a reminder for a flow that no longer exists.
 
 ## Monthly Summary feature
 
@@ -436,22 +472,32 @@ in Expo Go, not a functional re-test):
 - ClipView close button renders and is tappable
 
 Confirmed on `feat/daily-question` (2026-08-26, Expo Go, one-sided —
-only one partner's account exercised so far):
-- Answer submission works end-to-end against the live Supabase project
+only one partner's account exercised so far), **superseded by the
+video-daily-question merge** (the text-answer flow and
+`DailyQuestionScreen` this refers to no longer exist — kept here as a
+record of what was verified about the underlying `security definer`
+reveal-gating pattern, which the new `has_own_clip()` reuses):
+- Answer submission worked end-to-end against the live Supabase project
   (this is what surfaced and confirmed the RLS self-recursion bug in
   the select policy, since fixed via a `security definer` function)
-- DailyQuestionScreen's close button navigates back (to wherever it was
-  opened from — Home, as of the bottom-tab-nav change)
 
 Not yet tested:
+- Video daily question (merged clip+answer, PR depends on #18's
+  compression settings being in place): the whole flow end to end on a
+  real device — question overlay while recording at the new 30s cap,
+  the caption step, the `revealed` phase showing both partners' clips
+  via `ClipViewScreen`, the reveal-gating (can't see partner's clip for
+  a day until you've posted your own), landing straight on `revealed`
+  without a camera-permission prompt when reopening after already
+  answering, and that the single merged Home entry card's
+  answered/not-answered dot is correct. Needs a two-account pass.
+  Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
+  confirmed on a device that had the old two-reminder version installed.
 - Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
   resulting clip file size on a real device, and that playback quality
   still looks acceptable at 720p — see "Video capture" above
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
-- Daily Question: the reveal-after-both-answer behavior specifically
-  (needs a second account), and the Timeline entry card's
-  answered/not-answered dot
 - Daily local notifications: permission prompt, both firing at 8:00 PM
   on a real device, and that tapping one routes to Home (deliberately
   deferred by the user for now)

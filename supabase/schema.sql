@@ -18,6 +18,10 @@ create table if not exists pairs (
   created_at timestamptz not null default now()
 );
 
+-- The daily clip IS the daily question's answer (see "Video daily
+-- question" in CLAUDE.md) -- caption_text is an optional short text
+-- note alongside the required video, not a separate answer mechanism.
+-- daily_answers below is no longer written to; kept for historical rows.
 create table if not exists clips (
   id uuid primary key default gen_random_uuid(),
   pair_id uuid not null references pairs (id) on delete cascade,
@@ -25,11 +29,14 @@ create table if not exists clips (
   storage_path text not null,
   duration_seconds int,
   recorded_for_date date not null,
+  caption_text text,
   viewed_at timestamptz,
   created_at timestamptz not null default now(),
   unique (pair_id, sender_id, recorded_for_date)
 );
 
+-- No longer written to as of the video daily question merge -- kept so
+-- historical rows aren't lost. See the comment on `clips` above.
 create table if not exists daily_answers (
   id uuid primary key default gen_random_uuid(),
   pair_id uuid not null references pairs (id) on delete cascade,
@@ -116,12 +123,42 @@ begin
 end;
 $$;
 
--- Clips: only visible to/writable by the two members of the pair.
+-- Helper: does the current user already have their own clip for this
+-- pair/date? Same security definer reasoning as has_own_daily_answer
+-- below -- an inline subquery on clips within its own select policy
+-- would recurse.
+create or replace function has_own_clip(
+  target_pair_id uuid,
+  target_date date
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from clips
+    where pair_id = target_pair_id
+      and sender_id = auth.uid()
+      and recorded_for_date = target_date
+  );
+$$;
+
+-- Clips: pair members can always see their own clip; they can see their
+-- partner's clip for a given date only once they've posted their own for
+-- that same date -- the clip IS the daily question's answer now (see
+-- comment on the clips table above), so it gets the same "reveal after
+-- you've answered" gating daily_answers has below.
 create policy "clips_select_pair_members" on clips
   for select using (
     exists (
       select 1 from pairs p
       where p.id = clips.pair_id and is_pair_member(p, auth.uid())
+    )
+    and (
+      auth.uid() = clips.sender_id
+      or has_own_clip(clips.pair_id, clips.recorded_for_date)
     )
   );
 create policy "clips_insert_own_as_sender" on clips

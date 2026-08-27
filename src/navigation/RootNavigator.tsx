@@ -14,7 +14,6 @@ import PairingScreen from '@/screens/PairingScreen';
 import MainTabs from './MainTabs';
 import RecordScreen from '@/screens/RecordScreen';
 import ClipViewScreen from '@/screens/ClipViewScreen';
-import DailyQuestionScreen from '@/screens/DailyQuestionScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,11 +35,10 @@ export default function RootNavigator() {
     }
   }, [isPaired]);
 
-  // Tapping either daily reminder should land you on the Home tab, not
+  // Tapping the daily reminder should land you on the Home tab, not
   // wherever the app happened to be left open — otherwise resuming from
-  // a backgrounded DailyQuestion/Record screen reads as "the app dropped
-  // me straight into recording/answering" rather than a deliberate entry
-  // point.
+  // a backgrounded Record screen reads as "the app dropped me straight
+  // into recording" rather than a deliberate entry point.
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       () => {
@@ -90,10 +88,6 @@ export default function RootNavigator() {
               name="ClipView"
               component={ClipViewScreen}
               options={{ presentation: 'fullScreenModal' }}
-            />
-            <Stack.Screen
-              name="DailyQuestion"
-              component={DailyQuestionScreen}
             />
           </>
         )}

@@ -1,5 +1,15 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Platform,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 // expo-file-system's default export moved to a new File/Directory-based
 // API in the SDK 54 version bump; the legacy import keeps getInfoAsync /
@@ -10,19 +20,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { todayDateString } from '@/lib/date';
+import { getQuestionForDate } from '@/data/dailyQuestions';
+import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
-const MAX_DURATION_SECONDS = 60;
+// The daily clip IS the daily question's answer -- there's no separate
+// text-answer flow anymore (see "Video daily question" in CLAUDE.md).
+const MAX_DURATION_SECONDS = 30;
 // Caps file size at capture time rather than compressing after the fact --
 // react-native-compressor/ffmpeg-kit-style libraries ship native code that
 // needs a custom EAS Dev Client build, not Expo Go (same constraint already
 // noted for Monthly Summary's recap video). 720p + this bitrate caps a full
-// 60s clip at roughly 19MB (2.5Mbps * 60s / 8) regardless of the source
-// device's camera capabilities -- previously uncompressed, so a single 4K
-// device's clip could run into the hundreds of MB on Supabase's 1GB
-// free-tier bucket.
+// 30s clip at roughly 9.4MB (2.5Mbps * 30s / 8) regardless of the source
+// device's camera capabilities.
 const VIDEO_BITRATE = 2_500_000; // 2.5 Mbps
+
+type Phase = 'loading' | 'camera' | 'review' | 'revealed';
 
 export default function RecordScreen({ navigation }: any) {
   const { session, pair } = usePairing();
@@ -33,33 +47,49 @@ export default function RecordScreen({ navigation }: any) {
   const [uploading, setUploading] = useState(false);
   const insets = useSafeAreaInsets();
 
-  if (!permission) return <View style={styles.container} />;
+  const today = todayDateString();
+  const question = getQuestionForDate(today);
 
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.closeButton,
-            { top: insets.top + 12 },
-            pressed && styles.pressed,
-          ]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.closeButtonText}>✕</Text>
-        </Pressable>
-        <Text style={styles.permissionText}>
-          While You Sleep needs camera access to record your daily clip.
-        </Text>
-        <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          onPress={requestPermission}
-        >
-          <Text style={styles.buttonText}>Grant permission</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [myClip, setMyClip] = useState<Clip | null>(null);
+  const [partnerClip, setPartnerClip] = useState<Clip | null>(null);
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
+  const [captionDraft, setCaptionDraft] = useState('');
+
+  const loadTodayClips = useCallback(async () => {
+    if (!pair || !session?.user) return;
+    const { data, error } = await supabase
+      .from('clips')
+      .select('*')
+      .eq('pair_id', pair.id)
+      .eq('recorded_for_date', today);
+
+    if (error) {
+      console.error('Failed to load today\'s clips:', error.message);
+      setPhase('camera');
+      return;
+    }
+    const rows = (data ?? []) as Clip[];
+    const mine = rows.find((r) => r.sender_id === session.user.id) ?? null;
+    const theirs = rows.find((r) => r.sender_id !== session.user.id) ?? null;
+    setMyClip(mine);
+    setPartnerClip(theirs);
+    setPhase(mine ? 'revealed' : 'camera');
+  }, [pair, session, today]);
+
+  useEffect(() => {
+    loadTodayClips();
+  }, [loadTodayClips]);
+
+  // No realtime subscription elsewhere in this app, so keep the pattern
+  // consistent: poll while genuinely waiting on the partner, rather than
+  // only refreshing on remount (which meant the reveal never happened
+  // while this screen stayed open).
+  useEffect(() => {
+    if (!myClip || partnerClip) return;
+    const interval = setInterval(loadTodayClips, 15_000);
+    return () => clearInterval(interval);
+  }, [myClip, partnerClip, loadTodayClips]);
 
   async function handleStartRecording() {
     if (!cameraRef.current) return;
@@ -74,7 +104,8 @@ export default function RecordScreen({ navigation }: any) {
         ...(Platform.OS === 'ios' ? { codec: 'hvc1' as const } : {}),
       });
       if (video?.uri) {
-        await handleUpload(video.uri);
+        setPendingUri(video.uri);
+        setPhase('review');
       }
     } catch (err: any) {
       Alert.alert('Recording failed', err.message);
@@ -87,18 +118,23 @@ export default function RecordScreen({ navigation }: any) {
     cameraRef.current?.stopRecording();
   }
 
-  async function handleUpload(localUri: string) {
-    if (!session?.user || !pair) return;
+  function handleRetake() {
+    setPendingUri(null);
+    setCaptionDraft('');
+    setPhase('camera');
+  }
+
+  async function handleSend() {
+    if (!session?.user || !pair || !pendingUri) return;
     setUploading(true);
     try {
-      const fileInfo = await FileSystem.getInfoAsync(localUri);
+      const fileInfo = await FileSystem.getInfoAsync(pendingUri);
       if (!fileInfo.exists) throw new Error('Recorded file not found.');
 
-      const fileExt = localUri.split('.').pop() ?? 'mov';
-      const dateStr = todayDateString();
-      const storagePath = `${pair.id}/${session.user.id}/${dateStr}.${fileExt}`;
+      const fileExt = pendingUri.split('.').pop() ?? 'mov';
+      const storagePath = `${pair.id}/${session.user.id}/${today}.${fileExt}`;
 
-      const fileData = await FileSystem.readAsStringAsync(localUri, {
+      const fileData = await FileSystem.readAsStringAsync(pendingUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
@@ -110,29 +146,162 @@ export default function RecordScreen({ navigation }: any) {
         });
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase.from('clips').upsert(
-        {
-          pair_id: pair.id,
-          sender_id: session.user.id,
-          storage_path: storagePath,
-          recorded_for_date: dateStr,
-        },
-        { onConflict: 'pair_id,sender_id,recorded_for_date' }
-      );
+      const { data, error: insertError } = await supabase
+        .from('clips')
+        .upsert(
+          {
+            pair_id: pair.id,
+            sender_id: session.user.id,
+            storage_path: storagePath,
+            recorded_for_date: today,
+            caption_text: captionDraft.trim() || null,
+          },
+          { onConflict: 'pair_id,sender_id,recorded_for_date' }
+        )
+        .select()
+        .single();
       if (insertError) throw insertError;
 
-      Alert.alert('Clip sent', 'Your clip is on its way.', [
-        // goBack() rather than navigate('Home') — Record was reached by
-        // navigating forward from Home, so this returns to that same
-        // screen instance instead of pushing a redundant new one onto
-        // the stack.
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      setMyClip(data as Clip);
+      setPendingUri(null);
+      setCaptionDraft('');
+      setPhase('revealed');
     } catch (err: any) {
       Alert.alert('Upload failed', err.message);
     } finally {
       setUploading(false);
     }
+  }
+
+  const closeButton = (
+    <Pressable
+      style={({ pressed }) => [
+        styles.closeButton,
+        { top: insets.top + 12 },
+        pressed && styles.pressed,
+      ]}
+      onPress={() => navigation.goBack()}
+      disabled={uploading}
+    >
+      <Text style={styles.closeButtonText}>✕</Text>
+    </Pressable>
+  );
+
+  if (phase === 'loading') {
+    return (
+      <View style={styles.container}>
+        {closeButton}
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.surface} size="large" />
+        </View>
+      </View>
+    );
+  }
+
+  if (phase === 'revealed') {
+    return (
+      <View style={[styles.revealContainer, { paddingTop: insets.top + 20 }]}>
+        <Pressable
+          style={({ pressed }) => [styles.textCloseButton, pressed && styles.pressed]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.textCloseButtonText}>✕ Close</Text>
+        </Pressable>
+        <Text style={styles.title}>Today's question</Text>
+        <Text style={styles.question}>{question}</Text>
+
+        <View style={styles.answersContainer}>
+          <View style={[styles.answerCard, styles.answerCardMine]}>
+            <Text style={styles.answerLabel}>You</Text>
+            {myClip?.caption_text && (
+              <Text style={styles.answerCaption}>{myClip.caption_text}</Text>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
+              onPress={() => navigation.navigate('ClipView', { clipId: myClip!.id })}
+            >
+              <Text style={styles.watchButtonText}>Watch your clip</Text>
+            </Pressable>
+          </View>
+
+          {partnerClip ? (
+            <View style={[styles.answerCard, styles.answerCardPartner]}>
+              <Text style={styles.answerLabel}>Your partner</Text>
+              {partnerClip.caption_text && (
+                <Text style={styles.answerCaption}>{partnerClip.caption_text}</Text>
+              )}
+              <Pressable
+                style={({ pressed }) => [styles.watchButton, pressed && styles.pressed]}
+                onPress={() => navigation.navigate('ClipView', { clipId: partnerClip.id })}
+              >
+                <Text style={styles.watchButtonText}>Watch their clip</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.waiting}>Waiting for your partner to answer…</Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  if (!permission) return <View style={styles.container} />;
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.permissionContainer}>
+        {closeButton}
+        <Text style={styles.permissionText}>
+          While You Sleep needs camera access to record your daily clip.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          onPress={requestPermission}
+        >
+          <Text style={styles.buttonText}>Grant permission</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (phase === 'review') {
+    return (
+      <KeyboardAvoidingView
+        style={[styles.container, { paddingTop: insets.top + 20 }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {closeButton}
+        <Text style={styles.reviewTitle}>Add a caption?</Text>
+        <Text style={styles.reviewSubtitle}>Optional -- goes alongside your clip.</Text>
+        <TextInput
+          style={styles.captionInput}
+          placeholder="Say a bit more…"
+          placeholderTextColor={colors.muted}
+          multiline
+          value={captionDraft}
+          onChangeText={setCaptionDraft}
+          editable={!uploading}
+        />
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          onPress={handleSend}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color={colors.surface} />
+          ) : (
+            <Text style={styles.buttonText}>Send</Text>
+          )}
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.retakeButton, pressed && styles.pressed]}
+          onPress={handleRetake}
+          disabled={uploading}
+        >
+          <Text style={styles.retakeButtonText}>Retake</Text>
+        </Pressable>
+      </KeyboardAvoidingView>
+    );
   }
 
   return (
@@ -145,17 +314,10 @@ export default function RecordScreen({ navigation }: any) {
         videoQuality="720p"
         videoBitrate={VIDEO_BITRATE}
       />
-      <Pressable
-        style={({ pressed }) => [
-          styles.closeButton,
-          { top: insets.top + 12 },
-          pressed && styles.pressed,
-        ]}
-        onPress={() => navigation.goBack()}
-        disabled={uploading}
-      >
-        <Text style={styles.closeButtonText}>✕</Text>
-      </Pressable>
+      {closeButton}
+      <View style={[styles.questionBanner, { top: insets.top + 12 }]}>
+        <Text style={styles.questionBannerText}>{question}</Text>
+      </View>
       <View style={styles.controls}>
         <Pressable
           style={({ pressed }) => [
@@ -163,7 +325,7 @@ export default function RecordScreen({ navigation }: any) {
             pressed && styles.pressed,
           ]}
           onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))}
-          disabled={isRecording || uploading}
+          disabled={isRecording}
         >
           <Text style={styles.flipButtonText}>Flip</Text>
         </Pressable>
@@ -175,22 +337,17 @@ export default function RecordScreen({ navigation }: any) {
             pressed && styles.pressed,
           ]}
           onPress={isRecording ? handleStopRecording : handleStartRecording}
-          disabled={uploading}
         />
 
         <View style={styles.flipButton} />
       </View>
-      {uploading && (
-        <View style={styles.uploadingOverlay}>
-          <Text style={styles.uploadingText}>Uploading your clip…</Text>
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.ink },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   camera: { flex: 1 },
   closeButton: {
     position: 'absolute',
@@ -201,10 +358,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   },
   closeButtonText: {
     color: colors.surface,
     fontSize: fontSizes.md,
+    fontFamily: fonts.bodySemiBold,
+  },
+  questionBanner: {
+    position: 'absolute',
+    left: 64,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  questionBannerText: {
+    color: colors.surface,
+    fontSize: fontSizes.sm,
     fontFamily: fonts.bodySemiBold,
   },
   permissionContainer: {
@@ -223,12 +395,13 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.primary,
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    paddingVertical: 16,
+    alignItems: 'center',
   },
   buttonText: {
     fontFamily: fonts.bodySemiBold,
     color: colors.surface,
+    fontSize: fontSizes.md,
   },
   controls: {
     position: 'absolute',
@@ -261,22 +434,118 @@ const styles = StyleSheet.create({
   recordButtonActive: {
     borderRadius: 12,
   },
-  uploadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(46,42,61,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  uploadingText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
-  },
   pressed: {
     opacity: 0.7,
+  },
+  reviewTitle: {
+    fontFamily: fonts.display,
+    fontSize: fontSizes.xl,
+    color: colors.surface,
+    paddingHorizontal: 24,
+    marginBottom: 4,
+  },
+  reviewSubtitle: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  captionInput: {
+    marginHorizontal: 24,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  retakeButton: {
+    marginHorizontal: 24,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  retakeButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.surface,
+  },
+  revealContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 24,
+  },
+  textCloseButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginBottom: 16,
+  },
+  textCloseButtonText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+  },
+  title: {
+    fontFamily: fonts.display,
+    fontSize: fontSizes.xl,
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  question: {
+    fontFamily: fonts.displayItalic,
+    fontSize: fontSizes.lg,
+    color: colors.ink,
+    marginBottom: 24,
+  },
+  answersContainer: {
+    gap: 16,
+  },
+  answerCard: {
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+  },
+  answerCardMine: {
+    backgroundColor: colors.primaryTint,
+    borderColor: colors.primaryLight,
+  },
+  answerCardPartner: {
+    backgroundColor: colors.secondaryTint,
+    borderColor: colors.secondaryLight,
+  },
+  answerLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.sm,
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  answerCaption: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  watchButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  watchButtonText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.sm,
+    color: colors.ink,
+  },
+  waiting: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

@@ -1,24 +1,27 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-const REMINDER_HOUR = 20; // 8:00 PM local time, both reminders together
+const REMINDER_HOUR = 20; // 8:00 PM local time
 const REMINDER_MINUTE = 0;
 const ANDROID_CHANNEL_ID = 'daily-reminders';
 
-// Fixed identifiers so re-scheduling (e.g. on every app launch) replaces
+// Fixed identifier so re-scheduling (e.g. on every app launch) replaces
 // the existing request instead of piling up duplicates.
 const REMINDERS = [
   {
     identifier: 'daily-question-reminder',
     title: "Today's question is up",
-    body: 'Answer it before your partner does.',
-  },
-  {
-    identifier: 'daily-clip-reminder',
-    title: 'Record your daily clip',
-    body: "Don't forget to send today's clip before you sleep.",
+    body: 'Record your video answer before your partner does.',
   },
 ];
+
+// Answering the daily question used to be a separate, text-only step from
+// recording the daily clip -- now the clip IS the answer (see "Video daily
+// question" in CLAUDE.md), so this reminder was merged into the one above.
+// A device that already had it scheduled from before this change would
+// otherwise keep firing it forever, since nothing re-schedules-to-replace
+// an identifier this code no longer calls.
+const RETIRED_REMINDER_IDS = ['daily-clip-reminder'];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -50,6 +53,12 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
       importance: Notifications.AndroidImportance.DEFAULT,
     });
   }
+
+  await Promise.all(
+    RETIRED_REMINDER_IDS.map((identifier) =>
+      Notifications.cancelScheduledNotificationAsync(identifier)
+    )
+  );
 
   await Promise.all(
     REMINDERS.map((reminder) =>

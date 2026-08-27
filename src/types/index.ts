@@ -22,16 +22,8 @@ export interface Clip {
   storage_path: string;
   duration_seconds: number | null;
   recorded_for_date: string; // YYYY-MM-DD, one clip per sender per day
+  caption_text: string | null; // optional note alongside the daily question's video answer
   viewed_at: string | null;
-  created_at: string;
-}
-
-export interface DailyAnswer {
-  id: string;
-  pair_id: string;
-  user_id: string;
-  answered_for_date: string; // YYYY-MM-DD, one answer per user per day
-  answer_text: string;
   created_at: string;
 }
 
@@ -67,5 +59,4 @@ export type RootStackParamList = {
   // `clipId` is just queue[0] in that case. Absent for a normal
   // single-clip tap from Timeline.
   ClipView: { clipId: string; queue?: string[] };
-  DailyQuestion: undefined;
 };
