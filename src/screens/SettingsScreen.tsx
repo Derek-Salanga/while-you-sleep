@@ -15,6 +15,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
   const [editingAnniversary, setEditingAnniversary] = useState(false);
+  const [pickerDate, setPickerDate] = useState(new Date());
 
   const loadAnniversary = useCallback(async () => {
     if (!pair) return;
@@ -37,12 +38,17 @@ export default function SettingsScreen() {
     }, [loadAnniversary])
   );
 
-  const handleSaveAnniversary = async (date: Date) => {
+  const startEditingAnniversary = () => {
+    setPickerDate(anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date());
+    setEditingAnniversary(true);
+  };
+
+  const handleSaveAnniversary = async () => {
     if (!pair || !session?.user) return;
     const { data, error } = await supabase
       .from('pair_anniversary')
       .upsert(
-        { pair_id: pair.id, anniversary_date: formatDateString(date), set_by: session.user.id },
+        { pair_id: pair.id, anniversary_date: formatDateString(pickerDate), set_by: session.user.id },
         { onConflict: 'pair_id' }
       )
       .select()
@@ -62,31 +68,44 @@ export default function SettingsScreen() {
       {session?.user.email && (
         <Text style={styles.email}>Signed in as {session.user.email}</Text>
       )}
-      <Pressable
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-        onPress={() => setEditingAnniversary((v) => !v)}
-      >
-        <Text style={styles.rowLabel}>Anniversary</Text>
-        <Text style={styles.rowValue}>
-          {anniversary
-            ? new Date(anniversary.anniversary_date + 'T00:00:00').toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })
-            : 'Not set'}
-        </Text>
-      </Pressable>
-      {editingAnniversary && (
+      {editingAnniversary ? (
         <View style={styles.editCard}>
           <DateTimePicker
-            value={anniversary ? new Date(anniversary.anniversary_date + 'T00:00:00') : new Date()}
+            value={pickerDate}
             mode="date"
             maximumDate={new Date()}
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => date && handleSaveAnniversary(date)}
+            onChange={(_, date) => date && setPickerDate(date)}
           />
+          <Pressable
+            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            onPress={handleSaveAnniversary}
+          >
+            <Text style={styles.pickerSaveText}>Save</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            onPress={() => setEditingAnniversary(false)}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
         </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={startEditingAnniversary}
+        >
+          <Text style={styles.rowLabel}>Anniversary</Text>
+          <Text style={styles.rowValue}>
+            {anniversary
+              ? new Date(anniversary.anniversary_date + 'T00:00:00').toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : 'Not set'}
+          </Text>
+        </Pressable>
       )}
       <Pressable
         style={({ pressed }) => [
@@ -144,6 +163,27 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
+  },
+  pickerSave: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  pickerSaveText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.surface,
+  },
+  pickerClose: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  pickerCloseText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.muted,
   },
   signOutButton: {
     backgroundColor: colors.surface,

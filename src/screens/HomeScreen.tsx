@@ -192,12 +192,12 @@ export default function HomeScreen({ navigation }: any) {
         >
           {trip ? (
             <View>
-              <Text style={styles.tripCardTitle}>Our next trip</Text>
-              <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
               <Text style={styles.tripDate}>
                 {trip.country_code ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · ` : ''}
                 {formatLongDate(trip.target_date)}
               </Text>
+              <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
+              <Text style={styles.tripCardTitle}>until we see each other again</Text>
             </View>
           ) : (
             <Text style={styles.entryCardLabel}>Plan your next visit</Text>
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.sm,
     color: colors.muted,
-    marginBottom: 4,
+    marginTop: 4,
   },
   tripCountdown: {
     fontFamily: fonts.bodySemiBold,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,
     color: colors.muted,
-    marginTop: 2,
+    marginBottom: 2,
   },
   unwatchedDot: {
     width: 8,
