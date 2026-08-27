@@ -180,7 +180,8 @@ only one partner's account exercised so far):
 - Answer submission works end-to-end against the live Supabase project
   (this is what surfaced and confirmed the RLS self-recursion bug in
   the select policy, since fixed via a `security definer` function)
-- DailyQuestionScreen's close button navigates back to Timeline
+- DailyQuestionScreen's close button navigates back (to wherever it was
+  opened from — Home, as of the bottom-tab-nav change)
 
 Not yet tested:
 - Full two-user pairing (only the pairing screen loading has been
@@ -202,6 +203,15 @@ not a real device): `formatDateString` returns the correct local calendar
 day (not UTC's) for a `Date` at 9pm US Pacific, the case that previously
 broke. Still not tested on an actual device with its timezone set behind
 UTC — that's the one open item on this PR before merge.
+
+Confirmed on `feat/bottom-tab-nav` (2026-08-27, static checks only —
+`tsc`, lint, and a full Metro bundle export — no simulator/device
+available this session): all imports/types resolve. Not yet tested on
+a real device: tab bar renders with correct icons/colors and no
+labels, tapping each tab, Record/Daily Question still reachable from
+Home, ClipView reachable from Timeline and from Monthly Summary's
+reel, sign-out from Settings, and that a notification tap still lands
+on the Home tab.
 
 ## Design tooling installed
 

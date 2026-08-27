@@ -11,11 +11,10 @@ import { colors } from '@/theme/colors';
 
 import AuthScreen from '@/screens/AuthScreen';
 import PairingScreen from '@/screens/PairingScreen';
-import TimelineScreen from '@/screens/TimelineScreen';
+import MainTabs from './MainTabs';
 import RecordScreen from '@/screens/RecordScreen';
 import ClipViewScreen from '@/screens/ClipViewScreen';
 import DailyQuestionScreen from '@/screens/DailyQuestionScreen';
-import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -37,7 +36,7 @@ export default function RootNavigator() {
     }
   }, [isPaired]);
 
-  // Tapping either daily reminder should land you on Timeline, not
+  // Tapping either daily reminder should land you on the Home tab, not
   // wherever the app happened to be left open — otherwise resuming from
   // a backgrounded DailyQuestion/Record screen reads as "the app dropped
   // me straight into recording/answering" rather than a deliberate entry
@@ -47,10 +46,10 @@ export default function RootNavigator() {
       () => {
         // No try/catch needed: react-navigation's navigate() doesn't
         // throw for an unmatched route — if the user isn't paired yet
-        // (no "Home" route mounted), it just no-ops, and the normal
-        // Auth -> Pairing -> Home gating already applies regardless.
+        // (no "MainTabs" route mounted), it just no-ops, and the normal
+        // Auth -> Pairing -> MainTabs gating already applies regardless.
         if (navigationRef.isReady()) {
-          navigationRef.navigate('Home');
+          navigationRef.navigate('MainTabs', { screen: 'Home' });
         }
       }
     );
@@ -81,7 +80,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Pairing" component={PairingScreen} />
         ) : (
           <>
-            <Stack.Screen name="Home" component={TimelineScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen
               name="Record"
               component={RecordScreen}
@@ -95,10 +94,6 @@ export default function RootNavigator() {
             <Stack.Screen
               name="DailyQuestion"
               component={DailyQuestionScreen}
-            />
-            <Stack.Screen
-              name="MonthlySummary"
-              component={MonthlySummaryScreen}
             />
           </>
         )}

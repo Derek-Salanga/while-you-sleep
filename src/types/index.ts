@@ -1,3 +1,5 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export interface Profile {
   id: string;
   display_name: string;
@@ -33,10 +35,17 @@ export interface DailyAnswer {
   created_at: string;
 }
 
+export type MainTabParamList = {
+  Home: undefined;
+  Timeline: undefined;
+  MonthlySummary: undefined;
+  Settings: undefined;
+};
+
 export type RootStackParamList = {
   Auth: undefined;
   Pairing: undefined;
-  Home: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Record: undefined;
   // `queue`, when present, is the full ordered list of clip ids for a
   // sequential reel (Monthly Summary's "watch this month's clips") —
@@ -44,5 +53,4 @@ export type RootStackParamList = {
   // single-clip tap from Timeline.
   ClipView: { clipId: string; queue?: string[] };
   DailyQuestion: undefined;
-  MonthlySummary: undefined;
 };

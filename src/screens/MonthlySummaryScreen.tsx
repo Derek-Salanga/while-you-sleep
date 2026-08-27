@@ -100,13 +100,6 @@ export default function MonthlySummaryScreen({ navigation }: any) {
       style={[styles.container, { paddingTop: insets.top + 20 }]}
       contentContainerStyle={styles.content}
     >
-      <Pressable
-        style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.closeButtonText}>✕ Close</Text>
-      </Pressable>
-
       <Text style={styles.title}>Monthly Summary</Text>
 
       <View style={styles.monthNav}>
@@ -216,17 +209,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
     paddingBottom: 40,
-  },
-  closeButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    marginBottom: 16,
-  },
-  closeButtonText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
   },
   title: {
     fontFamily: fonts.display,
