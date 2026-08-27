@@ -108,10 +108,10 @@ export default function RecordScreen({ navigation }: any) {
       if (insertError) throw insertError;
 
       Alert.alert('Clip sent', 'Your clip is on its way.', [
-        // goBack() rather than navigate('Timeline') — Record was reached
-        // by navigating forward from Timeline, so this returns to that
-        // same screen instance (which reloads clips on focus) instead of
-        // pushing a redundant new one onto the stack.
+        // goBack() rather than navigate('Home') — Record was reached by
+        // navigating forward from Home, so this returns to that same
+        // screen instance instead of pushing a redundant new one onto
+        // the stack.
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
