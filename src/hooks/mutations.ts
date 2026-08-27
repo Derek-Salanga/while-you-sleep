@@ -28,8 +28,18 @@ export function useUploadClip() {
       const fileInfo = await FileSystem.getInfoAsync(uri);
       if (!fileInfo.exists) throw new Error('Recorded file not found.');
 
-      const fileExt = uri.split('.').pop() ?? 'mov';
-      const storagePath = `${pairId}/${senderId}/${date}.${fileExt}`;
+      // No extension in the path, on purpose. It used to end in the
+      // recorded file's own extension -- .mov on iOS, .mp4 on Android --
+      // so re-recording the same day from the other platform wrote to a
+      // *different* path, leaving the previous file orphaned in Storage
+      // with its clips row still pointing at the new one. A constant path
+      // means the upsert below always overwrites in place.
+      const fileExt = uri.split('.').pop()?.toLowerCase() ?? 'mov';
+      const storagePath = `${pairId}/${senderId}/${date}`;
+      // With no extension in the URL, the player has only Content-Type to
+      // go on, so it has to be a real MIME type -- `video/mov` (what this
+      // sent before) isn't one.
+      const contentType = fileExt === 'mov' ? 'video/quicktime' : 'video/mp4';
 
       const fileData = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -38,7 +48,7 @@ export function useUploadClip() {
       const { error: uploadError } = await supabase.storage
         .from('clips')
         .upload(storagePath, Buffer.from(fileData, 'base64'), {
-          contentType: `video/${fileExt}`,
+          contentType,
           upsert: true,
         });
       if (uploadError) throw uploadError;

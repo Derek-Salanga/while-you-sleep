@@ -558,6 +558,71 @@ returning from background doesn't refetch on its own — add if that feels
 stale in practice), and no AsyncStorage cache persistence (offline reads
 are their own backlog item).
 
+## Storage cleanup: orphaned clip files
+
+Deleting a `clips` row never deleted its video. **A DELETE trigger can't
+fix that**, and the attempt makes it worse: `storage.objects` is metadata
+only, the bytes live in S3, and Supabase's docs are explicit that
+"deleting objects via a SQL query will not remove the object from the
+bucket and will result in the object being orphaned". A trigger doing
+`delete from storage.objects` leaves the blob alive *and* destroys the
+row the Storage API needs to ever find it again. Native
+cascade-on-row-delete is still an open feature request.
+
+A trigger calling the Storage API over HTTP (pg_net) *would* delete the
+file, but it's the wrong tool here, because **the orphans this app makes
+mostly don't come from DELETEs**:
+
+1. `clips` has no DELETE policy — no client can delete a clip at all.
+2. Rows vanish via `on delete cascade` when a pair or an `auth.users` row
+   goes; no app code runs there.
+3. `storage_path` used to end in the recorded file's own extension
+   (`.mov` on iOS, `.mp4` on Android), so re-recording the same day from
+   the other platform wrote a *different* path and orphaned the old file
+   **with its row still present**. No DELETE fires for that one, ever.
+
+So cleanup is reconciliation, not a delete hook: `cleanup_orphaned_clip_files()`
+(in `supabase/schema.sql`) re-derives the orphan set from current state —
+every object in the `clips` bucket with no matching `clips.storage_path` —
+and deletes each via the Storage API, on a nightly `pg_cron` job. That
+covers all three cases, is idempotent, and self-heals: a request that
+fails tonight is re-found and retried tomorrow, because the file is still
+orphaned. A fire-and-forget trigger gets one shot and no retry.
+
+Case 3 is also fixed at the source, in `useUploadClip` — the path no
+longer carries an extension, so the upsert always overwrites in place.
+That forced `contentType` to become a real MIME type (`video/quicktime` /
+`video/mp4`) rather than the `video/mov` it sent before, since without an
+extension in the URL the player has only Content-Type to go on. Existing
+rows keep their old extensioned paths and still play; the first
+re-record on such a day moves them to the extensionless path, and the
+cleanup job sweeps what's left behind.
+
+Deliberate properties, don't "fix" them casually:
+
+- **One HTTP request per orphan.** `net.http_delete` takes no body, so
+  the Storage API's batch form (`DELETE /object/clips` with a
+  `{"prefixes": [...]}` body) isn't reachable from pg_net. `max_deletions`
+  (default 200) caps a run. If that cap is ever genuinely hit, move the
+  job to an Edge Function that can batch — don't just raise it.
+- **A one-day `grace_period`.** A file is uploaded *before* its row is
+  inserted, so a just-uploaded file is briefly a legitimate orphan. A day
+  is far wider than that window and costs nothing.
+- **`revoke all ... from public, anon, authenticated`** on the function.
+  It's `security definer` and reads a service_role key out of Vault;
+  Postgres grants EXECUTE to `public` by default, so the revoke is
+  load-bearing, not tidiness.
+- **Errors are not surfaced.** pg_net is async — a 4xx lands in
+  `net._http_response` (pruned after 6h) and nothing reads it. That's
+  acceptable only because the job is self-healing; if orphans ever stop
+  disappearing, check that table, not `cron.job_run_details` (which only
+  sees whether the function itself ran).
+
+**Live-project setup is not in `schema.sql` and can't be** — it needs the
+service_role key. One-time, from the SQL editor:
+`select vault.create_secret('<service_role_key>', 'service_role_key', '...')`.
+The function raises a clear error if that secret is missing.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -635,6 +700,18 @@ Not yet tested:
 - Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
   resulting clip file size on a real device, and that playback quality
   still looks acceptable at 720p — see "Video capture" above
+- Storage orphan cleanup (see "Storage cleanup" above): nothing is
+  verified on the live project yet. Needs, in order: `pg_net` + `pg_cron`
+  enabled; the `service_role_key` Vault secret created; the dry-run
+  SELECT (the function's own orphan query, run standalone) returning a
+  sensible list — **if it returns nothing where the dashboard shows
+  files, `postgres` can't read `storage.objects` under RLS and the
+  `security definer` function won't work either**; one manual
+  `select cleanup_orphaned_clip_files()` deleting exactly those files and
+  nothing else; and `cron.job_run_details` showing the scheduled run
+  firing the next night. Also unverified: that clips still play after the
+  extensionless-path + MIME-type change (this is the one that can break
+  playback — worth checking on both iOS and Android).
 - TanStack Query data layer (see "Data layer" above) — nothing about it
   is device-verified yet. Needs: Timeline loads + pull-to-refresh still
   works; **recording a clip makes it appear on Timeline with no manual
