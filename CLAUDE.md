@@ -297,3 +297,8 @@ session:
   manual patching in `nano` has caused duplicated content before.
 - Prefers being told the reasoning behind a fix briefly, not just the
   fix itself.
+- Communication style: answer-first, numbered steps, minimal preamble
+  (see globally-installed "I have ADHD" skill). Prefer minimal,
+  non-over-engineered solutions (see globally-installed Ponytail
+  skill) — don't add abstraction, config options, or dependencies
+  beyond what the task actually needs.
