@@ -8,13 +8,16 @@ import React, {
 } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { Pair } from '@/types';
+import { Pair, Profile } from '@/types';
 
 interface PairingContextValue {
   session: Session | null;
   pair: Pair | null;
   loading: boolean;
   refreshPair: () => Promise<void>;
+  myProfile: Profile | null;
+  partnerProfile: Profile | null;
+  refreshProfiles: () => Promise<void>;
 }
 
 const PairingContext = createContext<PairingContextValue | undefined>(
@@ -44,6 +47,8 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [pair, setPair] = useState<Pair | null>(null);
   const [loading, setLoading] = useState(true);
+  const [myProfile, setMyProfile] = useState<Profile | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
 
   const refreshPair = useCallback(async () => {
     if (!session?.user) {
@@ -98,14 +103,45 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
     if (error) console.error('Failed to ensure profile:', error.message);
   }, [session]);
 
+  const partnerId =
+    pair && session?.user
+      ? pair.user_a === session.user.id
+        ? pair.user_b
+        : pair.user_a
+      : null;
+
+  const refreshProfiles = useCallback(async () => {
+    if (!session?.user) return;
+    const ids = [session.user.id, partnerId].filter(Boolean) as string[];
+    const { data, error } = await supabase.from('profiles').select('*').in('id', ids);
+    if (error) {
+      console.error('Failed to load profiles:', error.message);
+      return;
+    }
+    setMyProfile(data?.find((p) => p.id === session.user.id) ?? null);
+    setPartnerProfile(data?.find((p) => p.id === partnerId) ?? null);
+  }, [session, partnerId]);
+
   useEffect(() => {
     ensureProfile();
     refreshPair();
   }, [ensureProfile, refreshPair]);
 
+  useEffect(() => {
+    refreshProfiles();
+  }, [refreshProfiles]);
+
   const value = useMemo(
-    () => ({ session, pair, loading, refreshPair }),
-    [session, pair, loading, refreshPair]
+    () => ({
+      session,
+      pair,
+      loading,
+      refreshPair,
+      myProfile,
+      partnerProfile,
+      refreshProfiles,
+    }),
+    [session, pair, loading, refreshPair, myProfile, partnerProfile, refreshProfiles]
   );
 
   return (

@@ -38,7 +38,7 @@ function formatClipDate(dateStr: string): string {
 }
 
 export default function TimelineScreen({ navigation }: any) {
-  const { session, pair } = usePairing();
+  const { session, pair, myProfile, partnerProfile } = usePairing();
   const insets = useSafeAreaInsets();
   const [clips, setClips] = useState<Clip[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -94,7 +94,9 @@ export default function TimelineScreen({ navigation }: any) {
         onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardSender}>{mine ? 'You' : 'Your partner'}</Text>
+          <Text style={styles.cardSender}>
+            {mine ? myProfile?.display_name ?? 'You' : partnerProfile?.display_name ?? 'Your partner'}
+          </Text>
           {unwatched && <View style={styles.unwatchedDot} />}
         </View>
         <Text style={styles.cardDate}>

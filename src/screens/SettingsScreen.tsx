@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform, Alert, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,11 +11,13 @@ import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
 
 export default function SettingsScreen() {
-  const { session, pair } = usePairing();
+  const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
   const [editingAnniversary, setEditingAnniversary] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
 
   const loadAnniversary = useCallback(async () => {
     if (!pair) return;
@@ -68,11 +70,69 @@ export default function SettingsScreen() {
     setEditingAnniversary(false);
   };
 
+  const startEditingNickname = () => {
+    setNicknameInput(myProfile?.display_name ?? '');
+    setEditingNickname(true);
+  };
+
+  const handleSaveNickname = async () => {
+    if (!session?.user) return;
+    const trimmed = nicknameInput.trim();
+    if (!trimmed) {
+      Alert.alert('Nickname required', "It can't be blank.");
+      return;
+    }
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: trimmed })
+      .eq('id', session.user.id);
+
+    if (error) {
+      console.error('Failed to save nickname:', error.message);
+      return;
+    }
+    await refreshProfiles();
+    setEditingNickname(false);
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Settings</Text>
       {session?.user.email && (
         <Text style={styles.email}>Signed in as {session.user.email}</Text>
+      )}
+      {editingNickname ? (
+        <View style={styles.editCard}>
+          <TextInput
+            style={styles.nicknameInput}
+            value={nicknameInput}
+            onChangeText={setNicknameInput}
+            placeholder="Your nickname"
+            placeholderTextColor={colors.muted}
+            autoFocus
+            maxLength={40}
+          />
+          <Pressable
+            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            onPress={handleSaveNickname}
+          >
+            <Text style={styles.pickerSaveText}>Save</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            onPress={() => setEditingNickname(false)}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={startEditingNickname}
+        >
+          <Text style={styles.rowLabel}>Nickname</Text>
+          <Text style={styles.rowValue}>{myProfile?.display_name ?? '...'}</Text>
+        </Pressable>
       )}
       {editingAnniversary ? (
         <View style={styles.editCard}>
@@ -174,6 +234,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
+  },
+  nicknameInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
   },
   // Fixed height so the native spinner never lays out with a zero-size
   // frame mid-transition -- iOS's UIDatePicker can reset its displayed

@@ -52,9 +52,18 @@ alter table pairs enable row level security;
 alter table clips enable row level security;
 alter table daily_answers enable row level security;
 
--- Profiles: users can read/write only their own profile.
+-- Profiles: users can read/write only their own profile, and can also
+-- read (not write) their paired partner's profile -- needed to show a
+-- partner's nickname on Home/Timeline/Settings.
 create policy "profiles_select_own" on profiles
   for select using (auth.uid() = id);
+create policy "profiles_select_pair_partner" on profiles
+  for select using (
+    exists (
+      select 1 from pairs p
+      where is_pair_member(p, auth.uid()) and is_pair_member(p, profiles.id)
+    )
+  );
 create policy "profiles_upsert_own" on profiles
   for insert with check (auth.uid() = id);
 create policy "profiles_update_own" on profiles
