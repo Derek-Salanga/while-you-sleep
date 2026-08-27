@@ -110,7 +110,7 @@ export default function SettingsScreen() {
             placeholder="Your nickname"
             placeholderTextColor={colors.muted}
             autoFocus
-            maxLength={15}
+            maxLength={20}
           />
           <Pressable
             style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
