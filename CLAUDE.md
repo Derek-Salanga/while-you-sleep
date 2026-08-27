@@ -28,8 +28,8 @@ by default — ask the user if design rationale is needed).
   the date-picker saga below) aren't caught without the native Sentry
   SDK compiled into the binary, which needs a custom EAS Dev Client —
   a bigger workflow shift, not made unilaterally. `EXPO_PUBLIC_SENTRY_DSN`
-  is not yet set in this user's `.env`; get one free at sentry.io
-  (Platform: React Native) to actually start receiving reports.
+  is set in this user's `.env` as of 2026-08-27, so JS-level reporting
+  is live.
 
 ## Commands
 
@@ -201,9 +201,9 @@ the app already uses — not anchored to a shared/destination timezone.
 app, so there's no per-user timezone data to anchor to without adding
 new infrastructure; explicitly deferred, not an oversight.
 
-### Date picker: five real-device bug rounds
+### Date picker: six real-device bug rounds (resolved)
 
-Both date pickers (trip and anniversary, below) went through five
+Both date pickers (trip and anniversary, below) went through six
 rounds of real-device fixes, all caused by how
 `@react-native-community/datetimepicker` (and its container) was
 embedded — see also [[feedback_datetimepicker_no_modal]] in memory for
@@ -280,13 +280,42 @@ the reusable lesson:
    back through `onChange`. Added `minimumDate` there too (100 years
    back — no real anniversary is older). Plausible real fix, but
    unconfirmed without a repro showing the new logs.
+6. **Root cause found and fixed (2026-08-27), via the new `console.warn`
+   logs from (5).** A repro showed the JS state was correct at every
+   step (loaded row, parsed value, `onChange` value, saved value all
+   matched what was expected) — proving the epoch display was a *native
+   rendering* bug, not a data/state bug. The user then found a reliable
+   trigger: scrolling the trip wheel backward past its `minimumDate`.
+   Two more hypotheses were tried and **both disproven** by real-device
+   retests before the actual fix: (a) gating the picker's mount behind
+   `onLayout` reporting a non-zero container height (the round-4 "zero
+   frame" theory, made more rigorous) — still reproduced; (b) hoisting
+   `minimumDate`/`maximumDate` out of inline `new Date()` calls into
+   per-edit-session state, since an inline `new Date()` is a fresh
+   object every render and gets re-pushed to the native view on every
+   `onChange` mid-scroll — still reproduced. Both were reverted rather
+   than left stacked. The actual fix: **remove `minimumDate` and
+   `maximumDate` from both pickers entirely.** The bound prop itself —
+   not its staleness or the timing of when it's applied — is what
+   `@react-native-community/datetimepicker` mishandles on iOS spinner
+   mode when scrolled past it. Confirmed fixed on a real device across
+   both the original trip-then-anniversary sequence and the
+   scroll-backward repro. Range validation moved to Save-time instead:
+   `HomeScreen.tsx`'s `handleSaveTrip` rejects a trip date before today,
+   `SettingsScreen.tsx`'s `handleSaveAnniversary` rejects one after
+   today, both via a plain string-compare on `todayDateString()` /
+   `formatDateString()` and an `Alert.alert`. The temporary
+   `console.warn` calls from (5) are removed now that the bug's
+   resolved; `Sentry.init`/`Sentry.wrap` stay wired in `App.tsx` as
+   durable signal for anything else.
 
 Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the
 tab navigator, `display="spinner"` on iOS in a fixed-height container,
 `display="default"` on Android, dates always parsed through
-`parseDateString()`, both pickers now have a `minimumDate`. Debug
-`console.warn` calls are live in `SettingsScreen.tsx` — remove once
-this is confirmed fixed. Not yet re-verified on a real device.
+`parseDateString()`, **neither picker has `minimumDate`/`maximumDate`**
+— date-range rules are enforced on Save via a plain string compare
+instead. Confirmed fixed on a real device (2026-08-27), single-account
+pass only — see "Testing status" below for what's still unverified.
 
 ### Anniversary day-counter
 
@@ -294,8 +323,10 @@ A separate, independent feature sharing the same shape: a single
 shared "together since" date per pair, in its own `pair_anniversary`
 table (not a column on `pair_trips` — deliberately kept separate since
 it's a distinct feature with a different entry point). Set from a row
-on `SettingsScreen.tsx` (native date picker, `maximumDate` capped at
-today), shown read-only on Home as "N days together" under the title.
+on `SettingsScreen.tsx` (native date picker; future dates are rejected
+on Save rather than via a picker `maximumDate` — see "Date picker: six
+real-device bug rounds" above), shown read-only on Home as "N days
+together" under the title.
 Same RLS shape as `pair_trips`, same local-calendar-day math.
 
 Originally saved on every `onChange` (i.e. every wheel-stop), with no
@@ -354,36 +385,19 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: found broken five times on
-  real-device passes (2026-08-27) — see "Date picker: five real-device
-  bug rounds" under "Trips/Goals feature" above for all five. (1)
-  tapping the trip card crashed the app, and the calendar was mostly
-  clipped/not visible for both pickers (custom `Modal` wrapping); (2)
-  after that fix, tapping the trip card crashed again (iOS
-  `display="compact"`'s popover); (3) after that fix, setting a trip
-  date then opening the Settings anniversary picker crashed (a second
-  `display="inline"` picker mounting in a different, already-mounted
-  tab); (4) after that fix, the anniversary wheel showed Dec 31, 1969
-  instead of the previously-set date in the same "trip, then
-  anniversary" sequence; (5) after that fix, the exact same symptom
-  still reproduced, meaning (4)'s two hardening attempts were most
-  likely not the actual cause — see the numbered section for what's
-  different this round: temporary `console.warn` debug logging plus an
-  actual `Sentry.init`/`Sentry.wrap` wire-up in `App.tsx` (was an
-  unused dependency until now — `EXPO_PUBLIC_SENTRY_DSN` still isn't
-  set in this user's `.env`, so nothing reports yet), and a
-  `minimumDate` added to the anniversary picker (unconfirmed fix,
-  worth checking the new logs against even if it doesn't fully resolve
-  it). Trip location is now a country picker (with flag) instead of
-  free text, the trip card/edit-form have an "Our next trip"/"until we
-  see each other again" title, and the anniversary picker now requires
-  an explicit Save — none of this has been tested at all yet. Not yet
-  re-verified on a real device since the latest fix. Still needs both
-  a single-account pass (set/edit a trip incl. country, and an
-  anniversary date, confirm both persist, show the correct previously-
-  set value when reopened, and the countdown/day-count are correct)
-  and a two-account pass (confirm either partner can set or overwrite
-  either one and both see the same values)
+- Trips/Goals and anniversary day-counter: **two-account pass** —
+  confirm either partner can set or overwrite either the trip or the
+  anniversary and both partners see the same values.
+
+Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
+single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
+six real-device bug rounds" above) is fixed — both the original
+trip-then-anniversary sequence and the scroll-backward repro no longer
+show it. Setting/editing a trip (incl. country) and an anniversary date
+both persist and show the correct previously-set value when reopened;
+countdown/day-count are correct. Save-time range validation (trip must
+be today or later, anniversary must be today or earlier) not yet
+explicitly tried against a rejection case — worth a quick check.
 
 Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
 not a real device): `formatDateString` returns the correct local calendar
