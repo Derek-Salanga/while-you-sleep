@@ -383,10 +383,16 @@ create policy "clip_files_pair_members_write" on storage.objects
 -- SETUP (one-time, live project -- see "Storage cleanup" in CLAUDE.md):
 --   1. Enable `pg_net` and `pg_cron` (Dashboard -> Database ->
 --      Extensions), or run the create extension statements below.
---   2. Store the service_role key in Vault. Run this ONCE with the real
---      key, from the SQL editor -- never commit the key:
+--   2. Store a server-side API key in Vault. Use a **secret key**
+--      (`sb_secret_...`, Settings -> API Keys), NOT the legacy
+--      `service_role` JWT -- legacy keys are deleted late 2026, and this
+--      job would then fail silently (see "Errors are not surfaced" in
+--      CLAUDE.md). The Vault secret's *name* stays `service_role_key`
+--      either way; that string is just what the lookup below matches.
+--      Run this ONCE with the real key, from the SQL editor -- never
+--      commit the key:
 --        select vault.create_secret(
---          '<service_role_key>',
+--          '<sb_secret_...>',
 --          'service_role_key',
 --          'Storage API auth for cleanup_orphaned_clip_files'
 --        );
