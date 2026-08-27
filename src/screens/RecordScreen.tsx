@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 // expo-file-system's default export moved to a new File/Directory-based
 // API in the SDK 54 version bump; the legacy import keeps getInfoAsync /
@@ -14,6 +14,15 @@ import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
 const MAX_DURATION_SECONDS = 60;
+// Caps file size at capture time rather than compressing after the fact --
+// react-native-compressor/ffmpeg-kit-style libraries ship native code that
+// needs a custom EAS Dev Client build, not Expo Go (same constraint already
+// noted for Monthly Summary's recap video). 720p + this bitrate caps a full
+// 60s clip at roughly 19MB (2.5Mbps * 60s / 8) regardless of the source
+// device's camera capabilities -- previously uncompressed, so a single 4K
+// device's clip could run into the hundreds of MB on Supabase's 1GB
+// free-tier bucket.
+const VIDEO_BITRATE = 2_500_000; // 2.5 Mbps
 
 export default function RecordScreen({ navigation }: any) {
   const { session, pair } = usePairing();
@@ -58,6 +67,11 @@ export default function RecordScreen({ navigation }: any) {
     try {
       const video = await cameraRef.current.recordAsync({
         maxDuration: MAX_DURATION_SECONDS,
+        // HEVC roughly halves file size vs. H.264 at the same visual
+        // quality; iOS-only option (every iPhone since the 7 supports it).
+        // No Android equivalent in expo-camera's recordAsync -- videoQuality
+        // + videoBitrate on CameraView below still cap it there.
+        ...(Platform.OS === 'ios' ? { codec: 'hvc1' as const } : {}),
       });
       if (video?.uri) {
         await handleUpload(video.uri);
@@ -128,6 +142,8 @@ export default function RecordScreen({ navigation }: any) {
         style={styles.camera}
         facing={facing}
         mode="video"
+        videoQuality="720p"
+        videoBitrate={VIDEO_BITRATE}
       />
       <Pressable
         style={({ pressed }) => [
