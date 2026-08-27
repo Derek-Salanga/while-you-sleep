@@ -147,6 +147,24 @@ weekdays — a simple wrapped grid, not a literal calendar layout), and a
 otherwise behaves exactly as before (single clip, manual controls,
 no auto-advance) for the normal Timeline-card tap path.
 
+## Trips/Goals feature
+
+Scoped as a single shared "next visit" countdown, not multiple/past
+trips — the least-defined item on the original feature backlog, so the
+mechanic was picked via AskUserQuestion before building: one active
+trip, either partner can set/edit it, shown as a card on Home.
+
+New `pair_trips` table, one row per pair (`pair_id` is the primary
+key — there's nothing else to key on since it's a singleton value, not
+a per-day record like `clips`/`daily_answers`). RLS reuses
+`is_pair_member`, same read/write-by-either-partner shape as `clips`'
+policies — no reveal-gating, since there's nothing to hide here.
+`HomeScreen.tsx` fetches/saves it inline (matching the rest of the
+codebase's per-screen query style, no data-layer file), with a native
+date picker (`@react-native-community/datetimepicker`) in a bottom
+sheet modal. `set_by` is overwritten on every edit, so it just tracks
+who set it most recently, not a history.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -197,6 +215,12 @@ Not yet tested:
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
+- Trips/Goals: not tested at all yet — the `pair_trips` table/RLS
+  hasn't been run against the live Supabase project, and the Home card
+  + date picker have only been type-checked and linted, not run in
+  Expo Go. Needs both a single-account pass (set/edit a date, confirm
+  it persists) and a two-account pass (confirm either partner can set
+  or overwrite it and both see the same value)
 
 Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
 not a real device): `formatDateString` returns the correct local calendar
