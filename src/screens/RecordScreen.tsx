@@ -55,6 +55,20 @@ export default function RecordScreen({ navigation }: any) {
   const [partnerClip, setPartnerClip] = useState<Clip | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
+  const [secondsRemaining, setSecondsRemaining] = useState(MAX_DURATION_SECONDS);
+
+  // Purely a display countdown -- recordAsync's own maxDuration is what
+  // actually stops the recording, this just mirrors it on screen.
+  useEffect(() => {
+    if (!isRecording) {
+      setSecondsRemaining(MAX_DURATION_SECONDS);
+      return;
+    }
+    const interval = setInterval(() => {
+      setSecondsRemaining((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRecording]);
 
   const loadTodayClips = useCallback(async () => {
     if (!pair || !session?.user) return;
@@ -318,6 +332,11 @@ export default function RecordScreen({ navigation }: any) {
       <View style={[styles.questionBanner, { top: insets.top + 12 }]}>
         <Text style={styles.questionBannerText}>{question}</Text>
       </View>
+      {isRecording && (
+        <View style={styles.timerPill}>
+          <Text style={styles.timerText}>{secondsRemaining}s</Text>
+        </View>
+      )}
       <View style={styles.controls}>
         <Pressable
           style={({ pressed }) => [
@@ -433,6 +452,20 @@ const styles = StyleSheet.create({
   },
   recordButtonActive: {
     borderRadius: 12,
+  },
+  timerPill: {
+    position: 'absolute',
+    bottom: 132,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  timerText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.surface,
   },
   pressed: {
     opacity: 0.7,
