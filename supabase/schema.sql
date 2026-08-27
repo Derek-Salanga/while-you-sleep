@@ -158,6 +158,7 @@ create policy "daily_answers_insert_own_as_user" on daily_answers
 create table if not exists pair_trips (
   pair_id uuid primary key references pairs (id) on delete cascade,
   target_date date not null,
+  location text,
   set_by uuid not null references auth.users (id) on delete cascade,
   updated_at timestamptz not null default now()
 );
@@ -193,6 +194,51 @@ create policy "pair_trips_update_pair_members" on pair_trips
     and exists (
       select 1 from pairs p
       where p.id = pair_trips.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+-- Pair anniversary: a single shared "together since" date per pair,
+-- separate from pair_trips (distinct feature, set from Settings rather
+-- than from the Home trip card). Same either-partner read/write shape,
+-- no reveal-gating.
+create table if not exists pair_anniversary (
+  pair_id uuid primary key references pairs (id) on delete cascade,
+  anniversary_date date not null,
+  set_by uuid not null references auth.users (id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+
+alter table pair_anniversary enable row level security;
+
+create policy "pair_anniversary_select_pair_members" on pair_anniversary
+  for select using (
+    exists (
+      select 1 from pairs p
+      where p.id = pair_anniversary.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+create policy "pair_anniversary_insert_pair_members" on pair_anniversary
+  for insert with check (
+    auth.uid() = set_by
+    and exists (
+      select 1 from pairs p
+      where p.id = pair_anniversary.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+create policy "pair_anniversary_update_pair_members" on pair_anniversary
+  for update using (
+    exists (
+      select 1 from pairs p
+      where p.id = pair_anniversary.pair_id and is_pair_member(p, auth.uid())
+    )
+  )
+  with check (
+    auth.uid() = set_by
+    and exists (
+      select 1 from pairs p
+      where p.id = pair_anniversary.pair_id and is_pair_member(p, auth.uid())
     )
   );
 

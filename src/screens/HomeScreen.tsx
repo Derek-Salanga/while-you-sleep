@@ -1,24 +1,35 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, Platform, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { todayDateString, formatDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
-import { PairTrip } from '@/types';
+import { PairTrip, PairAnniversary } from '@/types';
 
-function tripCountdownLabel(targetDate: string): string {
-  const diffDays = Math.round(
-    (new Date(targetDate + 'T00:00:00').getTime() -
-      new Date(todayDateString() + 'T00:00:00').getTime()) /
+function daysBetween(fromDate: string, toDate: string): number {
+  return Math.round(
+    (new Date(toDate + 'T00:00:00').getTime() - new Date(fromDate + 'T00:00:00').getTime()) /
       86400000
   );
+}
+
+function tripCountdownLabel(targetDate: string): string {
+  const diffDays = daysBetween(todayDateString(), targetDate);
   if (diffDays === 0) return 'Today';
   if (diffDays < 0) return `${-diffDays} days ago`;
   return `${diffDays} days`;
+}
+
+function formatLongDate(dateString: string): string {
+  return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export default function HomeScreen({ navigation }: any) {
@@ -26,7 +37,10 @@ export default function HomeScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const [answeredToday, setAnsweredToday] = useState(false);
   const [trip, setTrip] = useState<PairTrip | null>(null);
+  const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerDate, setPickerDate] = useState(new Date());
+  const [pickerLocation, setPickerLocation] = useState('');
 
   const loadQuestionStatus = useCallback(async () => {
     if (!pair || !session?.user) return;
@@ -60,19 +74,46 @@ export default function HomeScreen({ navigation }: any) {
     setTrip(data);
   }, [pair]);
 
+  const loadAnniversary = useCallback(async () => {
+    if (!pair) return;
+    const { data, error } = await supabase
+      .from('pair_anniversary')
+      .select('*')
+      .eq('pair_id', pair.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to load anniversary:', error.message);
+      return;
+    }
+    setAnniversary(data);
+  }, [pair]);
+
   useFocusEffect(
     useCallback(() => {
       loadQuestionStatus();
       loadTrip();
-    }, [loadQuestionStatus, loadTrip])
+      loadAnniversary();
+    }, [loadQuestionStatus, loadTrip, loadAnniversary])
   );
 
-  const handleSaveTrip = async (date: Date) => {
+  const openPicker = () => {
+    setPickerDate(trip ? new Date(trip.target_date + 'T00:00:00') : new Date());
+    setPickerLocation(trip?.location ?? '');
+    setPickerVisible(true);
+  };
+
+  const handleSaveTrip = async () => {
     if (!pair || !session?.user) return;
     const { data, error } = await supabase
       .from('pair_trips')
       .upsert(
-        { pair_id: pair.id, target_date: formatDateString(date), set_by: session.user.id },
+        {
+          pair_id: pair.id,
+          target_date: formatDateString(pickerDate),
+          location: pickerLocation.trim() || null,
+          set_by: session.user.id,
+        },
         { onConflict: 'pair_id' }
       )
       .select()
@@ -83,20 +124,17 @@ export default function HomeScreen({ navigation }: any) {
       return;
     }
     setTrip(data);
-    if (Platform.OS !== 'ios') setPickerVisible(false);
-  };
-
-  const handlePickerChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS !== 'ios' && event.type !== 'set') {
-      setPickerVisible(false);
-      return;
-    }
-    if (date) handleSaveTrip(date);
+    setPickerVisible(false);
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Home</Text>
+      {anniversary && (
+        <Text style={styles.anniversaryText}>
+          {daysBetween(anniversary.anniversary_date, todayDateString())} days together
+        </Text>
+      )}
       <Pressable
         style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
         onPress={() => navigation.navigate('DailyQuestion')}
@@ -104,19 +142,13 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.entryCardLabel}>Today's question</Text>
         {!answeredToday && <View style={styles.unwatchedDot} />}
       </Pressable>
-      <Pressable
-        style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
-        onPress={() => setPickerVisible(true)}
-      >
+      <Pressable style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]} onPress={openPicker}>
         {trip ? (
           <View>
             <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
             <Text style={styles.tripDate}>
-              {new Date(trip.target_date + 'T00:00:00').toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              {trip.location ? `${trip.location} · ` : ''}
+              {formatLongDate(trip.target_date)}
             </Text>
           </View>
         ) : (
@@ -137,20 +169,33 @@ export default function HomeScreen({ navigation }: any) {
       >
         <View style={styles.pickerBackdrop}>
           <View style={styles.pickerSheet}>
-            <DateTimePicker
-              value={trip ? new Date(trip.target_date + 'T00:00:00') : new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'default'}
-              onChange={handlePickerChange}
+            <Text style={styles.pickerLabel}>Where are you meeting?</Text>
+            <TextInput
+              style={styles.pickerInput}
+              placeholder="Tokyo, Japan"
+              placeholderTextColor={colors.muted}
+              value={pickerLocation}
+              onChangeText={setPickerLocation}
             />
-            {Platform.OS === 'ios' && (
-              <Pressable
-                style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
-                onPress={() => setPickerVisible(false)}
-              >
-                <Text style={styles.pickerCloseText}>Done</Text>
-              </Pressable>
-            )}
+            <DateTimePicker
+              value={pickerDate}
+              mode="date"
+              minimumDate={new Date()}
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={(_, date) => date && setPickerDate(date)}
+            />
+            <Pressable
+              style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+              onPress={handleSaveTrip}
+            >
+              <Text style={styles.pickerSaveText}>Save</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+              onPress={() => setPickerVisible(false)}
+            >
+              <Text style={styles.pickerCloseText}>Cancel</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -164,6 +209,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
     color: colors.ink,
+    marginBottom: 8,
+  },
+  anniversaryText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
     marginBottom: 16,
   },
   entryCard: {
@@ -232,14 +283,42 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: 20,
   },
+  pickerLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+    marginBottom: 8,
+  },
+  pickerInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  pickerSave: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  pickerSaveText: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.surface,
+  },
   pickerClose: {
     alignItems: 'center',
     paddingVertical: 12,
-    marginTop: 8,
   },
   pickerCloseText: {
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
-    color: colors.primary,
+    color: colors.muted,
   },
 });
