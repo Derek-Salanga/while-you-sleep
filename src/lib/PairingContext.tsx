@@ -69,7 +69,13 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('profiles').upsert(
         {
           id: user.id,
-          display_name: user.email?.split('@')[0] ?? 'Anonymous',
+          // Truncated to match the <= 20 char check constraint on
+          // profiles.display_name (schema.sql) and SettingsScreen's
+          // maxLength. An email prefix can easily exceed it --
+          // `dereksalanga+partner2` is 21 -- and this default is
+          // generated here, so it has to respect the limit itself
+          // rather than hand the DB a value it will reject.
+          display_name: (user.email?.split('@')[0] ?? 'Anonymous').slice(0, 20),
         },
         { onConflict: 'id', ignoreDuplicates: true }
       );
