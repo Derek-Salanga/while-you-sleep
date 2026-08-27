@@ -156,7 +156,11 @@ trip (date + meeting country), either partner can set/edit it, shown
 as a card on Home. Tapping the card reveals an inline edit form (a
 country picker + native date picker,
 `@react-native-community/datetimepicker`) in place of the card; saving
-is one upsert on `pair_id`.
+is one upsert on `pair_id`. The set-state card reads top to bottom:
+country/date line, the countdown, then a muted "until we see each
+other again" label at the bottom — per user request, deliberately not
+the more literal "Our next trip" (still used as the edit form's own
+header, a different context, unchanged).
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -245,6 +249,12 @@ it's a distinct feature with a different entry point). Set from a row
 on `SettingsScreen.tsx` (native date picker, `maximumDate` capped at
 today), shown read-only on Home as "N days together" under the title.
 Same RLS shape as `pair_trips`, same local-calendar-day math.
+
+Originally saved on every `onChange` (i.e. every wheel-stop), with no
+way to review before it took effect — changed to stage the picked date
+locally and only save on an explicit Save button (Cancel discards),
+mirroring the trip form's existing Save/Cancel pattern in
+`HomeScreen.tsx`, per user request.
 
 ## Known transient error: "JWT issued at future"
 
