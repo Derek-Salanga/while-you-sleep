@@ -19,12 +19,24 @@ const TAB_ICONS: Record<keyof MainTabParamList, NavIconKey> = {
   Settings: 'settings',
 };
 
+// Icon-only tabs (tabBarShowLabel: false below) still need a spoken label
+// for screen readers — without this it falls back to the raw route name
+// (e.g. "MonthlySummary" read aloud).
+const TAB_ACCESSIBILITY_LABELS: Record<keyof MainTabParamList, string> = {
+  Home: 'Home',
+  Timeline: 'Timeline',
+  MonthlySummary: 'Month',
+  Settings: 'Settings',
+};
+
 export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarAccessibilityLabel:
+          TAB_ACCESSIBILITY_LABELS[route.name as keyof MainTabParamList],
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
