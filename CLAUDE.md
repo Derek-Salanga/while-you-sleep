@@ -731,6 +731,15 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
+- HeroCard on TimelineScreen (`feat/hero-card`): split night-blue/day-orange
+  card with a crossover-colored heart (react-native-svg, viewBox path — no
+  bespoke SVG source exists in the repo, so this uses a plain heart
+  silhouette) centered at the seam. `npx tsc --noEmit` and `npm run lint`
+  pass, but nothing in this environment can render RN UI. **Both the day
+  counter ("Day 14") and the two city names are hardcoded placeholders** —
+  no schema field backs either yet (no "days apart" concept exists, and
+  `profiles` has no location field) — needs an on-device look, and a
+  decision on real data sources before this is more than decorative.
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
