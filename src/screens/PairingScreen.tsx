@@ -9,6 +9,7 @@ import Screen from '@/components/ui/Screen';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import CrossoverHeart from '@/components/CrossoverHeart';
 
 // Generates a short, human-friendly invite code, e.g. "SUNSET-42"
 function generateInviteCode(): string {
@@ -86,10 +87,15 @@ export default function PairingScreen() {
 
       {myCode ? (
         <Card elevated style={styles.card}>
+          <CrossoverHeart size={64} />
+          <Text style={styles.waitingHeadline}>
+            Waiting for your other half
+          </Text>
           <Text style={styles.cardLabel}>Your invite code</Text>
           <Text style={styles.code}>{myCode}</Text>
           <Text style={styles.helper}>
-            Send this to your partner. Waiting for them to join…
+            Share this code with your partner. Once they join, you can both
+            start sending daily clips.
           </Text>
         </Card>
       ) : (
@@ -150,6 +156,14 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     marginBottom: 24,
+  },
+  waitingHeadline: {
+    fontFamily: fonts.display,
+    fontSize: fontSizes.lg,
+    color: colors.ink,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 12,
   },
   cardLabel: {
     fontFamily: fonts.body,

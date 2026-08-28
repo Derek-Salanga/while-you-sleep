@@ -731,6 +731,18 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
+- Illustrated empty states (`feat/empty-states`): new shared
+  `src/components/CrossoverHeart.tsx` (the icon's crossover-split heart as
+  vector, react-native-svg, `size` prop) used in two places — TimelineScreen's
+  no-clips state (heart + Fraunces "Your story starts here" + warmer invite
+  copy, replacing the one-line "No clips yet") and PairingScreen's
+  waiting-for-partner card (heart + Fraunces "Waiting for your other half"
+  above the still-prominent invite code). TimelineScreen's *error* state is
+  deliberately left as plain muted text — a warm invitation would read wrong
+  on a failure. `npx tsc --noEmit` and `npm run lint` pass; needs an on-device
+  look at both states (the pairing one needs an unclaimed invite to sit on).
+  Note `CrossoverHeart` duplicates the inline heart path in `HeroCard.tsx` if
+  PR #27 also merges — collapse HeroCard onto this shared component then.
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
