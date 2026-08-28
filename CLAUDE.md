@@ -751,17 +751,40 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   (this is what surfaced and confirmed the RLS self-recursion bug in
   the select policy, since fixed via a `security definer` function)
 
-Confirmed on a real device (2026-08-28, iPad/Expo Go): the app launches and
-the UI visibly reflects the merged 2026-08 UI pass — #26 (Fraunces/Inter
-loading), #27 (HeroCard), #28 (story rings), #30 (illustrated empty states)
-and #33 (heart de-duplication). Reported as "the UI updated as expected",
-not graded feature by feature, so the specifics under "Not yet tested" below
-are still open. **#29, #31 and #32 merged after this check** and have not
-been looked at on a device at all.
+Confirmed on a real device by screenshot (2026-08-28, iPad/Expo Go) across
+the whole 2026-08 UI pass:
+
+- **#26 fonts** — Fraunces renders on the Home and Timeline titles, Inter on
+  body text. Not a system fallback.
+- **#27 HeroCard** — split card renders, and the heart halves do take the
+  *opposite* side's color, which is the crossover the icon uses.
+- **#28 story rings** — both rings render with avatar initials.
+- **#29 gradient record button** — the Home CTA carries the blue-to-orange
+  gradient, and the RecordScreen capture button is a gradient circle rather
+  than the old solid red. **The regression check passed**: Home's
+  trip-planning card is still a plain white card, unaffected by splitting
+  `recordCta` out of the shared `entryCard` style.
+- **#31 frosted prompt card** — genuinely blurred over the live viewfinder,
+  orange "TODAY'S CLIP" eyebrow, prompt in Fraunces, clearly legible.
+- **#32 entrance motion** — Timeline cards fly in on mount, and it reads as
+  brief rather than a slow cascade.
+- **#33** — one heart, unchanged in appearance.
 
 That the app boots is itself load-bearing here: until `react-native-worklets`
 was pinned to 0.5.1, every branch carrying react-native-reanimated died at
 startup before rendering (see "SDK version notes" above).
+
+**That pass also found two defects, both regressions from this work, fixed
+on `fix/dot-contrast-and-ring-label` and confirmed by a follow-up
+screenshot:** the Home CTA's unanswered dot was `colors.error` salmon on the
+gradient's amber end and so was invisible (it was rendering the whole time —
+the "you haven't answered today" signal was silently lost the moment that
+card stopped being white); and `StoryRings`' container was pinned to the
+ring's own 64px, so a 20-char `display_name` wrapped mid-word
+("dereksalan / ga+part1"). Dot is now white; the label has its own width and
+ellipsizes on one line, with the ring and avatar moved into an inner
+RING_SIZE box so the avatar's absolute offsets still resolve against the
+ring. Both verified on device.
 
 
 Not yet tested:
@@ -809,35 +832,38 @@ Not yet tested:
 - Trips/Goals and anniversary day-counter: **two-account pass** —
   confirm either partner can set or overwrite either the trip or the
   anniversary and both partners see the same values.
-- The 2026-08 UI pass (#26-#33), feature by feature. The screens render
-  (see the confirmed note above), but none of this was graded:
-  - #26 fonts: that Fraunces actually renders rather than falling back to
-    the system font, and that the splash holds with no flash of unstyled
-    text.
+- Residue from the 2026-08 UI pass. Most of it is confirmed by screenshot
+  (see the note above); what that pass could **not** reach:
   - #27 HeroCard: **"Day 14" and both city names are hardcoded
     placeholders** with no schema field behind them — no "days apart"
     concept exists (`pair_anniversary` tracks the opposite, days
-    *together*) and `profiles` has no location column. This is live in the
-    Timeline header today, so it needs a data-source decision, not just a
-    look.
-  - #28 story rings: the watched/unwatched ring colors at the real
-    reveal-gating boundary. RLS hides a partner's clip until you've posted
-    your own for that day, so "partner hasn't posted" and "posted but still
-    gated" currently render identically (muted grey). Needs a two-account
-    pass to judge whether that reads right or wants a third state.
-  - #29 gradient record button: the gradient's actual appearance and the
-    press-scale feel, plus a check that Home's trip-planning card still
-    looks right — its style was split out of the shared `entryCard`
-    unchanged when the record CTA got its own.
-  - #30 empty states: both of them. Timeline's needs an account with no
-    clips; PairingScreen's needs an unclaimed invite to sit on.
-  - #31 frosted prompt card: legibility over a live camera feed in both
-    bright and dark scenes. **Android blur is unverified** —
+    *together*) and `profiles` has no location column. Now visually
+    confirmed as the most prominent thing on the Timeline, so this needs a
+    data-source decision, not a look.
+  - #28 story rings: **the rings and the Timeline contradict each other.**
+    Rings only consider *today's* clips, so a partner clip from yesterday
+    that you haven't watched shows a grey (watched-looking) ring while the
+    Timeline card directly below it shows a red unwatched dot — both
+    visible in the same screenshot. Needs a decision: fall back to the most
+    recent unwatched clip, keep it today-only and accept the mismatch, or
+    drop the ring's watched-state and let the Timeline own that signal.
+  - #28 story rings, separately: the ring colors at the real reveal-gating
+    boundary. RLS hides a partner's clip until you've posted your own that
+    day, so "partner hasn't posted" and "posted but still gated" render
+    identically. Needs a two-account pass.
+  - #26 fonts: that the splash holds with no flash of unstyled text. The
+    fonts themselves are confirmed; only the splash timing is unobserved.
+  - #29 gradient record button: the press-scale *feel* (a still screenshot
+    can't show it). Appearance and the trip-card regression are confirmed.
+  - #30 empty states: neither has been seen. Timeline's needs an account
+    with no clips; PairingScreen's needs an unclaimed invite to sit on.
+  - #31 frosted prompt card: **Android blur is unverified** —
     `experimentalBlurMethod="dimezisBlurView"` is set, without which
     BlurView degrades to plain translucency there, and this setup is
-    iPad-only.
-  - #32 entrance motion: that it reads as subtle rather than janky, and
-    that scrolling a longer timeline doesn't re-trigger it.
+    iPad-only. iOS legibility is confirmed.
+  - #32 entrance motion: that scrolling a longer timeline doesn't
+    re-trigger it, and that pull-to-refresh doesn't either. The mount
+    animation itself is confirmed.
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
 single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
