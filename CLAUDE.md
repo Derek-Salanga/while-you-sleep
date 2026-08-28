@@ -12,6 +12,9 @@ by default — ask the user if design rationale is needed).
   below before touching any Expo package version)
 - TypeScript
 - Supabase: Auth (email OTP), Postgres with Row Level Security, Storage
+- TanStack Query (`@tanstack/react-query` v5) as the data layer — see
+  "Data layer" below. Partially adopted: some screens still query
+  Supabase inline.
 - React Navigation (native stack)
 - expo-camera for recording, expo-video for playback (not expo-av —
   deprecated in this SDK range)
@@ -51,8 +54,15 @@ src/
   lib/
     supabase.ts                Supabase client (reads via expo-constants)
     PairingContext.tsx         session + pair state, app-wide
-    date.ts                    todayDateString() — shared YYYY-MM-DD helper
+    date.ts                    YYYY-MM-DD helpers — LOCAL (picked dates)
+                               vs UTC (shared day boundary); see
+                               "Two day boundaries" below
+    date.test.ts               standalone self-check for the above,
+                               run with `node src/lib/date.test.ts`
     notifications.ts           schedules the daily question/clip local reminders
+  hooks/
+    queries.ts                 usePair / useProfile / useClips / useClip
+    mutations.ts               useUploadClip / useMarkClipViewed
   data/
     dailyQuestions.ts          bundled prompt pool + date -> prompt selector
   navigation/
@@ -60,12 +70,13 @@ src/
   screens/
     AuthScreen.tsx              email OTP sign-in (send code -> verify code)
     PairingScreen.tsx           create/join pair via invite code
-    RecordScreen.tsx            camera capture + upload to Supabase Storage
+    RecordScreen.tsx            shows today's question, captures the video
+                                answer (+ optional caption), reveal state
+                                once both partners have posted
     TimelineScreen.tsx          card feed of clips + question/summary entry cards
     ClipViewScreen.tsx          expo-video playback; optional `queue` param
                                 plays a sequential reel (Monthly Summary) instead
                                 of a single clip
-    DailyQuestionScreen.tsx     answer/reveal flow for the daily question
     MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
                                 month's clips" reel
   theme/
@@ -120,23 +131,75 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
-## Daily Question feature
+## Daily Question feature (video daily question, merged with the clip)
 
 Each pair gets one shared prompt per day, picked deterministically from
 a bundled list (`src/data/dailyQuestions.ts`) by date — no server-side
-scheduling needed, both partners always see the same prompt. Each
-partner submits one text answer per day (`daily_answers` table, unique
-per pair/user/date, same shape as `clips`'s unique constraint). Answers
-are a reveal mechanic like clips: you can see your partner's answer
-only once you've submitted your own for that day. No editing after
-submit, same as clips.
+scheduling needed, both partners always see the same prompt.
 
-Two local (on-device, not push) notifications fire daily at 8:00 PM —
-one nudging toward the question, one toward recording the clip. They're
-scheduled once a pairing exists (`RootNavigator`), by fixed identifier
-so re-scheduling replaces rather than duplicates. They fire on schedule
-regardless of whether you've already done either that day — no
-suppression logic yet; a reasonable follow-up, not v1.
+**Originally a standalone text-answer feature** (`daily_answers` table,
+its own `DailyQuestionScreen`, separate from the general daily clip).
+**Merged into the clip itself** per user request: there's no more
+separate free-form diary clip and text answer — the one daily video
+*is* the answer to today's question, capped at 30s (down from the old
+general clip's 60s) since it's now always a direct answer, not a
+free-form update. `RecordScreen.tsx` shows the question as an overlay
+while framing the shot, and after recording adds an optional short-text
+caption step (`clips.caption_text`, nullable) before sending — "answer
+in both video and text" per the user's request when scoping this.
+`DailyQuestionScreen.tsx` and its `DailyQuestion` nav route are removed
+entirely; `Record` is now the single entry point, reached from one
+merged Home card (previously two: a "Today's question" card and a
+separate "Record today's clip" button).
+
+`RecordScreen` has four phases: `loading` (checking today's clips),
+`camera` (question overlay + capture), `review` (caption input +
+Send/Retake — no video preview, just re-record if you don't like it),
+and `revealed` (your answer + your partner's, once they've posted —
+tapping either navigates to the existing `ClipViewScreen` rather than
+building inline playback). Landing back on this screen later in the
+day (e.g. partner posts after you) goes straight to `revealed` without
+ever requesting camera permission, since only the `camera`/`review`
+phases need it.
+
+Same reveal mechanic `daily_answers` had: you can't see your partner's
+clip for a given day until you've posted your own for that day. This
+now applies to `clips` generally (`has_own_clip()`, mirroring
+`has_own_daily_answer()`) — not just going forward, since RLS can't
+distinguish "old" from "new" rows. In practice this only matters for a
+day you haven't posted on yet; past days are almost always already
+mutually visible by the time anyone looks back at them. Flagged to and
+accepted by the user before implementing.
+
+`daily_answers` and its RLS policies are left in place, just no longer
+written to — no screen ever showed historical answers, so nothing
+about removing `DailyQuestionScreen` makes old data newly inaccessible;
+it's just retained rather than deleted.
+
+One local (on-device, not push) reminder now fires daily at **20:00
+UTC** — not 8pm local — scheduled once a pairing exists
+(`RootNavigator`), by fixed identifier so re-scheduling replaces rather
+than duplicates. Previously two separate reminders (question + clip) at
+8pm local. `notifications.ts` explicitly cancels the old
+`daily-clip-reminder` identifier on every schedule call so a device that
+already had it scheduled from before this merge doesn't keep firing a
+reminder for a flow that no longer exists.
+
+Pinned to UTC so it lines up with the pair's shared day boundary (see
+"Two day boundaries" below): at a local 8pm, anyone far enough west was
+reminded *after* the UTC day had already rolled over, so the nudge
+pointed at the next day's question. 20:00 UTC always lands 4 hours
+before the boundary, and both partners get it simultaneously. Tradeoff:
+the local hour now varies (13:00 at UTC-7, 05:00 in Tokyo) instead of
+being a consistent evening nudge.
+
+expo-notifications' `DAILY` trigger takes a device-local hour/minute
+with no timezone field, so `utcTimeToLocal()` (`src/lib/date.ts`)
+translates it per device. It returns minutes as well as hours because
+not every offset is a whole hour — India is UTC+5:30, Nepal +5:45 — and
+it's recomputed on every call so a DST transition self-corrects on the
+next app launch (between the transition and that launch the reminder can
+be an hour off).
 
 ## Monthly Summary feature
 
@@ -395,6 +458,171 @@ file to compress. Not yet verified on a real device — worth confirming
 actual clip file sizes land in the expected range and playback quality
 is still acceptable at 720p for a phone-screen daily clip.
 
+## Two day boundaries: local vs. the pair's shared (UTC) day
+
+`src/lib/date.ts` deliberately exposes two conventions. Mixing them up
+causes real bugs, so pick by *purpose*, not by whichever is nearby:
+
+- **A calendar date the user picked on a wheel** (trip date,
+  anniversary) → `formatDateString()` / `todayDateString()`, which use
+  LOCAL components. Picking "June 19" must store `2026-06-19` whatever
+  the device's offset, so these must never go through `toISOString()`.
+  Also used for comparing a picked date against "today" (is this trip
+  in the past?) and for countdowns off those dates — all of which
+  should feel local.
+- **The shared day boundary both partners key off** (which question is
+  today's, which day a clip counts for) → `sharedTodayDateString()` /
+  `sharedYesterdayDateString()`, which are UTC.
+
+**Why the shared one is UTC:** originally everything used the local
+day. For a pair spanning timezones that leaves a window where each
+partner is on a different calendar day — they'd be served *different*
+daily questions, and their clips would land under different
+`recorded_for_date` values instead of pairing up as answers to each
+other. UTC is the one clock every device already agrees on without
+adding a per-pair timezone anchor (`profiles.timezone` exists in the
+schema but is still unused, and there's no UI to set one).
+
+**Accepted tradeoffs**, both deliberate:
+1. UTC midnight is an odd local hour for most people. The daily
+   reminder was **moved to 20:00 UTC** to match (see "Daily Question
+   feature" above) — at a local 8pm, anyone far enough west was
+   reminded after the boundary had already rolled, pointing them at the
+   next day's question. The cost is that the reminder's local hour now
+   varies by timezone rather than always being an evening nudge.
+2. `MonthlySummaryScreen` still builds its month bounds from local
+   components while clips are now UTC-stamped, so a clip recorded near
+   a month edge can land in the adjacent month's summary. Left alone —
+   it's a month-granularity stats view that isn't verified against real
+   multi-day data yet, and fixing it properly means deciding whether
+   "this month" itself is local or UTC.
+
+`src/lib/date.test.ts` is a standalone self-check (no test framework in
+this repo by design). Run it under several timezones — that's what
+actually proves the split holds:
+
+```bash
+for tz in UTC America/Los_Angeles Asia/Tokyo; do TZ=$tz node src/lib/date.test.ts; done
+```
+
+It's excluded from `tsconfig.json` (`exclude: ["**/*.test.ts"]`) because
+it imports with an explicit `.ts` extension, which Node's ESM resolver
+requires and this tsconfig would otherwise reject. Never bundled by
+Metro — nothing in the app imports it.
+
+## Data layer (TanStack Query)
+
+Added because every screen hand-rolled `useState` + `useEffect` around
+its own Supabase call: `TimelineScreen` needed a `useFocusEffect`
+refetch just to notice new clips, and nothing connected posting a clip
+to the Timeline showing it.
+
+`App.tsx` holds one module-level `QueryClient` with **stock defaults**,
+wrapped outside `PairingProvider` (the context consumes query hooks).
+The defaults are load-bearing, so don't "tune" them casually:
+`staleTime: 0` is what makes a remount refetch, which is how tab focus
+works here (`unmountOnBlur: true` in `MainTabs.tsx`), and the default
+retry-with-backoff is what replaced `withClockSkewRetry` (see below).
+
+Query keys are plain arrays, no key factory — there are four of them:
+`['pair', userId]`, `['profile', userId]`, `['clips', pairId]`,
+`['clip', clipId]`. Both mutations invalidate `['clips']` on success,
+which is what makes the Timeline update on its own.
+
+`useClip` deliberately returns `{ clip, videoUrl }` — the row fetch and
+the 10-minute signed Storage URL in one `queryFn` — because
+`ClipViewScreen` can never use one without the other. Note it does *not*
+match the `['clips', …]` prefix, so invalidating the list never refetches
+it (which is why the mark-viewed effect in `ClipViewScreen` can't loop).
+
+`PairingContext` keeps its exact public API (`session`, `pair`,
+`loading`, `refreshPair`, `myProfile`, `partnerProfile`,
+`refreshProfiles`) but is now a thin wrapper over `usePair` /
+`useProfile` — so screens read pair/profile data from one cache instead
+of a second copy. `session` and the `onAuthStateChange` listener are
+still plain state, and `loading` still means only "the auth session
+hasn't resolved yet" (`RootNavigator`'s gate depends on that).
+`useProfile` is called twice (mine, partner) rather than the old single
+`.in('id', [...])` — two cheap requests, but the partner one stays
+`enabled: false` until `partnerId` resolves.
+
+**Partially adopted, on purpose.** Migrated: `TimelineScreen`,
+`ClipViewScreen`, `PairingContext`, and `RecordScreen`'s upload.
+Still querying Supabase inline: `HomeScreen`, `SettingsScreen`,
+`MonthlySummaryScreen`, `PairingScreen`, and `RecordScreen`'s
+`loadTodayClips` (+ its 15s partner-reveal poll). Those still rely on
+`useFocusEffect` refetching, so `unmountOnBlur` must stay.
+
+Not done, both deliberate: no `focusManager`/`AppState` wiring (so
+returning from background doesn't refetch on its own — add if that feels
+stale in practice), and no AsyncStorage cache persistence (offline reads
+are their own backlog item).
+
+## Storage cleanup: orphaned clip files
+
+Deleting a `clips` row never deleted its video. **A DELETE trigger can't
+fix that**, and the attempt makes it worse: `storage.objects` is metadata
+only, the bytes live in S3, and Supabase's docs are explicit that
+"deleting objects via a SQL query will not remove the object from the
+bucket and will result in the object being orphaned". A trigger doing
+`delete from storage.objects` leaves the blob alive *and* destroys the
+row the Storage API needs to ever find it again. Native
+cascade-on-row-delete is still an open feature request.
+
+A trigger calling the Storage API over HTTP (pg_net) *would* delete the
+file, but it's the wrong tool here, because **the orphans this app makes
+mostly don't come from DELETEs**:
+
+1. `clips` has no DELETE policy — no client can delete a clip at all.
+2. Rows vanish via `on delete cascade` when a pair or an `auth.users` row
+   goes; no app code runs there.
+3. `storage_path` used to end in the recorded file's own extension
+   (`.mov` on iOS, `.mp4` on Android), so re-recording the same day from
+   the other platform wrote a *different* path and orphaned the old file
+   **with its row still present**. No DELETE fires for that one, ever.
+
+So cleanup is reconciliation, not a delete hook: `cleanup_orphaned_clip_files()`
+(in `supabase/schema.sql`) re-derives the orphan set from current state —
+every object in the `clips` bucket with no matching `clips.storage_path` —
+and deletes each via the Storage API, on a nightly `pg_cron` job. That
+covers all three cases, is idempotent, and self-heals: a request that
+fails tonight is re-found and retried tomorrow, because the file is still
+orphaned. A fire-and-forget trigger gets one shot and no retry.
+
+Case 3 is also fixed at the source, in `useUploadClip` — the path no
+longer carries an extension, so the upsert always overwrites in place.
+That forced `contentType` to become a real MIME type (`video/quicktime` /
+`video/mp4`) rather than the `video/mov` it sent before, since without an
+extension in the URL the player has only Content-Type to go on. Existing
+rows keep their old extensioned paths and still play; the first
+re-record on such a day moves them to the extensionless path, and the
+cleanup job sweeps what's left behind.
+
+Deliberate properties, don't "fix" them casually:
+
+- **One HTTP request per orphan.** `net.http_delete` takes no body, so
+  the Storage API's batch form (`DELETE /object/clips` with a
+  `{"prefixes": [...]}` body) isn't reachable from pg_net. `max_deletions`
+  (default 200) caps a run. If that cap is ever genuinely hit, move the
+  job to an Edge Function that can batch — don't just raise it.
+- **A one-day `grace_period`.** A file is uploaded *before* its row is
+  inserted, so a just-uploaded file is briefly a legitimate orphan. A day
+  is far wider than that window and costs nothing.
+- **`revoke all ... from public, anon, authenticated`** on the function.
+  It's `security definer` and reads a service_role key out of Vault;
+  Postgres grants EXECUTE to `public` by default, so the revoke is
+  load-bearing, not tidiness.
+- **Errors are not surfaced.** pg_net is async — a 4xx lands in
+  `net._http_response` (pruned after 6h) and nothing reads it. That's
+  acceptable only because the job is self-healing; if orphans ever stop
+  disappearing, check that table, not `cron.job_run_details` (which only
+  sees whether the function itself ran).
+
+**Live-project setup is not in `schema.sql` and can't be** — it needs the
+service_role key. One-time, from the SQL editor:
+`select vault.create_secret('<service_role_key>', 'service_role_key', '...')`.
+The function raises a clear error if that secret is missing.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
@@ -402,9 +630,13 @@ Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`
 not a client/device clock issue — most likely explained by the Supabase
 project cold-starting from free-tier auto-pause with a few seconds of
 clock drift before it NTP-syncs. It self-corrects within a couple
-seconds, so `PairingContext.tsx` wraps those two calls in
-`withClockSkewRetry` (short retry with backoff) rather than trying to
-"fix" the skew itself.
+seconds, so it's retried rather than "fixed" client-side.
+
+`PairingContext.tsx` used to hand-roll this as a `withClockSkewRetry`
+wrapper (2 retries, 1500ms apart). That's gone — since those calls are
+now react-query queries/mutations, the library's default retry (3
+attempts, exponential backoff) covers it, and covers strictly more than
+the old wrapper did. Nothing special is configured for it.
 
 ## Testing status (update this section as things get verified)
 
@@ -423,10 +655,63 @@ Confirmed working end-to-end:
   confirmed on Home ("...with [nickname]") and Timeline (both sender
   labels), and that edits persist and reload correctly. Confirmed
   2026-08-27 after applying the `profiles_select_pair_partner` RLS
-  policy to the live project. **Not yet applied to the live project:**
-  the `profiles_display_name_check` (<= 20 chars) constraint — blocked
-  on renaming two pre-existing test-account rows first, see "Partner
-  nicknames" above.
+  policy to the live project. The `profiles_display_name_check`
+  (<= 20 chars) constraint **is** applied on the live project as of
+  2026-08-27 — this section previously recorded it as still pending.
+  Applying it surfaced a real bug: `ensureProfile` seeded
+  `display_name` from the email prefix with no truncation, and
+  `dereksalanga+partner2` is 21 chars, so the client was handing the DB
+  a default it was guaranteed to reject ("new row for relation
+  \"profiles\" violates check constraint"). Now sliced to 20 at the
+  source, matching SettingsScreen's `maxLength`. Any write path that
+  generates a `display_name` has to respect that cap itself — the
+  constraint is the source of truth, not a backstop.
+
+Confirmed by the user against PR #20's checklist before merging
+(2026-08-27): the TanStack Query data layer (see "Data layer" above) —
+Timeline loads and pull-to-refresh still works, recording a clip makes it
+appear on Timeline with no manual refresh (the headline change), watching
+a partner's clip clears its unwatched dot on return, the Monthly Summary
+reel still auto-advances, and the `PairingContext` rewire regressed
+nothing (nickname edits, a fresh join, and cold start all still behave).
+Reported as a pass rather than re-verified here.
+
+Confirmed on the live project (2026-08-27, `feat/storage-orphan-cleanup`):
+storage orphan cleanup works end to end. `pg_net` + `pg_cron` enabled,
+the `service_role_key` Vault secret created (holding an `sb_secret_…`
+key, not the legacy `service_role` JWT — legacy keys are deleted late
+2026, so a job keyed on one would have silently stopped working). A
+deliberately-uploaded junk file was seen as an orphan, removed by
+`select cleanup_orphaned_clip_files(interval '0')`, and confirmed gone
+from the bucket, with `net._http_response` showing
+`200 {"message":"Successfully deleted"}` — i.e. the file left S3, not
+just `storage.objects`.
+
+Also confirmed by that pass: **`postgres` can read `storage.objects`**
+(the counts query returned 5 files against 5 `clips` rows, not 0), which
+is what the whole `security definer` design rests on — if that had come
+back 0, the function could never have found an orphan. And 0 orphans
+across a real bucket means the `.mov`/`.mp4` path bug never fired here,
+as expected on a single-platform device.
+
+Confirmed on a real device (2026-08-27, `feat/storage-orphan-cleanup`,
+iOS/Expo Go): the extensionless `storage_path` + real-MIME-type change
+records **and plays back** on both accounts of a pair. The stored object
+is `<pair>/<sender>/2026-08-27` with no extension and
+`mimetype = video/quicktime`, and playback works with no extension in
+the signed URL — which was the open question, since the player then has
+only Content-Type to go on. Old `.mov` clips recorded before the change
+still play alongside the new ones, so the transition needs no backfill.
+
+Also settled by that pass, open since PR #18: **capture-time compression
+holds**. A full-length clip came in at 8.9 MB, right against the ~9.4 MB
+the 720p/2.5 Mbps cap predicts for 30s, and short clips at 0.7-1.1 MB.
+Playback quality was not separately graded beyond "plays properly".
+
+Note both accounts had posted for the same day before this check, so it
+confirms both clips are watchable once revealed — it does **not**
+exercise the reveal-gating block (that a partner's clip is hidden
+*before* you've posted your own), which is still untested.
 
 Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
 in Expo Go, not a functional re-test):
@@ -436,25 +721,54 @@ in Expo Go, not a functional re-test):
 - ClipView close button renders and is tappable
 
 Confirmed on `feat/daily-question` (2026-08-26, Expo Go, one-sided —
-only one partner's account exercised so far):
-- Answer submission works end-to-end against the live Supabase project
+only one partner's account exercised so far), **superseded by the
+video-daily-question merge** (the text-answer flow and
+`DailyQuestionScreen` this refers to no longer exist — kept here as a
+record of what was verified about the underlying `security definer`
+reveal-gating pattern, which the new `has_own_clip()` reuses):
+- Answer submission worked end-to-end against the live Supabase project
   (this is what surfaced and confirmed the RLS self-recursion bug in
   the select policy, since fixed via a `security definer` function)
-- DailyQuestionScreen's close button navigates back (to wherever it was
-  opened from — Home, as of the bottom-tab-nav change)
 
 Not yet tested:
-- Capture-time video compression (720p/2.5Mbps/HEVC on iOS): actual
-  resulting clip file size on a real device, and that playback quality
-  still looks acceptable at 720p — see "Video capture" above
+- Video daily question (merged clip+answer, PR depends on #18's
+  compression settings being in place): the whole flow end to end on a
+  real device — question overlay while recording at the new 30s cap,
+  the caption step, the `revealed` phase showing both partners' clips
+  via `ClipViewScreen`, the reveal-gating (can't see partner's clip for
+  a day until you've posted your own), landing straight on `revealed`
+  without a camera-permission prompt when reopening after already
+  answering, and that the single merged Home entry card's
+  answered/not-answered dot is correct. Needs a two-account pass.
+  Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
+  confirmed on a device that had the old two-reminder version installed.
+- The UTC shared day boundary (see "Two day boundaries" above) on real
+  devices: that two partners in *different* timezones see the same
+  daily question and that their clips pair up as the same day's
+  answers, especially during the window where their local dates
+  disagree. `date.test.ts` covers the helper logic, but only a
+  two-timezone real-device pass exercises the actual behavior. Also
+  worth eyeballing Timeline's "Today"/"Yesterday" labels near the
+  boundary, since those now compare on UTC rather than local.
+- Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
+  (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
+  `cron.job_run_details`. The function itself is confirmed (below); only
+  the schedule that invokes it is untested, since it hadn't come around
+  yet.
+- The extensionless `storage_path` change **on Android** (`video/mp4`).
+  iOS is confirmed (below), but the point of the change is that the two
+  platforms write to the same path, and that cross-platform case is the
+  one that can't be exercised on this user's iPad-only setup. Until an
+  Android device runs it, the `.mov`/`.mp4` collision it fixes stays
+  theoretically-fixed rather than demonstrated.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
-- Daily Question: the reveal-after-both-answer behavior specifically
-  (needs a second account), and the Timeline entry card's
-  answered/not-answered dot
-- Daily local notifications: permission prompt, both firing at 8:00 PM
-  on a real device, and that tapping one routes to Home (deliberately
-  deferred by the user for now)
+- Daily local notification: permission prompt, firing at the right
+  local time for 20:00 UTC on a real device, and that tapping it routes
+  to Home (deliberately deferred by the user for now). `date.test.ts`
+  covers the `utcTimeToLocal()` conversion, but nothing has verified
+  that expo-notifications actually fires at the converted time on a
+  device — worth checking on a device whose timezone isn't UTC.
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`

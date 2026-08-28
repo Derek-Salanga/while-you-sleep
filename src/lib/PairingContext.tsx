@@ -7,7 +7,9 @@ import React, {
   useState,
 } from 'react';
 import { Session } from '@supabase/supabase-js';
+import { useMutation } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { usePair, useProfile } from '@/hooks/queries';
 import { Pair, Profile } from '@/types';
 
 interface PairingContextValue {
@@ -24,54 +26,13 @@ const PairingContext = createContext<PairingContextValue | undefined>(
   undefined
 );
 
-// Supabase project can cold-start with a few seconds of clock drift
-// (e.g. waking from free-tier auto-pause), which makes PostgREST briefly
-// reject an otherwise-valid JWT as "issued at future". It self-corrects
-// within a couple seconds, so retry rather than giving up immediately.
-async function withClockSkewRetry(
-  run: () => Promise<{ error: { message: string } | null }>,
-  retries = 2,
-  delayMs = 1500
-): Promise<{ error: { message: string } | null }> {
-  for (let attempt = 0; ; attempt++) {
-    const result = await run();
-    const isClockSkew = result.error?.message.includes(
-      'JWT issued at future'
-    );
-    if (!isClockSkew || attempt >= retries) return result;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
-}
-
 export function PairingProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [pair, setPair] = useState<Pair | null>(null);
+  // `loading` only ever meant "the auth session hasn't resolved yet" --
+  // RootNavigator's gate depends on that, so it stays independent of the
+  // pair/profile queries below.
   const [loading, setLoading] = useState(true);
-  const [myProfile, setMyProfile] = useState<Profile | null>(null);
-  const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
-
-  const refreshPair = useCallback(async () => {
-    if (!session?.user) {
-      setPair(null);
-      return;
-    }
-    let latestData: Pair | null = null;
-    const { error } = await withClockSkewRetry(async () => {
-      const { data, error } = await supabase
-        .from('pairs')
-        .select('*')
-        .or(`user_a.eq.${session.user.id},user_b.eq.${session.user.id}`)
-        .maybeSingle();
-      latestData = data ?? null;
-      return { error };
-    });
-
-    if (error) {
-      console.error('Failed to load pair:', error.message);
-      return;
-    }
-    setPair(latestData);
-  }, [session]);
+  const userId = session?.user.id ?? null;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -88,51 +49,65 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  const ensureProfile = useCallback(async () => {
-    if (!session?.user) return;
-    // Idempotent: only inserts if a profile row doesn't already exist.
-    const { error } = await withClockSkewRetry(async () =>
-      supabase.from('profiles').upsert(
-        {
-          id: session.user.id,
-          display_name: session.user.email?.split('@')[0] ?? 'Anonymous',
-        },
-        { onConflict: 'id', ignoreDuplicates: true }
-      )
-    );
-    if (error) console.error('Failed to ensure profile:', error.message);
-  }, [session]);
+  const { data: pair, refetch: refetchPair } = usePair(userId);
 
   const partnerId =
-    pair && session?.user
-      ? pair.user_a === session.user.id
+    pair && userId
+      ? pair.user_a === userId
         ? pair.user_b
         : pair.user_a
       : null;
 
+  const { data: myProfile, refetch: refetchMyProfile } = useProfile(userId);
+  const { data: partnerProfile, refetch: refetchPartnerProfile } =
+    useProfile(partnerId);
+
+  // Idempotent: only inserts if a profile row doesn't already exist, so
+  // firing it more than once for a session is harmless.
+  const ensureProfile = useMutation({
+    mutationFn: async (user: Session['user']) => {
+      const { error } = await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          // Truncated to match the <= 20 char check constraint on
+          // profiles.display_name (schema.sql) and SettingsScreen's
+          // maxLength. An email prefix can easily exceed it --
+          // `dereksalanga+partner2` is 21 -- and this default is
+          // generated here, so it has to respect the limit itself
+          // rather than hand the DB a value it will reject.
+          display_name: (user.email?.split('@')[0] ?? 'Anonymous').slice(0, 20),
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      );
+      if (error) throw error;
+    },
+    onError: (err) => console.error('Failed to ensure profile:', err.message),
+  });
+
+  const { mutate: runEnsureProfile } = ensureProfile;
+  useEffect(() => {
+    if (session?.user) runEnsureProfile(session.user);
+  }, [session, runEnsureProfile]);
+
+  const refreshPair = useCallback(async () => {
+    await refetchPair();
+  }, [refetchPair]);
+
   const refreshProfiles = useCallback(async () => {
-    if (!session?.user) return;
-    const ids = [session.user.id, partnerId].filter(Boolean) as string[];
-    const { data, error } = await supabase.from('profiles').select('*').in('id', ids);
-    if (error) {
-      console.error('Failed to load profiles:', error.message);
-      return;
-    }
-    setMyProfile(data?.find((p) => p.id === session.user.id) ?? null);
-    setPartnerProfile(data?.find((p) => p.id === partnerId) ?? null);
-  }, [session, partnerId]);
-
-  useEffect(() => {
-    ensureProfile();
-    refreshPair();
-  }, [ensureProfile, refreshPair]);
-
-  useEffect(() => {
-    refreshProfiles();
-  }, [refreshProfiles]);
+    await Promise.all([refetchMyProfile(), refetchPartnerProfile()]);
+  }, [refetchMyProfile, refetchPartnerProfile]);
 
   const value = useMemo(
     () => ({
+      session,
+      pair: pair ?? null,
+      loading,
+      refreshPair,
+      myProfile: myProfile ?? null,
+      partnerProfile: partnerProfile ?? null,
+      refreshProfiles,
+    }),
+    [
       session,
       pair,
       loading,
@@ -140,14 +115,11 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
       myProfile,
       partnerProfile,
       refreshProfiles,
-    }),
-    [session, pair, loading, refreshPair, myProfile, partnerProfile, refreshProfiles]
+    ]
   );
 
   return (
-    <PairingContext.Provider value={value}>
-      {children}
-    </PairingContext.Provider>
+    <PairingContext.Provider value={value}>{children}</PairingContext.Provider>
   );
 }
 

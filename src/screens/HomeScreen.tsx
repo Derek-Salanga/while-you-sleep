@@ -5,7 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
+import {
+  todayDateString,
+  sharedTodayDateString,
+  formatDateString,
+  parseDateString,
+} from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairTrip, PairAnniversary } from '@/types';
@@ -45,14 +50,17 @@ export default function HomeScreen({ navigation }: any) {
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
 
+  // The daily clip IS the daily question's answer now -- see "Video daily
+  // question" in CLAUDE.md -- so "answered today" checks clips, not the
+  // now-unused daily_answers table.
   const loadQuestionStatus = useCallback(async () => {
     if (!pair || !session?.user) return;
     const { data, error } = await supabase
-      .from('daily_answers')
+      .from('clips')
       .select('id')
       .eq('pair_id', pair.id)
-      .eq('user_id', session.user.id)
-      .eq('answered_for_date', todayDateString())
+      .eq('sender_id', session.user.id)
+      .eq('recorded_for_date', sharedTodayDateString())
       .maybeSingle();
 
     if (error) {
@@ -152,9 +160,14 @@ export default function HomeScreen({ navigation }: any) {
           {partnerProfile ? ` with ${partnerProfile.display_name}` : ''}
         </Text>
       )}
+      {/* The daily clip IS the daily question's answer now -- RecordScreen
+          shows the question, records the (video) answer, and reveals both
+          partners' answers once submitted. See "Video daily question" in
+          CLAUDE.md; replaces the old separate text-answer + generic-clip
+          entry points. */}
       <Pressable
         style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
-        onPress={() => navigation.navigate('DailyQuestion')}
+        onPress={() => navigation.navigate('Record')}
       >
         <Text style={styles.entryCardLabel}>Today's question</Text>
         {!answeredToday && <View style={styles.unwatchedDot} />}
@@ -216,12 +229,6 @@ export default function HomeScreen({ navigation }: any) {
           )}
         </Pressable>
       )}
-      <Pressable
-        style={({ pressed }) => [styles.recordFab, pressed && styles.pressed]}
-        onPress={() => navigation.navigate('Record')}
-      >
-        <Text style={styles.recordFabText}>Record today's clip</Text>
-      </Pressable>
       <Modal
         visible={countryPickerVisible}
         animationType="slide"
@@ -323,24 +330,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.error,
-  },
-  recordFab: {
-    marginTop: 'auto',
-    marginBottom: 24,
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  recordFabText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
   },
   pressed: {
     opacity: 0.7,

@@ -1,24 +1,38 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { utcTimeToLocal } from './date';
 
-const REMINDER_HOUR = 20; // 8:00 PM local time, both reminders together
-const REMINDER_MINUTE = 0;
+// 8:00 PM UTC, not local -- deliberately pinned to the same clock the
+// pair's shared day boundary uses (see "Two day boundaries" in
+// CLAUDE.md). At a local 8pm, anyone far enough west was reminded
+// *after* the UTC day had already rolled over, so the nudge pointed at
+// the next day's question. 20:00 UTC always lands 4 hours before the
+// boundary, so it always refers to the day it's actually reminding about,
+// and both partners get it at the same moment.
+//
+// Tradeoff: the local hour now varies by timezone (13:00 at UTC-7, 05:00
+// in Tokyo) rather than being a consistent evening nudge everywhere.
+const REMINDER_UTC_HOUR = 20;
+const REMINDER_UTC_MINUTE = 0;
 const ANDROID_CHANNEL_ID = 'daily-reminders';
 
-// Fixed identifiers so re-scheduling (e.g. on every app launch) replaces
+// Fixed identifier so re-scheduling (e.g. on every app launch) replaces
 // the existing request instead of piling up duplicates.
 const REMINDERS = [
   {
     identifier: 'daily-question-reminder',
     title: "Today's question is up",
-    body: 'Answer it before your partner does.',
-  },
-  {
-    identifier: 'daily-clip-reminder',
-    title: 'Record your daily clip',
-    body: "Don't forget to send today's clip before you sleep.",
+    body: 'Record your video answer before your partner does.',
   },
 ];
+
+// Answering the daily question used to be a separate, text-only step from
+// recording the daily clip -- now the clip IS the answer (see "Video daily
+// question" in CLAUDE.md), so this reminder was merged into the one above.
+// A device that already had it scheduled from before this change would
+// otherwise keep firing it forever, since nothing re-schedules-to-replace
+// an identifier this code no longer calls.
+const RETIRED_REMINDER_IDS = ['daily-clip-reminder'];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -52,14 +66,36 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
   }
 
   await Promise.all(
+    RETIRED_REMINDER_IDS.map((identifier) =>
+      Notifications.cancelScheduledNotificationAsync(identifier)
+    )
+  );
+
+  // The DAILY trigger takes a device-local hour/minute with no timezone
+  // field, so translate the target UTC time for this device.
+  //
+  // This is recomputed on every call, which matters: a DST transition
+  // shifts which local time corresponds to 20:00 UTC, and the already-
+  // scheduled trigger is a fixed local hour, so it would drift an hour
+  // off. Re-scheduling replaces by identifier, so the next launch after
+  // a transition self-corrects. Between the transition and that launch
+  // the reminder can be an hour early/late -- acceptable for a nudge,
+  // and the alternative (an app that must be open to stay correct) isn't
+  // better.
+  const { hour, minute } = utcTimeToLocal(
+    REMINDER_UTC_HOUR,
+    REMINDER_UTC_MINUTE
+  );
+
+  await Promise.all(
     REMINDERS.map((reminder) =>
       Notifications.scheduleNotificationAsync({
         identifier: reminder.identifier,
         content: { title: reminder.title, body: reminder.body },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: REMINDER_HOUR,
-          minute: REMINDER_MINUTE,
+          hour,
+          minute,
           channelId: ANDROID_CHANNEL_ID,
         },
       })
