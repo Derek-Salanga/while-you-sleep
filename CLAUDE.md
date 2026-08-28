@@ -731,6 +731,20 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
+- Story rings on TimelineScreen (`feat/story-rings`): two gradient-ring
+  avatars (react-native-svg `LinearGradient`/`Circle`, not
+  expo-linear-gradient) showing "You" and the partner's initial, below the
+  title. Ring is full-saturation while the partner's clip for today is
+  unwatched, muted grey (`#B8B2C4`) once watched or if no clip exists yet
+  for that day; tapping navigates to `ClipView` for that day's clip (a no-op
+  if there isn't one yet). No avatar-photo field exists on `profiles`, so
+  this shows an initial rather than a real photo. `npx tsc --noEmit` and
+  `npm run lint` pass; needs an on-device look, and a real two-account pass
+  around the watched/unwatched ring color at the actual reveal-gating
+  boundary (can't see partner's clip until you've posted your own for that
+  day, so its ring may need a third "not yet visible" state — not
+  distinguished from "no clip yet" here, worth checking whether that reads
+  right in practice).
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
