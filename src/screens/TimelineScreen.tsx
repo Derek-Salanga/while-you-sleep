@@ -17,6 +17,7 @@ import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
 import HeroCard from '@/components/HeroCard';
 import StoryRings from '@/components/StoryRings';
+import CrossoverHeart from '@/components/CrossoverHeart';
 
 // clips are stamped with the pair's shared (UTC) day — see
 // sharedTodayDateString in src/lib/date.ts — so Today/Yesterday compare
@@ -99,11 +100,20 @@ export default function TimelineScreen({ navigation }: any) {
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
           }
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              {error
-                ? "Couldn't load your clips. Pull down to try again."
-                : 'No clips yet. Record your first one to get started.'}
-            </Text>
+            error ? (
+              <Text style={styles.empty}>
+                {"Couldn't load your clips. Pull down to try again."}
+              </Text>
+            ) : (
+              <View style={styles.emptyState}>
+                <CrossoverHeart size={88} />
+                <Text style={styles.emptyHeadline}>Your story starts here</Text>
+                <Text style={styles.emptyBody}>
+                  Record your first clip. Your partner will find it waiting when
+                  they wake up.
+                </Text>
+              </View>
+            )
           }
         />
       )}
@@ -163,5 +173,25 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     marginTop: 60,
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 60,
+    paddingHorizontal: 24,
+  },
+  emptyHeadline: {
+    fontFamily: fonts.display,
+    fontSize: fontSizes.lg,
+    color: colors.ink,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emptyBody: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
 });

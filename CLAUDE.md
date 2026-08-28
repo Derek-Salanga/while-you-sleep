@@ -791,6 +791,18 @@ Not yet tested:
   one that can't be exercised on this user's iPad-only setup. Until an
   Android device runs it, the `.mov`/`.mp4` collision it fixes stays
   theoretically-fixed rather than demonstrated.
+- Illustrated empty states (`feat/empty-states`): new shared
+  `src/components/CrossoverHeart.tsx` (the icon's crossover-split heart as
+  vector, react-native-svg, `size` prop) used in two places — TimelineScreen's
+  no-clips state (heart + Fraunces "Your story starts here" + warmer invite
+  copy, replacing the one-line "No clips yet") and PairingScreen's
+  waiting-for-partner card (heart + Fraunces "Waiting for your other half"
+  above the still-prominent invite code). TimelineScreen's *error* state is
+  deliberately left as plain muted text — a warm invitation would read wrong
+  on a failure. `npx tsc --noEmit` and `npm run lint` pass; needs an on-device
+  look at both states (the pairing one needs an unclaimed invite to sit on).
+  Note `CrossoverHeart` duplicates the inline heart path in `HeroCard.tsx` if
+  PR #27 also merges — collapse HeroCard onto this shared component then.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right
