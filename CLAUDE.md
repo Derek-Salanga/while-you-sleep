@@ -801,8 +801,9 @@ Not yet tested:
   deliberately left as plain muted text — a warm invitation would read wrong
   on a failure. `npx tsc --noEmit` and `npm run lint` pass; needs an on-device
   look at both states (the pairing one needs an unclaimed invite to sit on).
-  Note `CrossoverHeart` duplicates the inline heart path in `HeroCard.tsx` if
-  PR #27 also merges — collapse HeroCard onto this shared component then.
+  `HeroCard.tsx` renders the same heart via this component (it briefly had
+  its own inline copy of the path, collapsed onto `CrossoverHeart` once both
+  landed), so the motif has one definition.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right
