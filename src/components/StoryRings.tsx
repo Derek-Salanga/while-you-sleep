@@ -83,21 +83,34 @@ export default function StoryRings({ navigation }: { navigation: any }) {
   const { data: clips = [] } = useClips(pair?.id);
 
   const today = sharedTodayDateString();
+
+  // The two rings deliberately answer different questions, so only one of
+  // them is scoped to today:
+  //   yours    -- "have I posted today?", the same prompt the Home CTA's dot
+  //               gives, and meaningless for any earlier day.
+  //   partner  -- "is there anything here I haven't watched?", which has to
+  //               look past today or it contradicts the Timeline: a clip
+  //               from yesterday you haven't opened would show a grey
+  //               (watched-looking) ring directly above a card wearing a red
+  //               unwatched dot.
   const myClipToday = clips.find(
     (c: Clip) =>
       c.sender_id === session?.user.id && c.recorded_for_date === today
   );
-  const partnerClipToday = clips.find(
-    (c: Clip) =>
-      c.sender_id !== session?.user.id && c.recorded_for_date === today
+
+  // useClips returns newest-first, so find() yields the most recent match.
+  const partnerClips = clips.filter(
+    (c: Clip) => c.sender_id !== session?.user.id
   );
+  const partnerUnwatched = partnerClips.find((c: Clip) => !c.viewed_at);
+  // Fall back to the newest clip so the ring stays tappable once everything
+  // has been watched -- it just isn't highlighted any more.
+  const partnerTarget = partnerUnwatched ?? partnerClips[0];
 
   function goToClip(clip: Clip | undefined) {
     if (!clip) return;
     navigation.navigate('ClipView', { clipId: clip.id });
   }
-
-  const partnerUnwatched = !!partnerClipToday && !partnerClipToday.viewed_at;
 
   return (
     <View style={styles.row}>
@@ -116,10 +129,8 @@ export default function StoryRings({ navigation }: { navigation: any }) {
         gradientId="ringPartner"
         gradientFrom={colors.secondary}
         gradientTo={colors.secondaryLight}
-        muted={!partnerClipToday || !partnerUnwatched}
-        onPress={
-          partnerClipToday ? () => goToClip(partnerClipToday) : undefined
-        }
+        muted={!partnerUnwatched}
+        onPress={partnerTarget ? () => goToClip(partnerTarget) : undefined}
       />
     </View>
   );

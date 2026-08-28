@@ -847,17 +847,12 @@ Not yet tested:
     neither is set. Confirmed on device (see below). The *anniversary*
     branch is still unexercised: this pair has a trip set but no
     anniversary, so only the trip path has actually rendered.
-  - #28 story rings: the rings and the Timeline could contradict each
-    other — rings considered only *today's* clips, so an unwatched clip
-    from an earlier day showed a grey (watched-looking) ring above a card
-    wearing a red unwatched dot. **Fixed on `fix/story-ring-unwatched-any-day`
-    (#36), deliberately held unmerged until it can be verified**: the ring
-    now tracks any unwatched clip, newest first. A device check on
-    2026-08-28 could NOT tell the two versions apart, because by then the
-    partner had posted *today* — a case the old logic also handles. The
-    discriminating test is: watch today's partner clip, leave an earlier
-    one unwatched, then the old code greys the ring and the new code does
-    not.
+  - #28 story rings: **resolved by #36, confirmed on device (2026-08-28)**
+    — the rings and the Timeline used to contradict each other, because
+    the ring considered only *today's* clips: an unwatched clip from an
+    earlier day showed a grey (watched-looking) ring above a card wearing
+    a red unwatched dot. The ring now tracks any unwatched clip, newest
+    first. See the A/B note below for how this was finally pinned down.
   - #28 story rings, separately: the ring colors at the real reveal-gating
     boundary. RLS hides a partner's clip until you've posted your own that
     day, so "partner hasn't posted" and "posted but still gated" render
@@ -901,6 +896,30 @@ means the function ran — pg_net is async, so a failed Storage call lands in
 above). With no orphans present there would have been no HTTP calls at all.
 Deletion itself was confirmed separately on 2026-08-27 with a planted junk
 file, so the two passes together cover the whole path.
+
+
+Confirmed on a real device (2026-08-28): **#36's story-ring fix**, via a
+deliberate A/B against `main` on identical data. Partner's clip for *today*
+marked watched, an *earlier* one left unwatched: `main` drew a grey ring
+above a card still wearing its red unwatched dot, and the fix branch drew an
+orange one. Same rows, same screen, opposite conclusions -- which is the bug.
+
+Worth recording how many attempts this took, because the trap is easy to
+fall into again. Three earlier device checks all *looked* like they
+confirmed the fix and confirmed nothing: each time the partner had posted
+that same day, a state the old today-only logic also handles, so both
+versions agreed. The versions diverge only when the unwatched clip is from
+an earlier day **and** nothing is unwatched today -- a state that is rare in
+casual use and has to be set up deliberately:
+
+```sql
+update clips set viewed_at = now()  where id = '<partner clip, today>';
+update clips set viewed_at = null   where id = '<partner clip, earlier day>';
+```
+
+Also note the logged-in account had switched between passes (`+part1` vs
+`+part2`), which silently inverted which rows counted as "the partner's".
+Check whose clips render blue/right (yours) before picking rows to edit.
 
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
