@@ -752,29 +752,6 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
-- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
-  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
-  press-scale on RecordScreen's record button and on HomeScreen's "Today's
-  question" card — this is the actual record entry point; TimelineScreen has
-  no record CTA of its own (the original prompt named TimelineScreen, but
-  no such button exists there — HomeScreen's card is the one that navigates
-  to `Record`). RecordScreen's button previously read solid red in both
-  idle and recording states (only the shape changed, circle vs. rounded
-  square); it now uses the gradient in both states too, matching "instead
-  of flat colors" literally rather than inventing an unrequested
-  still-red-while-recording distinction. No babel.config.js changes needed
-  -- this SDK 54 project has no checked-in babel config at all, and
-  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
-  plugin when the package is detected in node_modules. `npx tsc --noEmit`
-  and `npm run lint` pass. **The app boots on a real device (2026-08-28,
-  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
-  before that pin this branch crashed at startup with `Exception in
-  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
-  proves the crash is gone and nothing more: still needs an on-device look
-  at the gradient render and the press-scale feel, and a sanity check that
-  the trip-planning card on Home (which shares layout but not styling with
-  the new `recordCta` style) still looks right since its style was split
-  out unchanged.
 - Fraunces/Inter font loading (`feat/font-loading`): `expo-font` +
   `@expo-google-fonts/fraunces`/`inter` installed, loaded via
   `useFonts()` in `App.tsx` with a splash-screen hold until ready or
@@ -806,6 +783,29 @@ Not yet tested:
   `cron.job_run_details`. The function itself is confirmed (below); only
   the schedule that invokes it is untested, since it hadn't come around
   yet.
+- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
+  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
+  press-scale on RecordScreen's record button and on HomeScreen's "Today's
+  question" card — this is the actual record entry point; TimelineScreen has
+  no record CTA of its own (the original prompt named TimelineScreen, but
+  no such button exists there — HomeScreen's card is the one that navigates
+  to `Record`). RecordScreen's button previously read solid red in both
+  idle and recording states (only the shape changed, circle vs. rounded
+  square); it now uses the gradient in both states too, matching "instead
+  of flat colors" literally rather than inventing an unrequested
+  still-red-while-recording distinction. No babel.config.js changes needed
+  -- this SDK 54 project has no checked-in babel config at all, and
+  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
+  plugin when the package is detected in node_modules. `npx tsc --noEmit`
+  and `npm run lint` pass. **The app boots on a real device (2026-08-28,
+  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
+  before that pin this branch crashed at startup with `Exception in
+  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
+  proves the crash is gone and nothing more: still needs an on-device look
+  at the gradient render and the press-scale feel, and a sanity check that
+  the trip-planning card on Home (which shares layout but not styling with
+  the new `recordCta` style) still looks right since its style was split
+  out unchanged.
 - The extensionless `storage_path` change **on Android** (`video/mp4`).
   iOS is confirmed (below), but the point of the change is that the two
   platforms write to the same path, and that cross-platform case is the
