@@ -731,6 +731,24 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
+- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
+  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
+  press-scale on RecordScreen's record button and on HomeScreen's "Today's
+  question" card — this is the actual record entry point; TimelineScreen has
+  no record CTA of its own (the original prompt named TimelineScreen, but
+  no such button exists there — HomeScreen's card is the one that navigates
+  to `Record`). RecordScreen's button previously read solid red in both
+  idle and recording states (only the shape changed, circle vs. rounded
+  square); it now uses the gradient in both states too, matching "instead
+  of flat colors" literally rather than inventing an unrequested
+  still-red-while-recording distinction. No babel.config.js changes needed
+  -- this SDK 54 project has no checked-in babel config at all, and
+  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
+  plugin when the package is detected in node_modules. `npx tsc --noEmit`
+  and `npm run lint` pass; needs an on-device look at the gradient render
+  and the press-scale feel, and a sanity check that the trip-planning card
+  on Home (which shares layout but not styling with the new `recordCta`
+  style) still looks right since its style was split out unchanged.
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
