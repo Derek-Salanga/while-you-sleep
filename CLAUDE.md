@@ -743,6 +743,13 @@ Not yet tested:
   unverified** — `experimentalBlurMethod="dimezisBlurView"` is set, without
   which BlurView degrades to a plain translucent view there; this user's
   setup is iPad-only so only iOS can be checked locally.
+- Fraunces/Inter font loading (`feat/font-loading`): `expo-font` +
+  `@expo-google-fonts/fraunces`/`inter` installed, loaded via
+  `useFonts()` in `App.tsx` with a splash-screen hold until ready or
+  errored. `npx tsc --noEmit` and `npm run lint` pass, but nothing in
+  this environment can render RN UI — needs an on-device check in
+  Expo Go that the splash holds briefly (no flash of system-font text)
+  and that TimelineScreen's "Timeline" header renders in Fraunces.
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
