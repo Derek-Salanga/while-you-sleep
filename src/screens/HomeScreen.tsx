@@ -366,11 +366,15 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 2,
   },
+  // White, not colors.error: this dot sits on the record CTA's blue-to-orange
+  // gradient, and salmon on the amber end was effectively invisible, so the
+  // "you haven't answered today" signal was lost. White reads against both
+  // ends. (TimelineScreen's same-named dot is on a pale card and stays red.)
   unwatchedDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.error,
+    backgroundColor: colors.surface,
   },
   pressed: {
     opacity: 0.7,
