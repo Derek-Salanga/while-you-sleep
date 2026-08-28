@@ -124,6 +124,27 @@ versions for Expo packages shift constantly and guessing wrong causes
    down to `expo` + non-Expo packages, `npm install` that clean baseline,
    then re-add Expo packages via `npx expo install`.
 
+**`npx expo install` does not pin a package's own native peers.** It pins
+only the package you name; npm resolves that package's peer dependencies
+itself and picks the newest version in range, which can be well ahead of
+what Expo Go's binary actually has compiled in. The authoritative list of
+native versions Expo Go ships is
+`node_modules/expo/bundledNativeModules.json` — check it for the peers too,
+and `npx expo install` each one explicitly so it lands in `package.json` at
+the bundled version instead of floating as a transitive resolution.
+
+Hit for real on 2026-08-28: `npx expo install react-native-reanimated` gave
+4.1.7 (correct), but reanimated 4's peer range `"react-native-worklets":
+"0.5 - 0.8"` let npm install worklets **0.8.3**, while Expo Go SDK 54 ships
+**0.5.1**. The app died at startup before rendering anything, with
+`[runtime not ready]: Error: Exception in HostFunction: <unknown>` /
+`NativeWorklets`. Fixed by `npx expo install react-native-worklets`.
+Note `npx expo install --check` does **not** catch this — it only validates
+packages already listed in `package.json`, and the bad version was never
+listed there. A `HostFunction`/native-module error at startup that no
+JS-level debugging explains is the signature of this class of bug; after
+fixing, restart with `npx expo start -c`, since Metro caches the bad bundle.
+
 **`expo-file-system`'s new API** (`File`/`Directory` classes) replaced
 the old one (`getInfoAsync`, `readAsStringAsync`) as of this SDK range.
 This codebase currently imports from `expo-file-system/legacy` in
@@ -785,6 +806,29 @@ Not yet tested:
   `cron.job_run_details`. The function itself is confirmed (below); only
   the schedule that invokes it is untested, since it hadn't come around
   yet.
+- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
+  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
+  press-scale on RecordScreen's record button and on HomeScreen's "Today's
+  question" card — this is the actual record entry point; TimelineScreen has
+  no record CTA of its own (the original prompt named TimelineScreen, but
+  no such button exists there — HomeScreen's card is the one that navigates
+  to `Record`). RecordScreen's button previously read solid red in both
+  idle and recording states (only the shape changed, circle vs. rounded
+  square); it now uses the gradient in both states too, matching "instead
+  of flat colors" literally rather than inventing an unrequested
+  still-red-while-recording distinction. No babel.config.js changes needed
+  -- this SDK 54 project has no checked-in babel config at all, and
+  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
+  plugin when the package is detected in node_modules. `npx tsc --noEmit`
+  and `npm run lint` pass. **The app boots on a real device (2026-08-28,
+  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
+  before that pin this branch crashed at startup with `Exception in
+  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
+  proves the crash is gone and nothing more: still needs an on-device look
+  at the gradient render and the press-scale feel, and a sanity check that
+  the trip-planning card on Home (which shares layout but not styling with
+  the new `recordCta` style) still looks right since its style was split
+  out unchanged.
 - The extensionless `storage_path` change **on Android** (`video/mp4`).
   iOS is confirmed (below), but the point of the change is that the two
   platforms write to the same path, and that cross-platform case is the

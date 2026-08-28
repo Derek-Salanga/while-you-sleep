@@ -12,6 +12,12 @@ import {
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { useUploadClip } from '@/hooks/mutations';
@@ -56,6 +62,17 @@ export default function RecordScreen({ navigation }: any) {
   const [captionDraft, setCaptionDraft] = useState('');
   const [secondsRemaining, setSecondsRemaining] =
     useState(MAX_DURATION_SECONDS);
+
+  const recordButtonScale = useSharedValue(1);
+  const recordButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: recordButtonScale.value }],
+  }));
+  const handleRecordPressIn = () => {
+    recordButtonScale.value = withTiming(0.9, { duration: 100 });
+  };
+  const handleRecordPressOut = () => {
+    recordButtonScale.value = withTiming(1, { duration: 100 });
+  };
 
   // Purely a display countdown -- recordAsync's own maxDuration is what
   // actually stops the recording, this just mirrors it on screen.
@@ -342,13 +359,25 @@ export default function RecordScreen({ navigation }: any) {
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [
-            styles.recordButton,
-            isRecording && styles.recordButtonActive,
-            pressed && styles.pressed,
-          ]}
           onPress={isRecording ? handleStopRecording : handleStartRecording}
-        />
+          onPressIn={handleRecordPressIn}
+          onPressOut={handleRecordPressOut}
+        >
+          <Animated.View
+            style={[
+              styles.recordButton,
+              isRecording && styles.recordButtonActive,
+              recordButtonAnimatedStyle,
+            ]}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </Animated.View>
+        </Pressable>
 
         <View style={styles.flipButton} />
       </View>
@@ -438,7 +467,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: colors.error,
+    overflow: 'hidden',
     borderWidth: 4,
     borderColor: colors.surface,
   },
