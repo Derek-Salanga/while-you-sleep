@@ -731,20 +731,6 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
-- Story rings on TimelineScreen (`feat/story-rings`): two gradient-ring
-  avatars (react-native-svg `LinearGradient`/`Circle`, not
-  expo-linear-gradient) showing "You" and the partner's initial, below the
-  title. Ring is full-saturation while the partner's clip for today is
-  unwatched, muted grey (`#B8B2C4`) once watched or if no clip exists yet
-  for that day; tapping navigates to `ClipView` for that day's clip (a no-op
-  if there isn't one yet). No avatar-photo field exists on `profiles`, so
-  this shows an initial rather than a real photo. `npx tsc --noEmit` and
-  `npm run lint` pass; needs an on-device look, and a real two-account pass
-  around the watched/unwatched ring color at the actual reveal-gating
-  boundary (can't see partner's clip until you've posted your own for that
-  day, so its ring may need a third "not yet visible" state — not
-  distinguished from "no clip yet" here, worth checking whether that reads
-  right in practice).
 - Fraunces/Inter font loading (`feat/font-loading`): `expo-font` +
   `@expo-google-fonts/fraunces`/`inter` installed, loaded via
   `useFonts()` in `App.tsx` with a splash-screen hold until ready or
@@ -771,6 +757,20 @@ Not yet tested:
   two-timezone real-device pass exercises the actual behavior. Also
   worth eyeballing Timeline's "Today"/"Yesterday" labels near the
   boundary, since those now compare on UTC rather than local.
+- Story rings on TimelineScreen (`feat/story-rings`): two gradient-ring
+  avatars (react-native-svg `LinearGradient`/`Circle`, not
+  expo-linear-gradient) showing "You" and the partner's initial, below the
+  title. Ring is full-saturation while the partner's clip for today is
+  unwatched, muted grey (`#B8B2C4`) once watched or if no clip exists yet
+  for that day; tapping navigates to `ClipView` for that day's clip (a no-op
+  if there isn't one yet). No avatar-photo field exists on `profiles`, so
+  this shows an initial rather than a real photo. `npx tsc --noEmit` and
+  `npm run lint` pass; needs an on-device look, and a real two-account pass
+  around the watched/unwatched ring color at the actual reveal-gating
+  boundary (can't see partner's clip until you've posted your own for that
+  day, so its ring may need a third "not yet visible" state — not
+  distinguished from "no clip yet" here, worth checking whether that reads
+  right in practice).
 - Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
   (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
   `cron.job_run_details`. The function itself is confirmed (below); only
