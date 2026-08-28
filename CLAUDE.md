@@ -124,27 +124,6 @@ versions for Expo packages shift constantly and guessing wrong causes
    down to `expo` + non-Expo packages, `npm install` that clean baseline,
    then re-add Expo packages via `npx expo install`.
 
-**`npx expo install` does not pin a package's own native peers.** It pins
-only the package you name; npm resolves that package's peer dependencies
-itself and picks the newest version in range, which can be well ahead of
-what Expo Go's binary actually has compiled in. The authoritative list of
-native versions Expo Go ships is
-`node_modules/expo/bundledNativeModules.json` — check it for the peers too,
-and `npx expo install` each one explicitly so it lands in `package.json` at
-the bundled version instead of floating as a transitive resolution.
-
-Hit for real on 2026-08-28: `npx expo install react-native-reanimated` gave
-4.1.7 (correct), but reanimated 4's peer range `"react-native-worklets":
-"0.5 - 0.8"` let npm install worklets **0.8.3**, while Expo Go SDK 54 ships
-**0.5.1**. The app died at startup before rendering anything, with
-`[runtime not ready]: Error: Exception in HostFunction: <unknown>` /
-`NativeWorklets`. Fixed by `npx expo install react-native-worklets`.
-Note `npx expo install --check` does **not** catch this — it only validates
-packages already listed in `package.json`, and the bad version was never
-listed there. A `HostFunction`/native-module error at startup that no
-JS-level debugging explains is the signature of this class of bug; after
-fixing, restart with `npx expo start -c`, since Metro caches the bad bundle.
-
 **`expo-file-system`'s new API** (`File`/`Directory` classes) replaced
 the old one (`getInfoAsync`, `readAsStringAsync`) as of this SDK range.
 This codebase currently imports from `expo-file-system/legacy` in
@@ -814,7 +793,8 @@ Not yet tested:
   prettier all pass. **The app boots on a real device (2026-08-28,
   iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
   before that pin this branch crashed at startup with `Exception in
-  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
+  HostFunction: NativeWorklets`, an Expo Go JS/native version mismatch.
+  Booting
   proves the crash is gone and nothing more: still needs an on-device look
   that the motion reads as subtle rather than janky, and that scrolling a
   longer timeline doesn't re-trigger it.
