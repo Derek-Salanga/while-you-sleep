@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips } from '@/hooks/queries';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
@@ -18,6 +19,16 @@ import Card from '@/components/ui/Card';
 import HeroCard from '@/components/HeroCard';
 import StoryRings from '@/components/StoryRings';
 import CrossoverHeart from '@/components/CrossoverHeart';
+
+// Budget: the last staggered card must finish inside 300ms, so the stagger
+// index is capped rather than letting delay grow with list length --
+// (4 * 25) + 180 = 280ms no matter how many clips are in the timeline.
+const ENTER_MS = 180;
+const STAGGER_MS = 25;
+const MAX_STAGGER_STEPS = 4;
+// FadeInDown starts below its final position (translateY 25 by default) and
+// rises into place; 12 keeps that to the "slight" end.
+const ENTER_TRANSLATE_Y = 12;
 
 // clips are stamped with the pair's shared (UTC) day — see
 // sharedTodayDateString in src/lib/date.ts — so Today/Yesterday compare
@@ -57,27 +68,54 @@ export default function TimelineScreen({ navigation }: any) {
     return clip.sender_id === session?.user.id;
   }
 
-  function renderItem({ item }: { item: Clip }) {
+  // Entrance motion is for the initial mount only. A ref rather than state
+  // on purpose: flipping state here would re-render the whole list to
+  // deliver a value that only ever needs to be read on the *next* render.
+  // Without this guard the cards would also animate mid-scroll, since
+  // FlatList mounts rows as they come into the viewport, and again on any
+  // refetch that appends one.
+  const entranceDone = useRef(false);
+  useEffect(() => {
+    const timer = setTimeout(
+      () => {
+        entranceDone.current = true;
+      },
+      MAX_STAGGER_STEPS * STAGGER_MS + ENTER_MS
+    );
+    return () => clearTimeout(timer);
+  }, []);
+
+  function renderItem({ item, index }: { item: Clip; index: number }) {
     const mine = isMine(item);
     const unwatched = !mine && !item.viewed_at;
 
+    const entering = entranceDone.current
+      ? undefined
+      : FadeInDown.duration(ENTER_MS)
+          .delay(Math.min(index, MAX_STAGGER_STEPS) * STAGGER_MS)
+          .withInitialValues({
+            transform: [{ translateY: ENTER_TRANSLATE_Y }],
+          });
+
     return (
-      <Card
-        onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
-        style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardSender}>
-            {mine
-              ? (myProfile?.display_name ?? 'You')
-              : (partnerProfile?.display_name ?? 'Your partner')}
+      <Animated.View entering={entering}>
+        <Card
+          onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
+          style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardSender}>
+              {mine
+                ? (myProfile?.display_name ?? 'You')
+                : (partnerProfile?.display_name ?? 'Your partner')}
+            </Text>
+            {unwatched && <View style={styles.unwatchedDot} />}
+          </View>
+          <Text style={styles.cardDate}>
+            {formatClipDate(item.recorded_for_date)}
           </Text>
-          {unwatched && <View style={styles.unwatchedDot} />}
-        </View>
-        <Text style={styles.cardDate}>
-          {formatClipDate(item.recorded_for_date)}
-        </Text>
-      </Card>
+        </Card>
+      </Animated.View>
     );
   }
 

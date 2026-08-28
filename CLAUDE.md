@@ -874,6 +874,27 @@ Not yet tested:
 - Trips/Goals and anniversary day-counter: **two-account pass** —
   confirm either partner can set or overwrite either the trip or the
   anniversary and both partners see the same values.
+- Timeline entrance motion (`feat/timeline-entrance-motion`): clip cards
+  stagger in with reanimated's `FadeInDown` (fade + a 12px upward translate).
+  Timing is capped, not per-index: `Math.min(index, 4) * 25ms` delay + 180ms
+  duration, so the last card always lands at 280ms regardless of list length
+  — an uncapped stagger would blow the 300ms budget on any real timeline.
+  Animates on mount only, gated by an `entranceDone` ref: FlatList mounts
+  rows as they scroll into view, so without the guard cards would re-animate
+  mid-scroll, not just on refetch. `npx tsc --noEmit`, `npm run lint`, and
+  prettier all pass. **The app boots on a real device (2026-08-28,
+  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
+  before that pin this branch crashed at startup with `Exception in
+  HostFunction: NativeWorklets`, an Expo Go JS/native version mismatch.
+  Booting
+  proves the crash is gone and nothing more: still needs an on-device look
+  that the motion reads as subtle rather than janky, and that scrolling a
+  longer timeline doesn't re-trigger it.
+  **Installs `react-native-reanimated ~4.1.1`, the same version
+  `feat/gradient-record-button` (PR #29) installs** — deliberate, so the two
+  PRs stay independently mergeable; whichever lands second may need a
+  `package-lock.json` rebase (resolve by taking main's lock, then
+  `npm install`).
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
 single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
