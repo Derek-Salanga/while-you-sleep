@@ -19,6 +19,7 @@ import {
   sharedTodayDateString,
   sharedYesterdayDateString,
   utcTimeToLocal,
+  daysBetween,
 } from './date.ts';
 
 // 2026-06-18 20:00 US Pacific == 2026-06-19 03:00 UTC. This is exactly the
@@ -80,6 +81,32 @@ assert.equal(
   0,
   'local reminder time must map back to :00 -- sub-hour offsets (India ' +
     'UTC+5:30, Nepal UTC+5:45) break if the minute is assumed unchanged'
+);
+
+// daysBetween feeds the trip countdown and the "days together" counter, both
+// of which the user reads against their own calendar. The Math.round is
+// load-bearing, not cosmetic: across a DST transition the elapsed
+// milliseconds are not a whole multiple of 86400000, so truncating would
+// under- or over-count by a day for anyone in a DST-observing zone.
+assert.equal(daysBetween('2026-06-18', '2026-06-19'), 1, 'one day forward');
+assert.equal(daysBetween('2026-06-19', '2026-06-18'), -1, 'one day back');
+assert.equal(daysBetween('2026-06-18', '2026-06-18'), 0, 'same day is zero');
+// 2026-03-08 is the US spring-forward date: that local day is only 23h long.
+assert.equal(
+  daysBetween('2026-03-07', '2026-03-09'),
+  2,
+  'must span a DST transition without losing a day'
+);
+// ...and 2026-11-01 is the fall-back date, a 25h local day.
+assert.equal(
+  daysBetween('2026-10-31', '2026-11-02'),
+  2,
+  'must span a DST transition without gaining a day'
+);
+assert.equal(
+  daysBetween('2026-01-01', '2027-01-01'),
+  365,
+  'a full non-leap year'
 );
 
 console.log(

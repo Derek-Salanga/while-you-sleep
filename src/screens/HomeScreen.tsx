@@ -16,18 +16,12 @@ import {
   sharedTodayDateString,
   formatDateString,
   parseDateString,
+  daysBetween,
 } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairTrip, PairAnniversary } from '@/types';
 import { countries, flagEmoji, countryName } from '@/data/countries';
-
-function daysBetween(fromDate: string, toDate: string): number {
-  return Math.round(
-    (new Date(toDate + 'T00:00:00').getTime() - new Date(fromDate + 'T00:00:00').getTime()) /
-      86400000
-  );
-}
 
 function tripCountdownLabel(targetDate: string): string {
   const diffDays = daysBetween(todayDateString(), targetDate);
