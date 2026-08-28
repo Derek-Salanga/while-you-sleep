@@ -83,3 +83,15 @@ export function parseDateString(dateStr: string | null | undefined): Date {
   }
   return new Date();
 }
+
+// Whole days from one YYYY-MM-DD to another, positive when `toDate` is
+// later. Both sides are parsed as LOCAL midnight, matching the convention
+// picked dates already use (see the header) -- these feed countdowns the
+// user reads against their own calendar, not the pair's shared UTC day.
+export function daysBetween(fromDate: string, toDate: string): number {
+  return Math.round(
+    (new Date(toDate + 'T00:00:00').getTime() -
+      new Date(fromDate + 'T00:00:00').getTime()) /
+      86400000
+  );
+}
