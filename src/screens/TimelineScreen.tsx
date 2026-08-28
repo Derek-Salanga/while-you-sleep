@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -56,13 +56,23 @@ export default function TimelineScreen({ navigation }: any) {
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
   // ['clips'].
-  const {
-    data: clips = [],
-    isLoading,
-    isRefetching,
-    refetch,
-    error,
-  } = useClips(pair?.id);
+  const { data: clips = [], isLoading, refetch, error } = useClips(pair?.id);
+
+  // Driven by an explicit pull flag rather than react-query's isRefetching.
+  // isRefetching is true for *any* refetch, including the one this screen
+  // fires on every remount (see the note above), and RefreshControl responds
+  // by expanding its ~60pt spinner area -- so simply opening the tab pushed
+  // the whole list down until the refetch landed. It also claimed a pull had
+  // happened when none had.
+  const [pulling, setPulling] = useState(false);
+  const onPullRefresh = useCallback(async () => {
+    setPulling(true);
+    try {
+      await refetch();
+    } finally {
+      setPulling(false);
+    }
+  }, [refetch]);
 
   function isMine(clip: Clip): boolean {
     return clip.sender_id === session?.user.id;
@@ -135,7 +145,7 @@ export default function TimelineScreen({ navigation }: any) {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+            <RefreshControl refreshing={pulling} onRefresh={onPullRefresh} />
           }
           ListEmptyComponent={
             error ? (
