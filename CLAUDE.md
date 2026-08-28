@@ -731,6 +731,21 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
+- Timeline entrance motion (`feat/timeline-entrance-motion`): clip cards
+  stagger in with reanimated's `FadeInDown` (fade + a 12px upward translate).
+  Timing is capped, not per-index: `Math.min(index, 4) * 25ms` delay + 180ms
+  duration, so the last card always lands at 280ms regardless of list length
+  — an uncapped stagger would blow the 300ms budget on any real timeline.
+  Animates on mount only, gated by an `entranceDone` ref: FlatList mounts
+  rows as they scroll into view, so without the guard cards would re-animate
+  mid-scroll, not just on refetch. `npx tsc --noEmit`, `npm run lint`, and
+  prettier all pass; needs an on-device look that it reads as subtle rather
+  than janky, and that scrolling a longer timeline doesn't re-trigger it.
+  **Installs `react-native-reanimated ~4.1.1`, the same version
+  `feat/gradient-record-button` (PR #29) installs** — deliberate, so the two
+  PRs stay independently mergeable; whichever lands second may need a
+  `package-lock.json` rebase (resolve by taking main's lock, then
+  `npm install`).
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
