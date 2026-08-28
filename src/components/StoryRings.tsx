@@ -12,6 +12,7 @@ const RING_SIZE = 64;
 const RING_STROKE = 3;
 const AVATAR_SIZE = RING_SIZE - RING_STROKE * 2 - 6; // leaves a gap between ring and avatar
 const RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const LABEL_WIDTH = 84;
 const MUTED_GRAY = '#B8B2C4';
 
 function initial(name: string | null | undefined, fallback: string): string {
@@ -44,26 +45,35 @@ function Ring({
       onPress={onPress}
       disabled={!onPress}
     >
-      <Svg width={RING_SIZE} height={RING_SIZE}>
-        <Defs>
-          <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={gradientFrom} />
-            <Stop offset="1" stopColor={gradientTo} />
-          </LinearGradient>
-        </Defs>
-        <Circle
-          cx={RING_SIZE / 2}
-          cy={RING_SIZE / 2}
-          r={RADIUS}
-          stroke={muted ? MUTED_GRAY : `url(#${gradientId})`}
-          strokeWidth={RING_STROKE}
-          fill="none"
-        />
-      </Svg>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarInitial}>{initialLetter}</Text>
+      {/* The ring and avatar live in their own RING_SIZE box so the avatar's
+          absolute offsets stay relative to the ring, not to the wider
+          container that gives the label room to breathe. */}
+      <View style={styles.ringBox}>
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          <Defs>
+            <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={gradientFrom} />
+              <Stop offset="1" stopColor={gradientTo} />
+            </LinearGradient>
+          </Defs>
+          <Circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RADIUS}
+            stroke={muted ? MUTED_GRAY : `url(#${gradientId})`}
+            strokeWidth={RING_STROKE}
+            fill="none"
+          />
+        </Svg>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarInitial}>{initialLetter}</Text>
+        </View>
       </View>
-      <Text style={styles.label}>{label}</Text>
+      {/* Display names run to 20 chars, so without this a name like
+          "dereksalanga+part1" wrapped mid-word across two lines. */}
+      <Text style={styles.label} numberOfLines={1} ellipsizeMode="tail">
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -74,10 +84,12 @@ export default function StoryRings({ navigation }: { navigation: any }) {
 
   const today = sharedTodayDateString();
   const myClipToday = clips.find(
-    (c: Clip) => c.sender_id === session?.user.id && c.recorded_for_date === today,
+    (c: Clip) =>
+      c.sender_id === session?.user.id && c.recorded_for_date === today
   );
   const partnerClipToday = clips.find(
-    (c: Clip) => c.sender_id !== session?.user.id && c.recorded_for_date === today,
+    (c: Clip) =>
+      c.sender_id !== session?.user.id && c.recorded_for_date === today
   );
 
   function goToClip(clip: Clip | undefined) {
@@ -105,7 +117,9 @@ export default function StoryRings({ navigation }: { navigation: any }) {
         gradientFrom={colors.secondary}
         gradientTo={colors.secondaryLight}
         muted={!partnerClipToday || !partnerUnwatched}
-        onPress={partnerClipToday ? () => goToClip(partnerClipToday) : undefined}
+        onPress={
+          partnerClipToday ? () => goToClip(partnerClipToday) : undefined
+        }
       />
     </View>
   );
@@ -119,7 +133,13 @@ const styles = StyleSheet.create({
   },
   ringContainer: {
     alignItems: 'center',
+    // Wider than the ring itself so a name gets a usable amount of room
+    // before it ellipsizes; the ring stays centred within it.
+    width: LABEL_WIDTH,
+  },
+  ringBox: {
     width: RING_SIZE,
+    height: RING_SIZE,
   },
   avatar: {
     position: 'absolute',
