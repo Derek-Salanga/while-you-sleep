@@ -731,18 +731,6 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   the select policy, since fixed via a `security definer` function)
 
 Not yet tested:
-- Frosted daily-prompt card on RecordScreen (`feat/daily-prompt-card`): the
-  flat `rgba(0,0,0,0.4)` question banner over the camera viewfinder is now an
-  `expo-blur` `BlurView` card with an orange "TODAY'S CLIP" eyebrow and the
-  prompt in Fraunces. **No new prompt array was added** — `getQuestionForDate()`
-  in `src/data/dailyQuestions.ts` already selects one of 20 prompts by the
-  shared UTC day, which is exactly the "both partners see the same one"
-  behavior, so this is purely a restyle of an existing overlay. `npx tsc
-  --noEmit` and `npm run lint` pass; needs an on-device look at legibility
-  over a live camera feed in both bright and dark scenes. **Android blur is
-  unverified** — `experimentalBlurMethod="dimezisBlurView"` is set, without
-  which BlurView degrades to a plain translucent view there; this user's
-  setup is iPad-only so only iOS can be checked locally.
 - Fraunces/Inter font loading (`feat/font-loading`): `expo-font` +
   `@expo-google-fonts/fraunces`/`inter` installed, loaded via
   `useFonts()` in `App.tsx` with a splash-screen hold until ready or
@@ -788,6 +776,18 @@ Not yet tested:
   covers the `utcTimeToLocal()` conversion, but nothing has verified
   that expo-notifications actually fires at the converted time on a
   device — worth checking on a device whose timezone isn't UTC.
+- Frosted daily-prompt card on RecordScreen (`feat/daily-prompt-card`): the
+  flat `rgba(0,0,0,0.4)` question banner over the camera viewfinder is now an
+  `expo-blur` `BlurView` card with an orange "TODAY'S CLIP" eyebrow and the
+  prompt in Fraunces. **No new prompt array was added** — `getQuestionForDate()`
+  in `src/data/dailyQuestions.ts` already selects one of 20 prompts by the
+  shared UTC day, which is exactly the "both partners see the same one"
+  behavior, so this is purely a restyle of an existing overlay. `npx tsc
+  --noEmit` and `npm run lint` pass; needs an on-device look at legibility
+  over a live camera feed in both bright and dark scenes. **Android blur is
+  unverified** — `experimentalBlurMethod="dimezisBlurView"` is set, without
+  which BlurView degrades to a plain translucent view there; this user's
+  setup is iPad-only so only iOS can be checked locally.
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
