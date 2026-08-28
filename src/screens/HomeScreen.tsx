@@ -1,5 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, TextInput, Modal, FlatList, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  TextInput,
+  Modal,
+  FlatList,
+  Alert,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -46,7 +56,9 @@ export default function HomeScreen({ navigation }: any) {
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
   const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
-  const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(null);
+  const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(
+    null
+  );
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
 
@@ -131,7 +143,10 @@ export default function HomeScreen({ navigation }: any) {
     // a bound to the native date picker is what caused the Dec 31, 1969
     // display bug. Today itself is allowed ("Today" is a valid countdown).
     if (formatDateString(pickerDate) < todayDateString()) {
-      Alert.alert("That's in the past", 'Pick today or a later date for your next trip.');
+      Alert.alert(
+        "That's in the past",
+        'Pick today or a later date for your next trip.'
+      );
       return;
     }
     const { data, error } = await supabase
@@ -167,7 +182,8 @@ export default function HomeScreen({ navigation }: any) {
       <Text style={styles.title}>Home</Text>
       {anniversary && (
         <Text style={styles.anniversaryText}>
-          {daysBetween(anniversary.anniversary_date, todayDateString())} days together
+          {daysBetween(anniversary.anniversary_date, todayDateString())} days
+          together
           {partnerProfile ? ` with ${partnerProfile.display_name}` : ''}
         </Text>
       )}
@@ -197,10 +213,19 @@ export default function HomeScreen({ navigation }: any) {
           <Text style={styles.tripCardTitle}>Our next trip</Text>
           <Text style={styles.pickerLabel}>Where are you meeting?</Text>
           <Pressable
-            style={({ pressed }) => [styles.pickerInput, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerInput,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setCountryPickerVisible(true)}
           >
-            <Text style={pickerCountryCode ? styles.pickerInputText : styles.pickerInputPlaceholder}>
+            <Text
+              style={
+                pickerCountryCode
+                  ? styles.pickerInputText
+                  : styles.pickerInputPlaceholder
+              }
+            >
               {pickerCountryCode
                 ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
                 : 'Select a country'}
@@ -218,13 +243,19 @@ export default function HomeScreen({ navigation }: any) {
             />
           </View>
           <Pressable
-            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerSave,
+              pressed && styles.pressed,
+            ]}
             onPress={handleSaveTrip}
           >
             <Text style={styles.pickerSaveText}>Save</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setEditingTrip(false)}
           >
             <Text style={styles.pickerCloseText}>Cancel</Text>
@@ -238,11 +269,17 @@ export default function HomeScreen({ navigation }: any) {
           {trip ? (
             <View>
               <Text style={styles.tripDate}>
-                {trip.country_code ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · ` : ''}
+                {trip.country_code
+                  ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · `
+                  : ''}
                 {formatLongDate(trip.target_date)}
               </Text>
-              <Text style={styles.tripCountdown}>{tripCountdownLabel(trip.target_date)}</Text>
-              <Text style={styles.tripCardTitle}>until we see each other again</Text>
+              <Text style={styles.tripCountdown}>
+                {tripCountdownLabel(trip.target_date)}
+              </Text>
+              <Text style={styles.tripCardTitle}>
+                until we see each other again
+              </Text>
             </View>
           ) : (
             <Text style={styles.entryCardLabel}>Plan your next visit</Text>
@@ -269,7 +306,10 @@ export default function HomeScreen({ navigation }: any) {
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <Pressable
-                style={({ pressed }) => [styles.countryRow, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.countryRow,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => {
                   setPickerCountryCode(item.code);
                   setCountryPickerVisible(false);
@@ -277,13 +317,16 @@ export default function HomeScreen({ navigation }: any) {
                 }}
               >
                 <Text style={styles.countryRowText}>
-                  {flagEmoji(item.code)}  {item.name}
+                  {flagEmoji(item.code)} {item.name}
                 </Text>
               </Pressable>
             )}
           />
           <Pressable
-            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
             onPress={() => {
               setCountryPickerVisible(false);
               setCountrySearch('');
