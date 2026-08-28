@@ -834,19 +834,23 @@ Not yet tested:
   anniversary and both partners see the same values.
 - Residue from the 2026-08 UI pass. Most of it is confirmed by screenshot
   (see the note above); what that pass could **not** reach:
-  - #27 HeroCard: **"Day 14" and both city names are hardcoded
-    placeholders** with no schema field behind them — no "days apart"
-    concept exists (`pair_anniversary` tracks the opposite, days
-    *together*) and `profiles` has no location column. Now visually
-    confirmed as the most prominent thing on the Timeline, so this needs a
-    data-source decision, not a look.
-  - #28 story rings: **the rings and the Timeline contradict each other.**
-    Rings only consider *today's* clips, so a partner clip from yesterday
-    that you haven't watched shows a grey (watched-looking) ring while the
-    Timeline card directly below it shows a red unwatched dot — both
-    visible in the same screenshot. Needs a decision: fall back to the most
-    recent unwatched clip, keep it today-only and accept the mismatch, or
-    drop the ring's watched-state and let the Timeline own that signal.
+  - #27 HeroCard: **resolved by #37** — the card now derives from
+    `pair_trips` / `pair_anniversary` instead of the hardcoded "Day 14"
+    and "Your city"/"Partner's city", and falls back to no text when
+    neither is set. Confirmed on device (see below). The *anniversary*
+    branch is still unexercised: this pair has a trip set but no
+    anniversary, so only the trip path has actually rendered.
+  - #28 story rings: the rings and the Timeline could contradict each
+    other — rings considered only *today's* clips, so an unwatched clip
+    from an earlier day showed a grey (watched-looking) ring above a card
+    wearing a red unwatched dot. **Fixed on `fix/story-ring-unwatched-any-day`
+    (#36), deliberately held unmerged until it can be verified**: the ring
+    now tracks any unwatched clip, newest first. A device check on
+    2026-08-28 could NOT tell the two versions apart, because by then the
+    partner had posted *today* — a case the old logic also handles. The
+    discriminating test is: watch today's partner clip, leave an earlier
+    one unwatched, then the old code greys the ring and the new code does
+    not.
   - #28 story rings, separately: the ring colors at the real reveal-gating
     boundary. RLS hides a partner's clip until you've posted your own that
     day, so "partner hasn't posted" and "posted but still gated" render
@@ -864,6 +868,17 @@ Not yet tested:
   - #32 entrance motion: that scrolling a longer timeline doesn't
     re-trigger it, and that pull-to-refresh doesn't either. The mount
     animation itself is confirmed.
+
+Confirmed on a real device (2026-08-28, iPad/Expo Go): **#37, HeroCard on
+real data.** The Timeline header reads "65 days / until we meet" with
+"🇵🇭 Philippines / November 1, 2026", matching Home's own trip card exactly
+— which also cross-checks that moving `daysBetween` into `date.ts` left
+Home's countdown intact. No placeholder text remains anywhere on screen.
+
+Two caveats on that pass: the **anniversary fallback never rendered** (this
+pair has a trip but no anniversary, so only the trip branch ran), and the
+"neither set" empty state is likewise unseen.
+
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
 single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
