@@ -749,6 +749,15 @@ Not yet tested:
   answered/not-answered dot is correct. Needs a two-account pass.
   Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
   confirmed on a device that had the old two-reminder version installed.
+- HeroCard on TimelineScreen (`feat/hero-card`): split night-blue/day-orange
+  card with a crossover-colored heart (react-native-svg, viewBox path — no
+  bespoke SVG source exists in the repo, so this uses a plain heart
+  silhouette) centered at the seam. `npx tsc --noEmit` and `npm run lint`
+  pass, but nothing in this environment can render RN UI. **Both the day
+  counter ("Day 14") and the two city names are hardcoded placeholders** —
+  no schema field backs either yet (no "days apart" concept exists, and
+  `profiles` has no location field) — needs an on-device look, and a
+  decision on real data sources before this is more than decorative.
 - The UTC shared day boundary (see "Two day boundaries" above) on real
   devices: that two partners in *different* timezones see the same
   daily question and that their clips pair up as the same day's
