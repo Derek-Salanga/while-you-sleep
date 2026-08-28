@@ -16,6 +16,7 @@ import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
 import HeroCard from '@/components/HeroCard';
+import StoryRings from '@/components/StoryRings';
 
 // clips are stamped with the pair's shared (UTC) day — see
 // sharedTodayDateString in src/lib/date.ts — so Today/Yesterday compare
@@ -83,6 +84,7 @@ export default function TimelineScreen({ navigation }: any) {
     <Screen padding={20} topInset>
       <Text style={styles.title}>Timeline</Text>
       <HeroCard />
+      <StoryRings navigation={navigation} />
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} size="large" />
