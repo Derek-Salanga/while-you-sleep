@@ -3,18 +3,18 @@ import {
   View,
   Text,
   FlatList,
-  Pressable,
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips } from '@/hooks/queries';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
+import Screen from '@/components/ui/Screen';
+import Card from '@/components/ui/Card';
 
 // clips are stamped with the pair's shared (UTC) day — see
 // sharedTodayDateString in src/lib/date.ts — so Today/Yesterday compare
@@ -38,7 +38,6 @@ function formatClipDate(dateStr: string): string {
 
 export default function TimelineScreen({ navigation }: any) {
   const { session, pair, myProfile, partnerProfile } = usePairing();
-  const insets = useSafeAreaInsets();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
@@ -60,13 +59,9 @@ export default function TimelineScreen({ navigation }: any) {
     const unwatched = !mine && !item.viewed_at;
 
     return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.card,
-          mine ? styles.cardMine : styles.cardPartner,
-          pressed && styles.pressed,
-        ]}
+      <Card
         onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
+        style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
       >
         <View style={styles.cardHeader}>
           <Text style={styles.cardSender}>
@@ -79,12 +74,12 @@ export default function TimelineScreen({ navigation }: any) {
         <Text style={styles.cardDate}>
           {formatClipDate(item.recorded_for_date)}
         </Text>
-      </Pressable>
+      </Card>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+    <Screen padding={20} topInset>
       <Text style={styles.title}>Timeline</Text>
       {isLoading ? (
         <View style={styles.centered}>
@@ -108,12 +103,11 @@ export default function TimelineScreen({ navigation }: any) {
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
@@ -123,10 +117,8 @@ const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { paddingBottom: 20 },
   card: {
-    borderRadius: 20,
     padding: 18,
     marginBottom: 12,
-    borderWidth: 1,
   },
   cardMine: {
     backgroundColor: colors.primaryTint,
@@ -167,8 +159,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     marginTop: 60,
-  },
-  pressed: {
-    opacity: 0.7,
   },
 });
