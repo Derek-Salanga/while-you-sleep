@@ -751,14 +751,20 @@ reveal-gating pattern, which the new `has_own_clip()` reuses):
   (this is what surfaced and confirmed the RLS self-recursion bug in
   the select policy, since fixed via a `security definer` function)
 
+Confirmed on a real device (2026-08-28, iPad/Expo Go): the app launches and
+the UI visibly reflects the merged 2026-08 UI pass — #26 (Fraunces/Inter
+loading), #27 (HeroCard), #28 (story rings), #30 (illustrated empty states)
+and #33 (heart de-duplication). Reported as "the UI updated as expected",
+not graded feature by feature, so the specifics under "Not yet tested" below
+are still open. **#29, #31 and #32 merged after this check** and have not
+been looked at on a device at all.
+
+That the app boots is itself load-bearing here: until `react-native-worklets`
+was pinned to 0.5.1, every branch carrying react-native-reanimated died at
+startup before rendering (see "SDK version notes" above).
+
+
 Not yet tested:
-- Fraunces/Inter font loading (`feat/font-loading`): `expo-font` +
-  `@expo-google-fonts/fraunces`/`inter` installed, loaded via
-  `useFonts()` in `App.tsx` with a splash-screen hold until ready or
-  errored. `npx tsc --noEmit` and `npm run lint` pass, but nothing in
-  this environment can render RN UI — needs an on-device check in
-  Expo Go that the splash holds briefly (no flash of system-font text)
-  and that TimelineScreen's "Timeline" header renders in Fraunces.
 - Video daily question (merged clip+answer, PR depends on #18's
   compression settings being in place): the whole flow end to end on a
   real device — question overlay while recording at the new 30s cap,
@@ -770,15 +776,6 @@ Not yet tested:
   answered/not-answered dot is correct. Needs a two-account pass.
   Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
   confirmed on a device that had the old two-reminder version installed.
-- HeroCard on TimelineScreen (`feat/hero-card`): split night-blue/day-orange
-  card with a crossover-colored heart (react-native-svg, viewBox path — no
-  bespoke SVG source exists in the repo, so this uses a plain heart
-  silhouette) centered at the seam. `npx tsc --noEmit` and `npm run lint`
-  pass, but nothing in this environment can render RN UI. **Both the day
-  counter ("Day 14") and the two city names are hardcoded placeholders** —
-  no schema field backs either yet (no "days apart" concept exists, and
-  `profiles` has no location field) — needs an on-device look, and a
-  decision on real data sources before this is more than decorative.
 - The UTC shared day boundary (see "Two day boundaries" above) on real
   devices: that two partners in *different* timezones see the same
   daily question and that their clips pair up as the same day's
@@ -787,67 +784,17 @@ Not yet tested:
   two-timezone real-device pass exercises the actual behavior. Also
   worth eyeballing Timeline's "Today"/"Yesterday" labels near the
   boundary, since those now compare on UTC rather than local.
-- Story rings on TimelineScreen (`feat/story-rings`): two gradient-ring
-  avatars (react-native-svg `LinearGradient`/`Circle`, not
-  expo-linear-gradient) showing "You" and the partner's initial, below the
-  title. Ring is full-saturation while the partner's clip for today is
-  unwatched, muted grey (`#B8B2C4`) once watched or if no clip exists yet
-  for that day; tapping navigates to `ClipView` for that day's clip (a no-op
-  if there isn't one yet). No avatar-photo field exists on `profiles`, so
-  this shows an initial rather than a real photo. `npx tsc --noEmit` and
-  `npm run lint` pass; needs an on-device look, and a real two-account pass
-  around the watched/unwatched ring color at the actual reveal-gating
-  boundary (can't see partner's clip until you've posted your own for that
-  day, so its ring may need a third "not yet visible" state — not
-  distinguished from "no clip yet" here, worth checking whether that reads
-  right in practice).
 - Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
   (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
   `cron.job_run_details`. The function itself is confirmed (below); only
   the schedule that invokes it is untested, since it hadn't come around
   yet.
-- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
-  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
-  press-scale on RecordScreen's record button and on HomeScreen's "Today's
-  question" card — this is the actual record entry point; TimelineScreen has
-  no record CTA of its own (the original prompt named TimelineScreen, but
-  no such button exists there — HomeScreen's card is the one that navigates
-  to `Record`). RecordScreen's button previously read solid red in both
-  idle and recording states (only the shape changed, circle vs. rounded
-  square); it now uses the gradient in both states too, matching "instead
-  of flat colors" literally rather than inventing an unrequested
-  still-red-while-recording distinction. No babel.config.js changes needed
-  -- this SDK 54 project has no checked-in babel config at all, and
-  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
-  plugin when the package is detected in node_modules. `npx tsc --noEmit`
-  and `npm run lint` pass. **The app boots on a real device (2026-08-28,
-  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
-  before that pin this branch crashed at startup with `Exception in
-  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
-  proves the crash is gone and nothing more: still needs an on-device look
-  at the gradient render and the press-scale feel, and a sanity check that
-  the trip-planning card on Home (which shares layout but not styling with
-  the new `recordCta` style) still looks right since its style was split
-  out unchanged.
 - The extensionless `storage_path` change **on Android** (`video/mp4`).
   iOS is confirmed (below), but the point of the change is that the two
   platforms write to the same path, and that cross-platform case is the
   one that can't be exercised on this user's iPad-only setup. Until an
   Android device runs it, the `.mov`/`.mp4` collision it fixes stays
   theoretically-fixed rather than demonstrated.
-- Illustrated empty states (`feat/empty-states`): new shared
-  `src/components/CrossoverHeart.tsx` (the icon's crossover-split heart as
-  vector, react-native-svg, `size` prop) used in two places — TimelineScreen's
-  no-clips state (heart + Fraunces "Your story starts here" + warmer invite
-  copy, replacing the one-line "No clips yet") and PairingScreen's
-  waiting-for-partner card (heart + Fraunces "Waiting for your other half"
-  above the still-prominent invite code). TimelineScreen's *error* state is
-  deliberately left as plain muted text — a warm invitation would read wrong
-  on a failure. `npx tsc --noEmit` and `npm run lint` pass; needs an on-device
-  look at both states (the pairing one needs an unclaimed invite to sit on).
-  `HeroCard.tsx` renders the same heart via this component (it briefly had
-  its own inline copy of the path, collapsed onto `CrossoverHeart` once both
-  landed), so the motif has one definition.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right
@@ -856,45 +803,41 @@ Not yet tested:
   covers the `utcTimeToLocal()` conversion, but nothing has verified
   that expo-notifications actually fires at the converted time on a
   device — worth checking on a device whose timezone isn't UTC.
-- Frosted daily-prompt card on RecordScreen (`feat/daily-prompt-card`): the
-  flat `rgba(0,0,0,0.4)` question banner over the camera viewfinder is now an
-  `expo-blur` `BlurView` card with an orange "TODAY'S CLIP" eyebrow and the
-  prompt in Fraunces. **No new prompt array was added** — `getQuestionForDate()`
-  in `src/data/dailyQuestions.ts` already selects one of 20 prompts by the
-  shared UTC day, which is exactly the "both partners see the same one"
-  behavior, so this is purely a restyle of an existing overlay. `npx tsc
-  --noEmit` and `npm run lint` pass; needs an on-device look at legibility
-  over a live camera feed in both bright and dark scenes. **Android blur is
-  unverified** — `experimentalBlurMethod="dimezisBlurView"` is set, without
-  which BlurView degrades to a plain translucent view there; this user's
-  setup is iPad-only so only iOS can be checked locally.
 - Monthly Summary: stats/grid correctness against real multi-day data,
   month navigation, and the sequential reel's auto-advance +
   end-of-queue behavior in `ClipViewScreen`
 - Trips/Goals and anniversary day-counter: **two-account pass** —
   confirm either partner can set or overwrite either the trip or the
   anniversary and both partners see the same values.
-- Timeline entrance motion (`feat/timeline-entrance-motion`): clip cards
-  stagger in with reanimated's `FadeInDown` (fade + a 12px upward translate).
-  Timing is capped, not per-index: `Math.min(index, 4) * 25ms` delay + 180ms
-  duration, so the last card always lands at 280ms regardless of list length
-  — an uncapped stagger would blow the 300ms budget on any real timeline.
-  Animates on mount only, gated by an `entranceDone` ref: FlatList mounts
-  rows as they scroll into view, so without the guard cards would re-animate
-  mid-scroll, not just on refetch. `npx tsc --noEmit`, `npm run lint`, and
-  prettier all pass. **The app boots on a real device (2026-08-28,
-  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
-  before that pin this branch crashed at startup with `Exception in
-  HostFunction: NativeWorklets`, an Expo Go JS/native version mismatch.
-  Booting
-  proves the crash is gone and nothing more: still needs an on-device look
-  that the motion reads as subtle rather than janky, and that scrolling a
-  longer timeline doesn't re-trigger it.
-  **Installs `react-native-reanimated ~4.1.1`, the same version
-  `feat/gradient-record-button` (PR #29) installs** — deliberate, so the two
-  PRs stay independently mergeable; whichever lands second may need a
-  `package-lock.json` rebase (resolve by taking main's lock, then
-  `npm install`).
+- The 2026-08 UI pass (#26-#33), feature by feature. The screens render
+  (see the confirmed note above), but none of this was graded:
+  - #26 fonts: that Fraunces actually renders rather than falling back to
+    the system font, and that the splash holds with no flash of unstyled
+    text.
+  - #27 HeroCard: **"Day 14" and both city names are hardcoded
+    placeholders** with no schema field behind them — no "days apart"
+    concept exists (`pair_anniversary` tracks the opposite, days
+    *together*) and `profiles` has no location column. This is live in the
+    Timeline header today, so it needs a data-source decision, not just a
+    look.
+  - #28 story rings: the watched/unwatched ring colors at the real
+    reveal-gating boundary. RLS hides a partner's clip until you've posted
+    your own for that day, so "partner hasn't posted" and "posted but still
+    gated" currently render identically (muted grey). Needs a two-account
+    pass to judge whether that reads right or wants a third state.
+  - #29 gradient record button: the gradient's actual appearance and the
+    press-scale feel, plus a check that Home's trip-planning card still
+    looks right — its style was split out of the shared `entryCard`
+    unchanged when the record CTA got its own.
+  - #30 empty states: both of them. Timeline's needs an account with no
+    clips; PairingScreen's needs an unclaimed invite to sit on.
+  - #31 frosted prompt card: legibility over a live camera feed in both
+    bright and dark scenes. **Android blur is unverified** —
+    `experimentalBlurMethod="dimezisBlurView"` is set, without which
+    BlurView degrades to plain translucency there, and this setup is
+    iPad-only.
+  - #32 entrance motion: that it reads as subtle rather than janky, and
+    that scrolling a longer timeline doesn't re-trigger it.
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
 single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
