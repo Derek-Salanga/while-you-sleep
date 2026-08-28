@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Clip, Pair, Profile } from '@/types';
+import { Clip, Pair, PairAnniversary, PairTrip, Profile } from '@/types';
 
-// Query keys are plain arrays, no key factory -- there are four of them.
+// Query keys are plain arrays, no key factory -- there are six of them.
 // Every queryFn throws on a Supabase error so react-query owns the error
 // state, rather than logging and returning a sentinel value.
 
@@ -75,6 +75,44 @@ export function useClip(clipId: string) {
       if (urlError) throw urlError;
 
       return { clip: clip as Clip, videoUrl: signed.signedUrl };
+    },
+  });
+}
+
+// Both of these are singleton rows keyed on pair_id, so maybeSingle() and a
+// null result are the normal "not set yet" case, not an error.
+//
+// HomeScreen still fetches the same two tables inline with its own state --
+// it owns the edit forms, and migrating those is a separate job. These exist
+// for read-only consumers like HeroCard.
+export function usePairTrip(pairId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['pairTrip', pairId],
+    enabled: !!pairId,
+    queryFn: async (): Promise<PairTrip | null> => {
+      const { data, error } = await supabase
+        .from('pair_trips')
+        .select('*')
+        .eq('pair_id', pairId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function usePairAnniversary(pairId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['pairAnniversary', pairId],
+    enabled: !!pairId,
+    queryFn: async (): Promise<PairAnniversary | null> => {
+      const { data, error } = await supabase
+        .from('pair_anniversary')
+        .select('*')
+        .eq('pair_id', pairId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
   });
 }
