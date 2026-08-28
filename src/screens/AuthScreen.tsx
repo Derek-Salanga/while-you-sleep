@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import {
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
+import Screen from '@/components/ui/Screen';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 
 type Stage = 'enterEmail' | 'enterCode';
 
@@ -68,107 +69,82 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.title}>While You Sleep</Text>
-      <Text style={styles.subtitle}>
-        {stage === 'enterEmail'
-          ? 'Sign in with your email to get started.'
-          : `Enter the code we sent to ${email.trim()}`}
-      </Text>
+      <Screen padding={24} centered>
+        <Text style={styles.title}>While You Sleep</Text>
+        <Text style={styles.subtitle}>
+          {stage === 'enterEmail'
+            ? 'Sign in with your email to get started.'
+            : `Enter the code we sent to ${email.trim()}`}
+        </Text>
 
-      {stage === 'enterEmail' ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder="you@example.com"
-            placeholderTextColor={colors.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              styles.primaryButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleSendCode}
-            disabled={busy || !email.trim()}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.surface} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Send code</Text>
-            )}
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <TextInput
-            style={[styles.input, styles.codeInput]}
-            placeholder="123456"
-            placeholderTextColor={colors.muted}
-            keyboardType="number-pad"
-            maxLength={6}
-            value={code}
-            onChangeText={setCode}
-          />
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              styles.primaryButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleVerifyCode}
-            disabled={busy || code.trim().length < 6}
-          >
-            {busy ? (
-              <ActivityIndicator color={colors.surface} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Verify & sign in</Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.linkButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleResend}
-            disabled={busy}
-          >
-            <Text style={styles.linkButtonText}>Resend code</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.linkButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => {
-              setStage('enterEmail');
-              setCode('');
-            }}
-            disabled={busy}
-          >
-            <Text style={styles.linkButtonText}>Use a different email</Text>
-          </Pressable>
-        </>
-      )}
+        {stage === 'enterEmail' ? (
+          <>
+            <Input
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Button
+              title="Send code"
+              onPress={handleSendCode}
+              loading={busy}
+              disabled={busy || !email.trim()}
+            />
+          </>
+        ) : (
+          <>
+            <Input
+              centered
+              placeholder="123456"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={code}
+              onChangeText={setCode}
+            />
+            <Button
+              title="Verify & sign in"
+              onPress={handleVerifyCode}
+              loading={busy}
+              disabled={busy || code.trim().length < 6}
+            />
+            <Pressable
+              style={({ pressed }) => [
+                styles.linkButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={handleResend}
+              disabled={busy}
+            >
+              <Text style={styles.linkButtonText}>Resend code</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.linkButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                setStage('enterEmail');
+                setCode('');
+              }}
+              disabled={busy}
+            >
+              <Text style={styles.linkButtonText}>Use a different email</Text>
+            </Pressable>
+          </>
+        )}
+      </Screen>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 24,
-    justifyContent: 'center',
-  },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xxl,
@@ -182,35 +158,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     marginBottom: 32,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 16,
-  },
-  codeInput: {
-    textAlign: 'center',
-    letterSpacing: 4,
-    fontSize: fontSizes.lg,
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  primaryButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
   },
   linkButton: {
     paddingVertical: 12,

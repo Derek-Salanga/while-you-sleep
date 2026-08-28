@@ -1,18 +1,14 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
+import Screen from '@/components/ui/Screen';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
 
 // Generates a short, human-friendly invite code, e.g. "SUNSET-42"
 function generateInviteCode(): string {
@@ -82,59 +78,43 @@ export default function PairingScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen padding={24} centered>
       <Text style={styles.title}>While You Sleep</Text>
       <Text style={styles.subtitle}>
         Pair with your partner to start sharing daily clips.
       </Text>
 
       {myCode ? (
-        <View style={styles.card}>
+        <Card elevated style={styles.card}>
           <Text style={styles.cardLabel}>Your invite code</Text>
           <Text style={styles.code}>{myCode}</Text>
           <Text style={styles.helper}>
             Send this to your partner. Waiting for them to join…
           </Text>
-        </View>
+        </Card>
       ) : (
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            styles.primaryButton,
-            pressed && styles.pressed,
-          ]}
+        <Button
+          title="Create invite"
           onPress={handleCreateInvite}
           disabled={busy}
-        >
-          <Text style={styles.primaryButtonText}>Create invite</Text>
-        </Pressable>
+        />
       )}
 
       <Text style={styles.orDivider}>or</Text>
 
-      <TextInput
-        style={styles.input}
+      <Input
         placeholder="Enter partner's invite code"
-        placeholderTextColor={colors.muted}
         autoCapitalize="characters"
         value={inviteCode}
         onChangeText={setInviteCode}
       />
-      <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          styles.secondaryButton,
-          pressed && styles.pressed,
-        ]}
+      <Button
+        title="Join with code"
         onPress={handleJoin}
+        variant="secondary"
+        loading={busy}
         disabled={busy || !inviteCode.trim()}
-      >
-        {busy ? (
-          <ActivityIndicator color={colors.ink} />
-        ) : (
-          <Text style={styles.secondaryButtonText}>Join with code</Text>
-        )}
-      </Pressable>
+      />
 
       {/* Handy for testing both sides of a pairing on one device: sign
           out here, sign back in with a different email, and join the
@@ -147,17 +127,11 @@ export default function PairingScreen() {
       >
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 24,
-    justifyContent: 'center',
-  },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xxl,
@@ -173,18 +147,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
   },
   cardLabel: {
     fontFamily: fonts.body,
@@ -209,40 +174,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     marginVertical: 16,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 16,
-  },
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  primaryButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
-  },
-  secondaryButton: {
-    backgroundColor: colors.secondaryTint,
-    borderWidth: 1,
-    borderColor: colors.secondaryDark,
-  },
-  secondaryButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.ink,
-    fontSize: fontSizes.md,
   },
   signOutLink: {
     paddingVertical: 12,
