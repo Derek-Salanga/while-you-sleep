@@ -1,9 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-} from 'react';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import { usePair, useProfile } from '@/hooks/queries';
 import { Pair, Profile } from '@/types';
 import { useAuth } from './AuthContext';

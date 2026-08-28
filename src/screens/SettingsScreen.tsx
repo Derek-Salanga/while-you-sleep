@@ -1,5 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, Alert, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  Alert,
+  TextInput,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -56,7 +64,11 @@ export default function SettingsScreen() {
     const { data, error } = await supabase
       .from('pair_anniversary')
       .upsert(
-        { pair_id: pair.id, anniversary_date: formatDateString(pickerDate), set_by: session.user.id },
+        {
+          pair_id: pair.id,
+          anniversary_date: formatDateString(pickerDate),
+          set_by: session.user.id,
+        },
         { onConflict: 'pair_id' }
       )
       .select()
@@ -113,13 +125,19 @@ export default function SettingsScreen() {
             maxLength={20}
           />
           <Pressable
-            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerSave,
+              pressed && styles.pressed,
+            ]}
             onPress={handleSaveNickname}
           >
             <Text style={styles.pickerSaveText}>Save</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setEditingNickname(false)}
           >
             <Text style={styles.pickerCloseText}>Cancel</Text>
@@ -131,7 +149,9 @@ export default function SettingsScreen() {
           onPress={startEditingNickname}
         >
           <Text style={styles.rowLabel}>Nickname</Text>
-          <Text style={styles.rowValue}>{myProfile?.display_name ?? '...'}</Text>
+          <Text style={styles.rowValue}>
+            {myProfile?.display_name ?? '...'}
+          </Text>
         </Pressable>
       )}
       {editingAnniversary ? (
@@ -149,13 +169,19 @@ export default function SettingsScreen() {
             />
           </View>
           <Pressable
-            style={({ pressed }) => [styles.pickerSave, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerSave,
+              pressed && styles.pressed,
+            ]}
             onPress={handleSaveAnniversary}
           >
             <Text style={styles.pickerSaveText}>Save</Text>
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.pickerClose, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setEditingAnniversary(false)}
           >
             <Text style={styles.pickerCloseText}>Cancel</Text>
@@ -169,7 +195,9 @@ export default function SettingsScreen() {
           <Text style={styles.rowLabel}>Anniversary</Text>
           <Text style={styles.rowValue}>
             {anniversary
-              ? parseDateString(anniversary.anniversary_date).toLocaleDateString('en-US', {
+              ? parseDateString(
+                  anniversary.anniversary_date
+                ).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
