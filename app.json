@@ -39,7 +39,8 @@
       "expo-video",
       "expo-notifications",
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      "@sentry/react-native"
     ],
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",
