@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "build:ios": "eas build --platform ios",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\""
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",

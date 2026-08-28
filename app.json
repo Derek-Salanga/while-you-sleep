@@ -11,9 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#F5F3FA"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.whileyousleep.app",
