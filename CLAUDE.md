@@ -27,8 +27,8 @@ by default — ask the user if design rationale is needed).
   before that — the dependency was installed but never initialized).
   **Expo Go caveat:** Sentry's JS SDK works fine in Expo Go for
   unhandled JS exceptions and explicit `captureMessage`/breadcrumbs,
-  but true native-level crashes (e.g. the fragment-manager crash from
-  the date-picker saga below) aren't caught without the native Sentry
+  but true native-level crashes (e.g. the fragment-manager crash in
+  `docs/datepicker-debugging.md`) aren't caught without the native Sentry
   SDK compiled into the binary, which needs a custom EAS Dev Client —
   a bigger workflow shift, not made unilaterally. `EXPO_PUBLIC_SENTRY_DSN`
   is set in this user's `.env` as of 2026-08-27, so JS-level reporting
@@ -285,121 +285,21 @@ the app already uses — not anchored to a shared/destination timezone.
 app, so there's no per-user timezone data to anchor to without adding
 new infrastructure; explicitly deferred, not an oversight.
 
-### Date picker: six real-device bug rounds (resolved)
+### Date picker setup
 
-Both date pickers (trip and anniversary, below) went through six
-rounds of real-device fixes, all caused by how
-`@react-native-community/datetimepicker` (and its container) was
-embedded — see also [[feedback_datetimepicker_no_modal]] in memory for
-the reusable lesson:
+Both pickers (trip on Home, anniversary in Settings) went through six rounds
+of real-device crashes and display bugs, all caused by how
+`@react-native-community/datetimepicker` and its container were embedded —
+full history in [docs/datepicker-debugging.md](docs/datepicker-debugging.md),
+reusable lesson in [[feedback_datetimepicker_no_modal]] in memory.
 
-1. **Wrapping the picker in a custom RN `Modal` at all.** Android's
-   `display="default"` is itself an imperative native dialog; mounting
-   it inside `Modal`'s separate native window is a documented
-   fragment-manager crash in this library. iOS's `display="inline"`
-   inside that same narrow bottom-sheet `Modal` didn't have the layout
-   width it needed, clipping most of the calendar. Fixed by dropping
-   the custom `Modal` entirely — both pickers render directly in the
-   screen now, in an inline edit section that replaces the card/row
-   while active.
-2. **`display="compact"` on iOS**, tried as the fix for (1). Compact
-   mode presents its calendar as a native popover, which is a known
-   crash source specifically on iPad (this user's real-device
-   target) when the presenting view's context isn't set up exactly
-   right — hit immediately on the very next trip-card tap after fixing
-   (1). Reverted to `display="inline"`, which (now that neither picker
-   is Modal-wrapped) has the layout room it needs without clipping and
-   has no popover to crash. Settings' anniversary edit card also had
-   `alignItems: 'flex-start'`, which would have shrunk the inline
-   calendar back down to its intrinsic width and reproduced the
-   original clipping bug on that screen specifically — removed.
-3. **A second `display="inline"` picker mounting in a different,
-   already-mounted tab.** Crashed after setting a trip date on Home,
-   then opening the Settings anniversary picker — the first time two
-   *different* screens' pickers had been opened in the same app
-   session. `@react-navigation/bottom-tabs` keeps all tab screens
-   mounted across tab switches by default (no `unmountOnBlur`), so a
-   stale native picker instance from Home was plausibly still alive in
-   the background when Settings mounted its own. Two independent
-   mitigations applied together rather than a fourth blind guess at
-   display mode alone: added `unmountOnBlur: true` to the tab
-   navigator (`MainTabs.tsx`) — free, since every screen already
-   re-fetches on focus via `useFocusEffect` — and switched both
-   pickers from `"inline"` (`UICalendarView`, iOS 14+) to `"spinner"`
-   (the classic `UIDatePicker` wheel, in the library since iOS 2), the
-   most battle-tested presentation mode. Trades calendar-grid polish
-   for reliability after two prior modes both crashed.
-4. **Anniversary wheel showed Dec 31, 1969** (the Unix epoch, shifted a
-   day by a negative UTC offset) when opened right after setting a
-   trip date. No stack trace to confirm the exact mechanism — this
-   isn't a crash, so nothing for Sentry to catch even if it's
-   configured — so two plausible causes were hardened together rather
-   than guessing once blind: added `parseDateString()` to
-   `src/lib/date.ts`, used everywhere a stored date string is parsed
-   for picker/display use, so an Invalid Date can never reach a native
-   picker (some coerce `NaN` timestamps to epoch 0 instead of
-   erroring); and wrapped both spinner pickers in a fixed-height
-   (`216`, `UIDatePicker`'s intrinsic spinner height) container, since
-   RN's Yoga layout can hand a native view a zero-size frame for a
-   render or two after a screen transition, and `UIDatePicker` is
-   known to reset its displayed date when that happens.
-5. **Same Dec 31, 1969 symptom, still reproducing after (4).** Since
-   both of (4)'s hardening fixes were in place and it still happened,
-   both hypotheses were most likely wrong — time to stop guessing and
-   get real evidence instead of a sixth blind fix, which is also what
-   the user explicitly asked for ("set up a logger... for future
-   debugging purposes"). Two things done: added `console.warn` calls
-   at `SettingsScreen.tsx`'s three key points (row fetched from
-   Supabase, computed picker value on open, every `onChange` firing)
-   so a repro shows exactly what value is in play at each step — these
-   are temporary and should come out once the bug's actually found,
-   not permanent instrumentation; and actually wired up
-   `Sentry.init`/`Sentry.wrap` in `App.tsx` (previously just an
-   unused dependency, see "Environment" above) for durable signal on
-   whatever comes next. Also spotted and fixed one concrete asymmetry
-   while investigating: the trip picker has `minimumDate={new Date()}`,
-   which would silently clamp away any stray native-default epoch
-   value; the anniversary picker had no lower bound at all, so nothing
-   would stop an epoch default from being accepted and possibly echoed
-   back through `onChange`. Added `minimumDate` there too (100 years
-   back — no real anniversary is older). Plausible real fix, but
-   unconfirmed without a repro showing the new logs.
-6. **Root cause found and fixed (2026-08-27), via the new `console.warn`
-   logs from (5).** A repro showed the JS state was correct at every
-   step (loaded row, parsed value, `onChange` value, saved value all
-   matched what was expected) — proving the epoch display was a *native
-   rendering* bug, not a data/state bug. The user then found a reliable
-   trigger: scrolling the trip wheel backward past its `minimumDate`.
-   Two more hypotheses were tried and **both disproven** by real-device
-   retests before the actual fix: (a) gating the picker's mount behind
-   `onLayout` reporting a non-zero container height (the round-4 "zero
-   frame" theory, made more rigorous) — still reproduced; (b) hoisting
-   `minimumDate`/`maximumDate` out of inline `new Date()` calls into
-   per-edit-session state, since an inline `new Date()` is a fresh
-   object every render and gets re-pushed to the native view on every
-   `onChange` mid-scroll — still reproduced. Both were reverted rather
-   than left stacked. The actual fix: **remove `minimumDate` and
-   `maximumDate` from both pickers entirely.** The bound prop itself —
-   not its staleness or the timing of when it's applied — is what
-   `@react-native-community/datetimepicker` mishandles on iOS spinner
-   mode when scrolled past it. Confirmed fixed on a real device across
-   both the original trip-then-anniversary sequence and the
-   scroll-backward repro. Range validation moved to Save-time instead:
-   `HomeScreen.tsx`'s `handleSaveTrip` rejects a trip date before today,
-   `SettingsScreen.tsx`'s `handleSaveAnniversary` rejects one after
-   today, both via a plain string-compare on `todayDateString()` /
-   `formatDateString()` and an `Alert.alert`. The temporary
-   `console.warn` calls from (5) are removed now that the bug's
-   resolved; `Sentry.init`/`Sentry.wrap` stay wired in `App.tsx` as
-   durable signal for anything else.
-
-Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the
-tab navigator, `display="spinner"` on iOS in a fixed-height container,
+Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the tab
+navigator, `display="spinner"` on iOS in a fixed-height container,
 `display="default"` on Android, dates always parsed through
-`parseDateString()`, **neither picker has `minimumDate`/`maximumDate`**
-— date-range rules are enforced on Save via a plain string compare
-instead. Confirmed fixed on a real device (2026-08-27), single-account
-pass only — see "Testing status" below for what's still unverified.
+`parseDateString()`, **neither picker has `minimumDate`/`maximumDate`** —
+date-range rules are enforced on Save via a plain string compare instead
+(`handleSaveTrip` in `HomeScreen.tsx`, `handleSaveAnniversary` in
+`SettingsScreen.tsx`).
 
 ### Anniversary day-counter
 
@@ -408,8 +308,8 @@ shared "together since" date per pair, in its own `pair_anniversary`
 table (not a column on `pair_trips` — deliberately kept separate since
 it's a distinct feature with a different entry point). Set from a row
 on `SettingsScreen.tsx` (native date picker; future dates are rejected
-on Save rather than via a picker `maximumDate` — see "Date picker: six
-real-device bug rounds" above), shown read-only on Home as "N days
+on Save rather than via a picker `maximumDate` — see "Date picker setup"
+above), shown read-only on Home as "N days
 together" under the title.
 Same RLS shape as `pair_trips`, same local-calendar-day math.
 
@@ -437,11 +337,11 @@ text if a profile hasn't loaded yet.
 Capped at 20 characters — started at 40 (arbitrary), the user asked
 for 15, then two pre-existing test-account rows turned out to already
 be 21 chars (the email-prefix default, not real nicknames), so 20 was
-picked instead of chasing the default text upward again; those two
-rows still need renaming before the DB `check` constraint can be
-applied to the live project (client-side `maxLength={20}` is already
-live either way). See "Testing status" below for exactly what's
-confirmed vs. still pending.
+picked instead of chasing the default text upward again. The DB `check`
+constraint is applied on the live project; any write path that generates
+a `display_name` has to respect the cap itself (`ensureProfile` slices to
+20 at the source), since the constraint is the source of truth, not a
+backstop.
 
 ## Video capture: capped at capture time, not compressed after
 
@@ -475,9 +375,8 @@ Tradeoff: this caps quality going in rather than compressing an
 already-recorded file, so there's no lever to shrink a clip *after*
 it's captured. Doesn't matter for this app's flow — clips are recorded
 fresh each time, never imported, so there's no pre-existing full-quality
-file to compress. Not yet verified on a real device — worth confirming
-actual clip file sizes land in the expected range and playback quality
-is still acceptable at 720p for a phone-screen daily clip.
+file to compress. Confirmed on a real device: a full-length clip lands at
+~9 MB, right against what the 720p/2.5 Mbps cap predicts for 30s.
 
 ## Two day boundaries: local vs. the pair's shared (UTC) day
 
@@ -668,298 +567,51 @@ now react-query queries/mutations, the library's default retry (3
 attempts, exponential backoff) covers it, and covers strictly more than
 the old wrapper did. Nothing special is configured for it.
 
-## Testing status (update this section as things get verified)
+## Testing status
 
-Confirmed working end-to-end:
-- Email OTP sign-in (send code, receive via Resend, verify)
-- Full two-user pairing: create invite on one account, join with a
-  second real account via `join_pair_by_code` — confirmed 2026-08-27
-  after applying the invite-code RLS fix (PR #16) to the live project.
-  Reject path also confirmed (reusing an already-claimed code shows the
-  function's error message, not a silent failure).
-- Camera recording
-- Upload (record -> Supabase Storage -> `clips` row) — re-confirmed
-  2026-08-25 after the `expo-file-system/legacy` fix; partner device
-  received the clip.
-- Partner nicknames (PR #17): set on both of two real paired accounts,
-  confirmed on Home ("...with [nickname]") and Timeline (both sender
-  labels), and that edits persist and reload correctly. Confirmed
-  2026-08-27 after applying the `profiles_select_pair_partner` RLS
-  policy to the live project. The `profiles_display_name_check`
-  (<= 20 chars) constraint **is** applied on the live project as of
-  2026-08-27 — this section previously recorded it as still pending.
-  Applying it surfaced a real bug: `ensureProfile` seeded
-  `display_name` from the email prefix with no truncation, and
-  `dereksalanga+partner2` is 21 chars, so the client was handing the DB
-  a default it was guaranteed to reject ("new row for relation
-  \"profiles\" violates check constraint"). Now sliced to 20 at the
-  source, matching SettingsScreen's `maxLength`. Any write path that
-  generates a `display_name` has to respect that cap itself — the
-  constraint is the source of truth, not a backstop.
+Current state only. Dated verification history: [docs/testing-log.md](docs/testing-log.md).
 
-Confirmed by the user against PR #20's checklist before merging
-(2026-08-27): the TanStack Query data layer (see "Data layer" above) —
-Timeline loads and pull-to-refresh still works, recording a clip makes it
-appear on Timeline with no manual refresh (the headline change), watching
-a partner's clip clears its unwatched dot on return, the Monthly Summary
-reel still auto-advances, and the `PairingContext` rewire regressed
-nothing (nickname edits, a fresh join, and cold start all still behave).
-Reported as a pass rather than re-verified here.
+**Confirmed on a real device or the live project:**
+- Email OTP sign-in; two-user pairing (create, join, reused-code rejection)
+- Camera recording, upload, playback, viewed-status marking
+- Reveal gating — a partner's clip is hidden until you post your own that day
+- Extensionless `storage_path` + real MIME types, iOS only; old `.mov` rows
+  still play
+- Capture-time compression: 720p / 2.5 Mbps caps hold (~9 MB for a full clip)
+- Partner nicknames, incl. the 20-char DB check constraint
+- TanStack Query data layer: Timeline updates without manual refresh, reel
+  auto-advances
+- Pull-to-refresh no longer opens a gap on plain screen open
+- Bottom tab bar
+- Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
+- HeroCard on real trip data; story rings track any unwatched clip, not just
+  today's
+- Fonts (Fraunces/Inter), gradient record button, frosted prompt card,
+  entrance motion — iOS
+- Storage orphan cleanup: deletion confirmed end to end, nightly `pg_cron` job
+  fires
+- App boots on `@sentry/react-native` 7 and the pinned `react-native-worklets`
 
-Confirmed on the live project (2026-08-27, `feat/storage-orphan-cleanup`):
-storage orphan cleanup works end to end. `pg_net` + `pg_cron` enabled,
-the `service_role_key` Vault secret created (holding an `sb_secret_…`
-key, not the legacy `service_role` JWT — legacy keys are deleted late
-2026, so a job keyed on one would have silently stopped working). A
-deliberately-uploaded junk file was seen as an orphan, removed by
-`select cleanup_orphaned_clip_files(interval '0')`, and confirmed gone
-from the bucket, with `net._http_response` showing
-`200 {"message":"Successfully deleted"}` — i.e. the file left S3, not
-just `storage.objects`.
-
-Also confirmed by that pass: **`postgres` can read `storage.objects`**
-(the counts query returned 5 files against 5 `clips` rows, not 0), which
-is what the whole `security definer` design rests on — if that had come
-back 0, the function could never have found an orphan. And 0 orphans
-across a real bucket means the `.mov`/`.mp4` path bug never fired here,
-as expected on a single-platform device.
-
-Confirmed on a real device (2026-08-27, `feat/storage-orphan-cleanup`,
-iOS/Expo Go): the extensionless `storage_path` + real-MIME-type change
-records **and plays back** on both accounts of a pair. The stored object
-is `<pair>/<sender>/2026-08-27` with no extension and
-`mimetype = video/quicktime`, and playback works with no extension in
-the signed URL — which was the open question, since the player then has
-only Content-Type to go on. Old `.mov` clips recorded before the change
-still play alongside the new ones, so the transition needs no backfill.
-
-Also settled by that pass, open since PR #18: **capture-time compression
-holds**. A full-length clip came in at 8.9 MB, right against the ~9.4 MB
-the 720p/2.5 Mbps cap predicts for 30s, and short clips at 0.7-1.1 MB.
-Playback quality was not separately graded beyond "plays properly".
-
-Note both accounts had posted for the same day before that check, so it
-confirmed both clips are watchable once revealed but did not exercise the
-gate itself. **The gate is now confirmed too (2026-08-28, two real
-accounts): a partner's clip is hidden until you have posted your own for
-that day.** That is the app's core mechanic and had never been tested from
-the blocked side until now — every prior pass had both partners already
-posted, which is exactly the state that cannot see the gate work.
-
-Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
-in Expo Go, not a functional re-test):
-- Auth screen's "While You Sleep" title renders
-- Pressed/active feedback shows on buttons across all five screens
-- Timeline clip dates render humanized ("Today" / "Yesterday" / "Aug 25")
-- ClipView close button renders and is tappable
-
-Confirmed on `feat/daily-question` (2026-08-26, Expo Go, one-sided —
-only one partner's account exercised so far), **superseded by the
-video-daily-question merge** (the text-answer flow and
-`DailyQuestionScreen` this refers to no longer exist — kept here as a
-record of what was verified about the underlying `security definer`
-reveal-gating pattern, which the new `has_own_clip()` reuses):
-- Answer submission worked end-to-end against the live Supabase project
-  (this is what surfaced and confirmed the RLS self-recursion bug in
-  the select policy, since fixed via a `security definer` function)
-
-Confirmed on a real device by screenshot (2026-08-28, iPad/Expo Go) across
-the whole 2026-08 UI pass:
-
-- **#26 fonts** — Fraunces renders on the Home and Timeline titles, Inter on
-  body text. Not a system fallback.
-- **#27 HeroCard** — split card renders, and the heart halves do take the
-  *opposite* side's color, which is the crossover the icon uses.
-- **#28 story rings** — both rings render with avatar initials.
-- **#29 gradient record button** — the Home CTA carries the blue-to-orange
-  gradient, and the RecordScreen capture button is a gradient circle rather
-  than the old solid red. **The regression check passed**: Home's
-  trip-planning card is still a plain white card, unaffected by splitting
-  `recordCta` out of the shared `entryCard` style.
-- **#31 frosted prompt card** — genuinely blurred over the live viewfinder,
-  orange "TODAY'S CLIP" eyebrow, prompt in Fraunces, clearly legible.
-- **#32 entrance motion** — Timeline cards fly in on mount, and it reads as
-  brief rather than a slow cascade.
-- **#33** — one heart, unchanged in appearance.
-
-That the app boots is itself load-bearing here: until `react-native-worklets`
-was pinned to 0.5.1, every branch carrying react-native-reanimated died at
-startup before rendering (see "SDK version notes" above).
-
-**That pass also found two defects, both regressions from this work, fixed
-on `fix/dot-contrast-and-ring-label` and confirmed by a follow-up
-screenshot:** the Home CTA's unanswered dot was `colors.error` salmon on the
-gradient's amber end and so was invisible (it was rendering the whole time —
-the "you haven't answered today" signal was silently lost the moment that
-card stopped being white); and `StoryRings`' container was pinned to the
-ring's own 64px, so a 20-char `display_name` wrapped mid-word
-("dereksalan / ga+part1"). Dot is now white; the label has its own width and
-ellipsizes on one line, with the ring and avatar moved into an inner
-RING_SIZE box so the avatar's absolute offsets still resolve against the
-ring. Both verified on device.
-
-
-Not yet tested:
-- Video daily question (merged clip+answer, PR depends on #18's
-  compression settings being in place): the whole flow end to end on a
-  real device — question overlay while recording at the new 30s cap,
-  the caption step, the `revealed` phase showing both partners' clips
-  via `ClipViewScreen`, the reveal-gating (can't see partner's clip for
-  a day until you've posted your own), landing straight on `revealed`
-  without a camera-permission prompt when reopening after already
-  answering, and that the single merged Home entry card's
-  answered/not-answered dot is correct. Needs a two-account pass.
-  Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
-  confirmed on a device that had the old two-reminder version installed.
-- The UTC shared day boundary (see "Two day boundaries" above) on real
-  devices: that two partners in *different* timezones see the same
-  daily question and that their clips pair up as the same day's
-  answers, especially during the window where their local dates
-  disagree. `date.test.ts` covers the helper logic, but only a
-  two-timezone real-device pass exercises the actual behavior. Also
-  worth eyeballing Timeline's "Today"/"Yesterday" labels near the
-  boundary, since those now compare on UTC rather than local.
-- The extensionless `storage_path` change **on Android** (`video/mp4`).
-  iOS is confirmed (below), but the point of the change is that the two
-  platforms write to the same path, and that cross-platform case is the
-  one that can't be exercised on this user's iPad-only setup. Until an
-  Android device runs it, the `.mov`/`.mp4` collision it fixes stays
-  theoretically-fixed rather than demonstrated.
-- Daily local notification: permission prompt, firing at the right
-  local time for 20:00 UTC on a real device, and that tapping it routes
-  to Home (deliberately deferred by the user for now). `date.test.ts`
-  covers the `utcTimeToLocal()` conversion, but nothing has verified
-  that expo-notifications actually fires at the converted time on a
-  device — worth checking on a device whose timezone isn't UTC.
-- Monthly Summary: stats/grid correctness against real multi-day data,
-  month navigation, and the sequential reel's auto-advance +
-  end-of-queue behavior in `ClipViewScreen`
-- Trips/Goals and anniversary day-counter: **two-account pass** —
-  confirm either partner can set or overwrite either the trip or the
-  anniversary and both partners see the same values.
-- Residue from the 2026-08 UI pass. Most of it is confirmed by screenshot
-  (see the note above); what that pass could **not** reach:
-  - #27 HeroCard: **resolved by #37** — the card now derives from
-    `pair_trips` / `pair_anniversary` instead of the hardcoded "Day 14"
-    and "Your city"/"Partner's city", and falls back to no text when
-    neither is set. Confirmed on device (see below). The *anniversary*
-    branch is still unexercised: this pair has a trip set but no
-    anniversary, so only the trip path has actually rendered.
-  - #28 story rings: **resolved by #36, confirmed on device (2026-08-28)**
-    — the rings and the Timeline used to contradict each other, because
-    the ring considered only *today's* clips: an unwatched clip from an
-    earlier day showed a grey (watched-looking) ring above a card wearing
-    a red unwatched dot. The ring now tracks any unwatched clip, newest
-    first. See the A/B note below for how this was finally pinned down.
-  - #28 story rings, separately: the ring colors at the real reveal-gating
-    boundary. RLS hides a partner's clip until you've posted your own that
-    day, so "partner hasn't posted" and "posted but still gated" render
-    identically. Needs a two-account pass.
-  - #26 fonts: that the splash holds with no flash of unstyled text. The
-    fonts themselves are confirmed; only the splash timing is unobserved.
-  - #29 gradient record button: the press-scale *feel* (a still screenshot
-    can't show it). Appearance and the trip-card regression are confirmed.
-  - #30 empty states: neither has been seen. Timeline's needs an account
-    with no clips; PairingScreen's needs an unclaimed invite to sit on.
-  - #31 frosted prompt card: **Android blur is unverified** —
-    `experimentalBlurMethod="dimezisBlurView"` is set, without which
-    BlurView degrades to plain translucency there, and this setup is
-    iPad-only. iOS legibility is confirmed.
-  - #32 entrance motion: that scrolling a longer timeline doesn't
-    re-trigger it, and that pull-to-refresh doesn't either. The mount
-    animation itself is confirmed.
-
-Confirmed on a real device (2026-08-28, iPad/Expo Go): **#37, HeroCard on
-real data.** The Timeline header reads "65 days / until we meet" with
-"🇵🇭 Philippines / November 1, 2026", matching Home's own trip card exactly
-— which also cross-checks that moving `daysBetween` into `date.ts` left
-Home's countdown intact. No placeholder text remains anywhere on screen.
-
-Two caveats on that pass: the **anniversary fallback never rendered** (this
-pair has a trip but no anniversary, so only the trip branch ran), and the
-"neither set" empty state is likewise unseen.
-
-
-Confirmed on the live project (2026-08-28): **the nightly `pg_cron` job
-actually fires.** `cleanup-orphaned-clip-files` (jobid 1, `17 4 * * *`,
-active) ran at 04:17:00.22 UTC and finished 90ms later with
-`status = 'succeeded'`. That rules out the failure this was open on: pg_cron
-only runs in the `postgres` database on Supabase, and the project could have
-been auto-paused through the window. It also means the `service_role_key`
-Vault secret still resolves, since the function raises without it.
-
-What it does **not** prove is that anything was deleted. `succeeded` only
-means the function ran — pg_net is async, so a failed Storage call lands in
-`net._http_response`, never in `cron.job_run_details` (see "Storage cleanup"
-above). With no orphans present there would have been no HTTP calls at all.
-Deletion itself was confirmed separately on 2026-08-27 with a planted junk
-file, so the two passes together cover the whole path.
-
-
-Confirmed on a real device (2026-08-28): **#36's story-ring fix**, via a
-deliberate A/B against `main` on identical data. Partner's clip for *today*
-marked watched, an *earlier* one left unwatched: `main` drew a grey ring
-above a card still wearing its red unwatched dot, and the fix branch drew an
-orange one. Same rows, same screen, opposite conclusions -- which is the bug.
-
-Worth recording how many attempts this took, because the trap is easy to
-fall into again. Three earlier device checks all *looked* like they
-confirmed the fix and confirmed nothing: each time the partner had posted
-that same day, a state the old today-only logic also handles, so both
-versions agreed. The versions diverge only when the unwatched clip is from
-an earlier day **and** nothing is unwatched today -- a state that is rare in
-casual use and has to be set up deliberately:
-
-```sql
-update clips set viewed_at = now()  where id = '<partner clip, today>';
-update clips set viewed_at = null   where id = '<partner clip, earlier day>';
-```
-
-Also note the logged-in account had switched between passes (`+part1` vs
-`+part2`), which silently inverted which rows counted as "the partner's".
-Check whose clips render blue/right (yours) before picking rows to edit.
-
-
-Confirmed on a real device (2026-08-28), from the day's screenshots rather
-than a dedicated pass:
-
-- **Timeline with real clip data.** Four clips across two days render with
-  the right sender labels, humanised dates ("Today"/"Yesterday") and
-  mine-vs-partner sides. Note the sides key off the *signed-in* account, so
-  the same rows swap colour and alignment when you switch accounts -- which
-  caused a false start while setting up the #36 test.
-- **Clip playback and viewed-status marking.** Watching a partner's clip
-  cleared its unwatched dot and wrote `viewed_at`, verified directly in the
-  `clips` table rather than only on screen.
-- **#40, the pull-to-refresh fix.** Opening the Timeline no longer leaves a
-  ~60pt gap above the first card; a real pull still shows the spinner and
-  reloads.
-- **#42, `@sentry/react-native` 7.2.0.** The app boots. That is the check
-  that mattered: this is a startup-path package, and CI cannot see a crash
-  before first render -- the react-native-worklets crash earlier that day
-  passed CI too. The JS SDK now matches the native module Expo Go bundles,
-  and `npx expo install --check` reports no drift at all.
-
-
-Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
-single-account): the Dec 31, 1969 epoch-display bug (see "Date picker:
-six real-device bug rounds" above) is fixed — both the original
-trip-then-anniversary sequence and the scroll-backward repro no longer
-show it. Setting/editing a trip (incl. country) and an anniversary date
-both persist and show the correct previously-set value when reopened;
-countdown/day-count are correct. Save-time range validation (trip must
-be today or later, anniversary must be today or earlier) not yet
-explicitly tried against a rejection case — worth a quick check.
-
-Confirmed on `fix/local-timezone-dates` (2026-08-26, computational check,
-not a real device): `formatDateString` returns the correct local calendar
-day (not UTC's) for a `Date` at 9pm US Pacific, the case that previously
-broke. Still not tested on an actual device with its timezone set behind
-UTC — that's the one open item on this PR before merge.
-
-Confirmed on a real device (2026-08-27): the bottom tab bar
-(`feat/bottom-tab-nav` — Home/Timeline/Month/Settings, icon-only)
-works as expected.
+**Not verified:**
+- Video daily question end to end (two-account pass): question overlay at the
+  30s cap, caption step, `revealed` phase, and `RETIRED_REMINDER_IDS` cleanup
+  on a device that had the old two-reminder version
+- UTC shared day boundary across two real timezones, incl. Timeline's
+  "Today"/"Yesterday" labels near the boundary
+- Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
+  `dimezisBlurView` on the prompt card
+- Daily local notification: permission prompt, firing at the right local time
+  for 20:00 UTC, tap routing to Home
+- Monthly Summary: stats/grid against real multi-day data, month navigation,
+  end-of-queue behavior in the reel
+- Trips + anniversary two-account pass: either partner sets, both see the same
+- Save-time range rejection (trip before today, anniversary after today)
+- HeroCard's anniversary branch, and its "neither set" empty state
+- Story-ring colors at the reveal-gating boundary (needs two accounts)
+- Empty states: Timeline with no clips, PairingScreen with an unclaimed invite
+- Splash holding with no flash of unstyled text
+- Gradient record button's press-scale feel; entrance motion not re-triggering
+  on scroll or pull-to-refresh
 
 ## Design tooling installed
 
@@ -1039,8 +691,8 @@ session:
   proposing any nontrivial plan — don't proceed on your own judgment
   alone.
 - When fixing a bug, explain the root cause, not just the fix.
-- Update the "Testing status" section above before ending a session,
-  reflecting whatever got newly verified (or newly broken).
+- Update "Testing status" above with anything newly verified (or newly
+  broken), and append the dated detail to `docs/testing-log.md`.
 - Treat one run of the `commit-push-pr` skill as one coherent unit of
   work per PR — don't bundle unrelated changes into the same PR just
   because they happened in the same session.
