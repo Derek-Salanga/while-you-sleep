@@ -124,6 +124,27 @@ versions for Expo packages shift constantly and guessing wrong causes
    down to `expo` + non-Expo packages, `npm install` that clean baseline,
    then re-add Expo packages via `npx expo install`.
 
+**`npx expo install` does not pin a package's own native peers.** It pins
+only the package you name; npm resolves that package's peer dependencies
+itself and picks the newest version in range, which can be well ahead of
+what Expo Go's binary actually has compiled in. The authoritative list of
+native versions Expo Go ships is
+`node_modules/expo/bundledNativeModules.json` — check it for the peers too,
+and `npx expo install` each one explicitly so it lands in `package.json` at
+the bundled version instead of floating as a transitive resolution.
+
+Hit for real on 2026-08-28: `npx expo install react-native-reanimated` gave
+4.1.7 (correct), but reanimated 4's peer range `"react-native-worklets":
+"0.5 - 0.8"` let npm install worklets **0.8.3**, while Expo Go SDK 54 ships
+**0.5.1**. The app died at startup before rendering anything, with
+`[runtime not ready]: Error: Exception in HostFunction: <unknown>` /
+`NativeWorklets`. Fixed by `npx expo install react-native-worklets`.
+Note `npx expo install --check` does **not** catch this — it only validates
+packages already listed in `package.json`, and the bad version was never
+listed there. A `HostFunction`/native-module error at startup that no
+JS-level debugging explains is the signature of this class of bug; after
+fixing, restart with `npx expo start -c`, since Metro caches the bad bundle.
+
 **`expo-file-system`'s new API** (`File`/`Directory` classes) replaced
 the old one (`getInfoAsync`, `readAsStringAsync`) as of this SDK range.
 This codebase currently imports from `expo-file-system/legacy` in
@@ -749,6 +770,15 @@ Not yet tested:
   answered/not-answered dot is correct. Needs a two-account pass.
   Also needs the `RETIRED_REMINDER_IDS` cleanup in `notifications.ts`
   confirmed on a device that had the old two-reminder version installed.
+- HeroCard on TimelineScreen (`feat/hero-card`): split night-blue/day-orange
+  card with a crossover-colored heart (react-native-svg, viewBox path — no
+  bespoke SVG source exists in the repo, so this uses a plain heart
+  silhouette) centered at the seam. `npx tsc --noEmit` and `npm run lint`
+  pass, but nothing in this environment can render RN UI. **Both the day
+  counter ("Day 14") and the two city names are hardcoded placeholders** —
+  no schema field backs either yet (no "days apart" concept exists, and
+  `profiles` has no location field) — needs an on-device look, and a
+  decision on real data sources before this is more than decorative.
 - The UTC shared day boundary (see "Two day boundaries" above) on real
   devices: that two partners in *different* timezones see the same
   daily question and that their clips pair up as the same day's
@@ -757,17 +787,67 @@ Not yet tested:
   two-timezone real-device pass exercises the actual behavior. Also
   worth eyeballing Timeline's "Today"/"Yesterday" labels near the
   boundary, since those now compare on UTC rather than local.
+- Story rings on TimelineScreen (`feat/story-rings`): two gradient-ring
+  avatars (react-native-svg `LinearGradient`/`Circle`, not
+  expo-linear-gradient) showing "You" and the partner's initial, below the
+  title. Ring is full-saturation while the partner's clip for today is
+  unwatched, muted grey (`#B8B2C4`) once watched or if no clip exists yet
+  for that day; tapping navigates to `ClipView` for that day's clip (a no-op
+  if there isn't one yet). No avatar-photo field exists on `profiles`, so
+  this shows an initial rather than a real photo. `npx tsc --noEmit` and
+  `npm run lint` pass; needs an on-device look, and a real two-account pass
+  around the watched/unwatched ring color at the actual reveal-gating
+  boundary (can't see partner's clip until you've posted your own for that
+  day, so its ring may need a third "not yet visible" state — not
+  distinguished from "no clip yet" here, worth checking whether that reads
+  right in practice).
 - Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
   (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
   `cron.job_run_details`. The function itself is confirmed (below); only
   the schedule that invokes it is untested, since it hadn't come around
   yet.
+- Gradient record button/CTA (`feat/gradient-record-button`): `expo-linear-
+  gradient` fill (`#6A85F1` → `#FFC670`) plus a react-native-reanimated
+  press-scale on RecordScreen's record button and on HomeScreen's "Today's
+  question" card — this is the actual record entry point; TimelineScreen has
+  no record CTA of its own (the original prompt named TimelineScreen, but
+  no such button exists there — HomeScreen's card is the one that navigates
+  to `Record`). RecordScreen's button previously read solid red in both
+  idle and recording states (only the shape changed, circle vs. rounded
+  square); it now uses the gradient in both states too, matching "instead
+  of flat colors" literally rather than inventing an unrequested
+  still-red-while-recording distinction. No babel.config.js changes needed
+  -- this SDK 54 project has no checked-in babel config at all, and
+  `babel-preset-expo`'s bundled default auto-adds the reanimated/worklets
+  plugin when the package is detected in node_modules. `npx tsc --noEmit`
+  and `npm run lint` pass. **The app boots on a real device (2026-08-28,
+  iPad/Expo Go)** — but only after pinning `react-native-worklets` to 0.5.1;
+  before that pin this branch crashed at startup with `Exception in
+  HostFunction: NativeWorklets` (see "SDK version notes" above). Booting
+  proves the crash is gone and nothing more: still needs an on-device look
+  at the gradient render and the press-scale feel, and a sanity check that
+  the trip-planning card on Home (which shares layout but not styling with
+  the new `recordCta` style) still looks right since its style was split
+  out unchanged.
 - The extensionless `storage_path` change **on Android** (`video/mp4`).
   iOS is confirmed (below), but the point of the change is that the two
   platforms write to the same path, and that cross-platform case is the
   one that can't be exercised on this user's iPad-only setup. Until an
   Android device runs it, the `.mov`/`.mp4` collision it fixes stays
   theoretically-fixed rather than demonstrated.
+- Illustrated empty states (`feat/empty-states`): new shared
+  `src/components/CrossoverHeart.tsx` (the icon's crossover-split heart as
+  vector, react-native-svg, `size` prop) used in two places — TimelineScreen's
+  no-clips state (heart + Fraunces "Your story starts here" + warmer invite
+  copy, replacing the one-line "No clips yet") and PairingScreen's
+  waiting-for-partner card (heart + Fraunces "Waiting for your other half"
+  above the still-prominent invite code). TimelineScreen's *error* state is
+  deliberately left as plain muted text — a warm invitation would read wrong
+  on a failure. `npx tsc --noEmit` and `npm run lint` pass; needs an on-device
+  look at both states (the pairing one needs an unclaimed invite to sit on).
+  `HeroCard.tsx` renders the same heart via this component (it briefly had
+  its own inline copy of the path, collapsed onto `CrossoverHeart` once both
+  landed), so the motif has one definition.
 - Timeline screen with real clip data
 - Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right

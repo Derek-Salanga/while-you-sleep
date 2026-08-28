@@ -3,6 +3,12 @@ import { View, Text, Pressable, StyleSheet, Platform, TextInput, Modal, FlatList
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import {
@@ -49,6 +55,17 @@ export default function HomeScreen({ navigation }: any) {
   const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(null);
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+
+  const recordCtaScale = useSharedValue(1);
+  const recordCtaAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: recordCtaScale.value }],
+  }));
+  const handleRecordCtaPressIn = () => {
+    recordCtaScale.value = withTiming(0.96, { duration: 100 });
+  };
+  const handleRecordCtaPressOut = () => {
+    recordCtaScale.value = withTiming(1, { duration: 100 });
+  };
 
   // The daily clip IS the daily question's answer now -- see "Video daily
   // question" in CLAUDE.md -- so "answered today" checks clips, not the
@@ -166,11 +183,20 @@ export default function HomeScreen({ navigation }: any) {
           CLAUDE.md; replaces the old separate text-answer + generic-clip
           entry points. */}
       <Pressable
-        style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
         onPress={() => navigation.navigate('Record')}
+        onPressIn={handleRecordCtaPressIn}
+        onPressOut={handleRecordCtaPressOut}
       >
-        <Text style={styles.entryCardLabel}>Today's question</Text>
-        {!answeredToday && <View style={styles.unwatchedDot} />}
+        <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
+          <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text style={styles.recordCtaLabel}>Today's question</Text>
+          {!answeredToday && <View style={styles.unwatchedDot} />}
+        </Animated.View>
       </Pressable>
       {editingTrip ? (
         <View style={styles.editCard}>
@@ -307,6 +333,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.ink,
+  },
+  recordCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  recordCtaLabel: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: colors.surface,
   },
   tripCardTitle: {
     fontFamily: fonts.bodySemiBold,
