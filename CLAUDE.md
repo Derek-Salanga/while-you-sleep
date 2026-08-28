@@ -825,8 +825,6 @@ Not yet tested:
   one that can't be exercised on this user's iPad-only setup. Until an
   Android device runs it, the `.mov`/`.mp4` collision it fixes stays
   theoretically-fixed rather than demonstrated.
-- Timeline screen with real clip data
-- Clip playback / viewed-status marking
 - Daily local notification: permission prompt, firing at the right
   local time for 20:00 UTC on a real device, and that tapping it routes
   to Home (deliberately deferred by the user for now). `date.test.ts`
@@ -920,6 +918,27 @@ update clips set viewed_at = null   where id = '<partner clip, earlier day>';
 Also note the logged-in account had switched between passes (`+part1` vs
 `+part2`), which silently inverted which rows counted as "the partner's".
 Check whose clips render blue/right (yours) before picking rows to edit.
+
+
+Confirmed on a real device (2026-08-28), from the day's screenshots rather
+than a dedicated pass:
+
+- **Timeline with real clip data.** Four clips across two days render with
+  the right sender labels, humanised dates ("Today"/"Yesterday") and
+  mine-vs-partner sides. Note the sides key off the *signed-in* account, so
+  the same rows swap colour and alignment when you switch accounts -- which
+  caused a false start while setting up the #36 test.
+- **Clip playback and viewed-status marking.** Watching a partner's clip
+  cleared its unwatched dot and wrote `viewed_at`, verified directly in the
+  `clips` table rather than only on screen.
+- **#40, the pull-to-refresh fix.** Opening the Timeline no longer leaves a
+  ~60pt gap above the first card; a real pull still shows the spinner and
+  reloads.
+- **#42, `@sentry/react-native` 7.2.0.** The app boots. That is the check
+  that mattered: this is a startup-path package, and CI cannot see a crash
+  before first render -- the react-native-worklets crash earlier that day
+  passed CI too. The JS SDK now matches the native module Expo Go bundles,
+  and `npx expo install --check` reports no drift at all.
 
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
