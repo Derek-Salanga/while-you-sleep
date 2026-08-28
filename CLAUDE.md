@@ -545,6 +545,15 @@ The defaults are load-bearing, so don't "tune" them casually:
 works here (`unmountOnBlur: true` in `MainTabs.tsx`), and the default
 retry-with-backoff is what replaced `withClockSkewRetry` (see below).
 
+One consequence to keep in mind when wiring UI to query state: because
+every tab visit remounts and refetches, **`isRefetching` is true on a
+plain screen open**, not just after a user action. `TimelineScreen`
+originally passed it to `RefreshControl`'s `refreshing` prop, so opening
+the Timeline expanded the pull-to-refresh spinner area and pushed the
+whole list down by ~60pt until the refetch landed — and claimed a pull
+had happened when none had. It now tracks its own `pulling` flag around
+an explicit `refetch()`. Any future pull-to-refresh should do the same.
+
 Query keys are plain arrays, no key factory — there are four of them:
 `['pair', userId]`, `['profile', userId]`, `['clips', pairId]`,
 `['clip', clipId]`. Both mutations invalidate `['clips']` on success,
