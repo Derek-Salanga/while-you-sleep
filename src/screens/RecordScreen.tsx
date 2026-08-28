@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -338,9 +339,19 @@ export default function RecordScreen({ navigation }: any) {
         videoBitrate={VIDEO_BITRATE}
       />
       {closeButton}
-      <View style={[styles.questionBanner, { top: insets.top + 12 }]}>
-        <Text style={styles.questionBannerText}>{question}</Text>
-      </View>
+      {/* tint="dark" rather than the theme palette: this sits over a live
+          camera feed, so it has to stay legible against whatever is in
+          frame. experimentalBlurMethod is the Android fallback -- without
+          it BlurView renders as a plain translucent view there. */}
+      <BlurView
+        intensity={40}
+        tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        style={[styles.promptCard, { top: insets.top + 12 }]}
+      >
+        <Text style={styles.promptEyebrow}>TODAY&apos;S CLIP</Text>
+        <Text style={styles.promptText}>{question}</Text>
+      </BlurView>
       {isRecording && (
         <View style={styles.timerPill}>
           <Text style={styles.timerText}>{secondsRemaining}s</Text>
@@ -405,19 +416,29 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.md,
     fontFamily: fonts.bodySemiBold,
   },
-  questionBanner: {
+  promptCard: {
     position: 'absolute',
+    // 64 leaves room for the close button at left: 16 (40 wide).
     left: 64,
     right: 16,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    // BlurView won't clip its blur to the border radius without this.
+    overflow: 'hidden',
   },
-  questionBannerText: {
-    color: colors.surface,
-    fontSize: fontSizes.sm,
+  promptEyebrow: {
+    color: colors.secondary,
+    fontSize: fontSizes.xs,
     fontFamily: fonts.bodySemiBold,
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  promptText: {
+    color: colors.surface,
+    fontSize: fontSizes.md,
+    fontFamily: fonts.display,
+    lineHeight: 24,
   },
   permissionContainer: {
     flex: 1,

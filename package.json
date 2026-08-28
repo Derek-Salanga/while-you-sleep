@@ -26,6 +26,7 @@
     "buffer": "^6.0.3",
     "dotenv": "^16.4.5",
     "expo": "^54.0.0",
+    "expo-blur": "~15.0.8",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.14",
     "expo-file-system": "~19.0.24",
