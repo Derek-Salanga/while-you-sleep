@@ -738,10 +738,13 @@ holds**. A full-length clip came in at 8.9 MB, right against the ~9.4 MB
 the 720p/2.5 Mbps cap predicts for 30s, and short clips at 0.7-1.1 MB.
 Playback quality was not separately graded beyond "plays properly".
 
-Note both accounts had posted for the same day before this check, so it
-confirms both clips are watchable once revealed — it does **not**
-exercise the reveal-gating block (that a partner's clip is hidden
-*before* you've posted your own), which is still untested.
+Note both accounts had posted for the same day before that check, so it
+confirmed both clips are watchable once revealed but did not exercise the
+gate itself. **The gate is now confirmed too (2026-08-28, two real
+accounts): a partner's clip is hidden until you have posted your own for
+that day.** That is the app's core mechanic and had never been tested from
+the blocked side until now — every prior pass had both partners already
+posted, which is exactly the state that cannot see the gate work.
 
 Visually confirmed only (2026-08-26, `fix/screen-polish-and-nav-fixes`
 in Expo Go, not a functional re-test):
@@ -816,11 +819,6 @@ Not yet tested:
   two-timezone real-device pass exercises the actual behavior. Also
   worth eyeballing Timeline's "Today"/"Yesterday" labels near the
   boundary, since those now compare on UTC rather than local.
-- Storage orphan cleanup: the **nightly `pg_cron` run actually firing**
-  (`cleanup-orphaned-clip-files` at 04:17 UTC) — check
-  `cron.job_run_details`. The function itself is confirmed (below); only
-  the schedule that invokes it is untested, since it hadn't come around
-  yet.
 - The extensionless `storage_path` change **on Android** (`video/mp4`).
   iOS is confirmed (below), but the point of the change is that the two
   platforms write to the same path, and that cross-platform case is the
@@ -887,6 +885,22 @@ Home's countdown intact. No placeholder text remains anywhere on screen.
 Two caveats on that pass: the **anniversary fallback never rendered** (this
 pair has a trip but no anniversary, so only the trip branch ran), and the
 "neither set" empty state is likewise unseen.
+
+
+Confirmed on the live project (2026-08-28): **the nightly `pg_cron` job
+actually fires.** `cleanup-orphaned-clip-files` (jobid 1, `17 4 * * *`,
+active) ran at 04:17:00.22 UTC and finished 90ms later with
+`status = 'succeeded'`. That rules out the failure this was open on: pg_cron
+only runs in the `postgres` database on Supabase, and the project could have
+been auto-paused through the window. It also means the `service_role_key`
+Vault secret still resolves, since the function raises without it.
+
+What it does **not** prove is that anything was deleted. `succeeded` only
+means the function ran — pg_net is async, so a failed Storage call lands in
+`net._http_response`, never in `cron.job_run_details` (see "Storage cleanup"
+above). With no orphans present there would have been no HTTP calls at all.
+Deletion itself was confirmed separately on 2026-08-27 with a planted junk
+file, so the two passes together cover the whole path.
 
 
 Confirmed on `fix/anniversary-epoch-date` (2026-08-27, real device,
