@@ -79,6 +79,9 @@ src/
                                 of a single clip
     MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
                                 month's clips" reel
+    SettingsScreen.tsx          nickname, anniversary, and an Account row
+    AccountSettingsScreen.tsx   email + sign out, pushed over Settings inside
+                                the Settings tab's own small stack (MainTabs)
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -682,6 +685,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
+- Account Settings sub-screen: the email row, the sign-out confirmation
+  (Cancel is a no-op / Sign out lands on AuthScreen), and that tabbing away
+  from Account and back reopens Settings rather than resuming the sub-screen
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last

@@ -42,6 +42,13 @@ export interface PairAnniversary {
   updated_at: string;
 }
 
+// The Settings tab is a small stack, not a single screen, so Account
+// settings pushes over it with the tab bar still visible.
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  AccountSettings: undefined;
+};
+
 export type MainTabParamList = {
   Home: undefined;
   Timeline: undefined;

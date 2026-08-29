@@ -18,7 +18,7 @@ import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: any) {
   const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
@@ -110,9 +110,6 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Settings</Text>
-      {session?.user.email && (
-        <Text style={styles.email}>Signed in as {session.user.email}</Text>
-      )}
       {editingNickname ? (
         <View style={styles.editCard}>
           <TextInput
@@ -207,13 +204,11 @@ export default function SettingsScreen() {
         </Pressable>
       )}
       <Pressable
-        style={({ pressed }) => [
-          styles.signOutButton,
-          pressed && styles.pressed,
-        ]}
-        onPress={() => supabase.auth.signOut()}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() => navigation.navigate('AccountSettings')}
       >
-        <Text style={styles.signOutText}>Sign out</Text>
+        <Text style={styles.rowLabel}>Account</Text>
+        <Text style={styles.rowValue}>›</Text>
       </Pressable>
     </View>
   );
@@ -225,13 +220,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
     color: colors.ink,
-    marginBottom: 8,
-  },
-  email: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
@@ -299,19 +288,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.muted,
-  },
-  signOutButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  signOutText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.error,
   },
   pressed: {
     opacity: 0.7,
