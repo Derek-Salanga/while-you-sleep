@@ -620,3 +620,21 @@ returning 0 means only that it found nothing to act on. It is not evidence the
 job works — a too-strict name guard would also return 0, and the two are
 indistinguishable from outside. Only a run that actually deletes something
 verifies the path.
+
+2026-08-29: Added Jest (`jest-expo` preset) and ported `src/lib/date.test.ts`
+from a standalone `node` script into real Jest tests, wired into CI
+(`npm test`, added as a step in `.github/workflows/ci.yml` alongside
+`tsc`/`lint`/`format:check`). All 11 assertions pass under `TZ=UTC`,
+`TZ=America/Los_Angeles`, and `TZ=Asia/Tokyo` (`npm test` loops all three,
+since Node/V8 read `TZ` once per process rather than reliably picking up a
+mid-run change). This closes a real, pre-existing gap: the old standalone
+script's assertions — covering the UTC/local day-boundary split, the
+`utcTimeToLocal` round-trip, and DST/leap-year cases in `daysBetween` — were
+correct but had zero regression protection, since CI never ran them. Also
+dropped `tsconfig.json`'s `exclude: ["**/*.test.ts"]`: it existed only
+because the standalone script needed Node's native ESM resolver (hence the
+explicit `.ts` extension import), which no longer applies once the file runs
+through Jest's own transform. `tsc --noEmit`, lint, and format:check all
+still pass with the new files in place. This is the first slice of the
+"add a test framework" arc — component tests and Postgres/RLS testing are
+separate, later pieces, not covered here.

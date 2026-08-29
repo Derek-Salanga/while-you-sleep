@@ -11,7 +11,11 @@
     "build:ios": "eas build --platform ios",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "for tz in UTC America/Los_Angeles Asia/Tokyo; do TZ=$tz npx jest || exit 1; done"
+  },
+  "jest": {
+    "preset": "jest-expo"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.4.1",
@@ -50,10 +54,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.10",
+    "babel-preset-expo": "~54.0.10",
     "eslint": "^8.57.0",
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^9.1.0",
+    "jest-expo": "~54.0.18",
     "prettier": "^3.3.3",
     "typescript": "~5.9.2"
   }
