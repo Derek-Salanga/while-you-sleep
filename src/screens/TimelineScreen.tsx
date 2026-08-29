@@ -182,15 +182,30 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 12,
   },
+  // Whose card it is has three signals, deliberately: the fill, a 4pt edge
+  // in the full-strength colour, and which side it hangs off. The tints
+  // these used to be filled with sat ~4% off `background`, so at a glance
+  // the whole feed read as one column of white cards.
+  //
+  // The edge is what actually carries at a glance; the fill stays soft
+  // rather than saturated so it doesn't compete with HeroCard, which sits
+  // directly above the list already in full-strength primary/secondary.
+  //
+  // borderLeftWidth/Color override the 1pt border Card sets, since this
+  // style is merged last (see ui/Card.tsx).
   cardMine: {
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primaryLight,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
     alignSelf: 'flex-end',
     width: '80%',
   },
   cardPartner: {
-    backgroundColor: colors.secondaryTint,
+    backgroundColor: colors.secondarySoft,
     borderColor: colors.secondaryLight,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.secondaryDark,
     alignSelf: 'flex-start',
     width: '80%',
   },

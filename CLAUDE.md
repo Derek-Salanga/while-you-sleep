@@ -730,7 +730,12 @@ to use *within* these constraints, not sources to consult for new
 palette/type proposals:
 
 - **Palette:** `#6A85F1` night-blue = "you", `#FFC670` day-orange =
-  "partner" (`src/theme/colors.ts`).
+  "partner" (`src/theme/colors.ts`). The `*Soft` steps were added to that
+  file's existing scale (Dark → base → Light → Soft → Tint), not chosen
+  fresh: `*Tint` sits only ~4% off `background`, so a card filled with it
+  reads as plain white. The `*Tint` values themselves are unchanged —
+  `secondaryTint` also backs `Button`'s secondary variant, which is a
+  different semantic and shouldn't move with the Timeline.
 - **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
