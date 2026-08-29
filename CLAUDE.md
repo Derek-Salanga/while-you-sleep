@@ -568,6 +568,54 @@ service_role key. One-time, from the SQL editor:
 `select vault.create_secret('<service_role_key>', 'service_role_key', '...')`.
 The function raises a clear error if that secret is missing.
 
+## RLS hardening (2026-08-28 audit)
+
+Prompted by deciding whether the Supabase anon key — briefly committed to
+git before `.env` was gitignored (see the `.env` secrets hygiene item in
+memory) — needed rotating. It doesn't: the anon key is meant to be public
+in a Supabase app, safe as long as RLS covers everything. Auditing that
+coverage instead turned up three real gaps, since fixed on the live
+project and in `schema.sql`:
+
+1. **`pairs` had an UPDATE policy with no `with check`.** `using` alone
+   only restricts which rows a policy touches, not what they can be
+   changed to — so any pair member could call the REST API directly
+   (not through the app's own code, which never did this) and rewrite
+   `user_b` to an arbitrary account or change `invite_code`, bypassing
+   `join_pair_by_code()`'s atomic "only if unclaimed, only by exact code"
+   invariant entirely. Fixed by dropping the policy — the app has no
+   legitimate use for a client-side `pairs` update at all.
+2. **`clips`' UPDATE policy was scoped to "any pair member," not "the
+   sender."** Same missing-`with check` issue: a recipient could rewrite
+   any field of the *other* partner's clip (caption, storage path, even
+   which day it's recorded for), not just mark it viewed. Fixed by
+   scoping the policy to `sender_id = auth.uid()` (preserving
+   `useUploadClip`'s upsert-based "overwrite in place" design for your
+   own clip) and moving the recipient's one legitimate write — marking a
+   clip viewed — into a narrow `mark_clip_viewed()` security definer
+   function instead, mirroring `join_pair_by_code()`'s existing pattern
+   of using a function where RLS alone can't scope a write tightly
+   enough. `useMarkClipViewed` (`src/hooks/mutations.ts`) now calls
+   `supabase.rpc('mark_clip_viewed', ...)` instead of a raw table update.
+   Confirmed on a real device (2026-08-28): watching a clip still clears
+   its unwatched dot with no error, so the RPC swap didn't break the
+   live path.
+3. **`storage.objects` had no UPDATE policy**, only INSERT and SELECT.
+   Supabase Storage's `upsert: true` upload needs both to actually
+   overwrite an existing object — without the UPDATE policy, a same-day
+   re-record or a retry after a partial upload failure would fail with a
+   permissions error instead of overwriting. Added
+   `clip_files_pair_members_update`, mirroring the existing insert/select
+   policies. **Not verified on-device** — the app's current UI has no
+   "re-record after send" path, so this is a correctness fix for a case
+   that isn't actually reachable right now, not something a device test
+   could exercise today.
+
+None of these three had ever been exploited or hit in practice — they
+were latent gaps in what the REST API allowed, not observed bugs — found
+by reading `schema.sql` against what the app's own client code actually
+calls (`grep -rn "from('pairs')"` etc.), not by an incident.
+
 ## Known transient error: "JWT issued at future"
 
 Seen occasionally on cold start from `PairingContext.tsx`'s `ensureProfile`

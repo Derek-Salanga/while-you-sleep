@@ -83,10 +83,9 @@ export function useMarkClipViewed() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (clipId: string) => {
-      const { error } = await supabase
-        .from('clips')
-        .update({ viewed_at: new Date().toISOString() })
-        .eq('id', clipId);
+      const { error } = await supabase.rpc('mark_clip_viewed', {
+        target_clip_id: clipId,
+      });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clips'] }),
