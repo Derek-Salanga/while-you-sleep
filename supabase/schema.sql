@@ -387,6 +387,64 @@ create policy "pair_anniversary_update_pair_members" on pair_anniversary
     )
   );
 
+-- Account deletion. security definer so it can reach auth.users, which the
+-- client role can't touch directly.
+--
+-- WHY NOT AN EDGE FUNCTION OR THE VAULT PATTERN. Deleting an auth user is
+-- usually done through the Admin API, which needs the service_role key --
+-- either from an Edge Function or, following cleanup_orphaned_clip_files
+-- below, from pg_net with the key out of Vault. Neither is needed: the key
+-- is only required to reach the Admin API *over HTTP*, and a security
+-- definer function owned by postgres can delete the row directly. Verified
+-- on this project 2026-08-29.
+--
+-- The Vault pattern would in fact be the wrong choice here. It works for
+-- the cleanup job precisely because that job is unattended and self-healing
+-- -- pg_net is fire-and-forget, so a failure just gets retried tomorrow. A
+-- user tapping "Delete account" needs a synchronous yes/no, which pg_net
+-- structurally cannot give. Note also that cleanup_orphaned_clip_files
+-- revokes execute from `authenticated`; making a function that holds a
+-- service key client-callable would invert the one property keeping it safe.
+--
+-- Takes no arguments on purpose. The target is always auth.uid(), so there
+-- is no parameter a caller could point at somebody else's account.
+--
+-- EVERYTHING CASCADES. Every FK in this file is `on delete cascade`, so
+-- this also removes: the caller's profiles row; the pairs row they belong
+-- to (via user_a/user_b); and through that pair -- clips, daily_answers,
+-- pair_trips and pair_anniversary, *including the partner's*. The partner
+-- keeps their login and profile and loses everything shared. Their running
+-- app won't notice until relaunched -- nothing refetches the pair once it's
+-- complete -- so until then they see a stale tab bar over what looks like a
+-- fresh empty pairing, and recording fails on RLS. That's accepted rather
+-- than blocked (blocking would
+-- mean building an unpair feature first), so AccountSettingsScreen's
+-- confirmation names the consequence explicitly.
+--
+-- Storage is NOT handled here and does not need to be:
+-- cleanup_orphaned_clip_files below re-derives orphans from current state
+-- -- every object in the `clips` bucket with no matching clips.storage_path
+-- -- which is exactly what the cascaded clip rows leave behind. It sweeps
+-- them on the next nightly run, so files outlive the account by up to ~48h
+-- (a 1-day grace period plus the 04:17 schedule), and by more than one
+-- night if the pair had over max_deletions clips. Deleting them from the
+-- client isn't an option anyway: storage.objects has no DELETE policy.
+create or replace function delete_own_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+-- Unlike cleanup_orphaned_clip_files, this one IS meant to be called by the
+-- client -- safe because it takes no arguments and only ever targets
+-- auth.uid().
+grant execute on function delete_own_account() to authenticated;
+
 -- Private partner nickname: the name YOU give your partner, visible only
 -- to you. Distinct from profiles.display_name, which is self-set and which
 -- your partner can read via profiles_select_pair_partner.
