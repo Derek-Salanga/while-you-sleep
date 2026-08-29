@@ -626,6 +626,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   navigation between an empty and a populated month; inherits same-day
   reveal-gating for past days (see "Monthly Summary feature" above) —
   accepted, not a bug
+- Daily local notification: permission granted (surfaces under "Expo Go" in
+  iOS Settings, not "While You Sleep" — an Expo-Go-only quirk, won't
+  reproduce that way in a standalone build); `ensureDailyRemindersScheduled`
+  actually schedules a real repeating `UNCalendarNotificationTrigger` with
+  the correct device-local hour/minute for 20:00 UTC (verified 13:00 at
+  UTC-7)
 
 **Not verified:**
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
@@ -637,8 +643,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   "Today"/"Yesterday" labels near the boundary
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
-- Daily local notification: permission prompt, firing at the right local time
-  for 20:00 UTC, tap routing to Home
+- Daily local notification: actually firing at 20:00 UTC and tap routing to
+  Home (permission grant and correct scheduled local time are confirmed —
+  see "Confirmed" list)
 - Story-ring colors at the reveal-gating boundary: the gray-because-invisible
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself

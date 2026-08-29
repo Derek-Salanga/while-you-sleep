@@ -412,3 +412,25 @@ rather than fix it — see "Monthly Summary feature" in CLAUDE.md.
 Not exercised this pass: the reel's end-of-queue behavior, since the
 seeded rows had fake `storage_path` values with no real video to
 actually play through to the end.
+
+Confirmed on a real device (2026-08-28, UTC-7): notification permission
+is granted, though under Expo Go in this dev setup — since this runs in
+Expo Go rather than a standalone build, iOS groups the OS notification
+permission under "Expo Go" in Settings, not under "While You Sleep". That
+grouping is an Expo-Go-only artifact and won't reproduce once this moves
+to an EAS Dev Client or a production build, where the app gets its own
+Settings entry.
+
+Confirmed the actual scheduling, not just the display math: temporarily
+added a `console.log(await Notifications.getAllScheduledNotificationsAsync())`
+at the end of `ensureDailyRemindersScheduled` (reverted immediately after),
+reloaded the app while paired, and read the Metro log. It returned a real
+`UNCalendarNotificationTrigger` with `hour: 13, minute: 0, repeats: true`
+under identifier `daily-question-reminder` — exactly what 20:00 UTC should
+translate to at UTC-7, confirming `utcTimeToLocal()`'s output is what
+actually gets scheduled with the OS, not just computed and discarded.
+
+Not exercised: the notification firing live at that time and tap routing
+to Home, since that means either waiting for 13:00 local or advancing the
+device clock (which would also perturb Supabase's JWT `iat` check and any
+other now()-based logic, so not a shortcut worth taking).
