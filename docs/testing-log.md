@@ -510,3 +510,41 @@ A manual refresh passing would not have tested anything.
 Not exercised: `MonthlySummaryScreen`'s `if (!pair)` guard fix, also in #57.
 MainTabs only mounts once a pair exists, so the path isn't reachable from
 the UI — it's a correctness fix, not an observed bug.
+
+Confirmed on a real device (2026-08-29, PR #59): account deletion, on a
+throwaway pair (`+partner3` / `+poll`) created for the #54 poll test, with a
+real clip recorded from each side first so the cascade had something to
+cascade.
+
+Both alerts fire and Cancel at either step aborts with nothing deleted;
+confirming lands on AuthScreen. In SQL afterwards the `auth.users` row, the
+`pairs` row and the `clips` rows were all gone — one `delete from
+auth.users` reaching all of it through the FK chain, with no service_role
+key, no Edge Function and no Vault involved. The privilege question that
+decided the whole design was settled first, against a throwaway account
+inside a rolled-back transaction impersonating an `authenticated` user, so
+it tested the client's real path rather than the SQL editor's privileged
+one.
+
+**The partner's running app does not notice.** It was described in the plan
+and the PR as "lands back on PairingScreen", which is wrong while the app is
+open: nothing refetches `['pair', userId]` once a pair is complete —
+`refreshPair` is only called from PairingScreen, `usePair`'s
+`refetchInterval` returns false for a complete pair, `PairProvider` mounts
+at the app root so `unmountOnBlur` never remounts it, and there is no
+`focusManager`/`AppState` wiring. Confirmed on device: the partner keeps a
+stale pair and a tab bar over what looks like a fresh empty pairing, and
+only routes to PairingScreen after a force-quit and relaunch, which was
+verified. Accepted rather than fixed; wiring `focusManager` to `AppState`
+is the fix and belongs in its own PR.
+
+Storage was deliberately not touched by the delete path. Immediately after,
+both clip objects were still in the bucket under the deleted pair's prefix —
+correct, since `storage.objects` isn't reachable by FK and the nightly
+`cleanup_orphaned_clip_files` re-derives orphans instead. Worth noting the
+timing precisely, because it is easy to read as a failure: the files were
+created ~08:46 UTC on 2026-08-29, and the job's grace period is
+`created_at < now() - interval '1 day'`, so the 2026-08-30 04:17 run skips
+them and **2026-08-31 04:17 is the first run that will sweep them**. Still
+present on the 30th is expected. That sweep is the one part of this PR still
+unverified.

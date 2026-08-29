@@ -780,6 +780,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Account deletion from Account Settings: both alerts fire, Cancel at either
+  step aborts with nothing deleted, confirming lands on AuthScreen. Cascade
+  verified in SQL on a throwaway pair that had a real clip from each side —
+  auth.users row, pairs row and clips rows all 0 afterwards. The partner's
+  device routes to PairingScreen after a force-quit and relaunch (not while
+  running — see "Account deletion"). The two Storage objects correctly
+  survive the row cascade, awaiting the nightly sweep
 - Pairing auto-refresh: the invite creator's app moved to MainTabs on its own
   within ~5s of the partner joining, with the creating device left
   foregrounded and untouched — the case `useFocusEffect` could never catch
@@ -828,11 +835,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Account deletion end to end from the app: both alerts fire, Cancel at
-  either step aborts, deletion lands on AuthScreen, and the partner's device
-  routes to PairingScreen *after a relaunch* (it will not while running —
-  see "Account deletion"). Also the 24h-later check that the nightly job
-  swept the orphaned videos
+- Account deletion, remaining piece: that the nightly job sweeps the two
+  orphaned clip files left by the 2026-08-29 deletion. Not checkable before
+  **2026-08-31 04:17 UTC** — the files were created ~08:46 on the 29th and
+  the job's grace period is `created_at < now() - interval '1 day'`, so the
+  run on the 30th skips them and the run on the 31st is the first eligible
+  one. Still present on the 30th is correct, not a failure.
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
