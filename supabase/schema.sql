@@ -421,21 +421,71 @@ create policy "pair_anniversary_update_pair_members" on pair_anniversary
 -- mean building an unpair feature first), so AccountSettingsScreen's
 -- confirmation names the consequence explicitly.
 --
--- Storage is NOT handled here and does not need to be:
--- cleanup_orphaned_clip_files below re-derives orphans from current state
--- -- every object in the `clips` bucket with no matching clips.storage_path
--- -- which is exactly what the cascaded clip rows leave behind. It sweeps
--- them on the next nightly run, so files outlive the account by up to ~48h
--- (a 1-day grace period plus the 04:17 schedule), and by more than one
--- night if the pair had over max_deletions clips. Deleting them from the
--- client isn't an option anyway: storage.objects has no DELETE policy.
+-- Storage IS handled here, unlike the row cascade, because nothing else
+-- would do it promptly. cleanup_orphaned_clip_files below would eventually
+-- find these files -- they become textbook orphans -- but not for 24-48h:
+-- its grace period exists to protect an in-flight upload (the file is
+-- written before its row), which has nothing to do with a deleted account,
+-- whose rows are never coming back. That lag is fine for a free-tier
+-- quota sweep and not fine for "delete my account". The nightly job stays
+-- as the backstop for anything the requests below fail to remove.
 create or replace function delete_own_account()
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  -- Same non-secret project URL as cleanup_orphaned_clip_files below.
+  project_url text := 'https://lgzcvryexckjrwlipenr.supabase.co';
+  service_key text;
+  obj record;
 begin
+  select decrypted_secret into service_key
+  from vault.decrypted_secrets
+  where name = 'service_role_key';
+
+  -- Purge the pair's clip files up front, while the pairs row still exists
+  -- to find them by -- the delete below cascades it away.
+  --
+  -- Server-side, not from the client, because the client physically cannot
+  -- enumerate these: clips_select_pair_members hides a partner's clip on any
+  -- date the caller didn't post one, so a client-driven purge would silently
+  -- skip exactly those files. Matched on the storage prefix rather than
+  -- joining clips for the same reason -- the prefix is the pair, and every
+  -- object under it belongs to this pairing.
+  --
+  -- A missing Vault secret degrades rather than blocks: the account is still
+  -- deleted and cleanup_orphaned_clip_files sweeps the files on its next run.
+  -- Refusing to delete an account because a storage credential is absent
+  -- would be the worse failure.
+  if service_key is null then
+    raise warning 'delete_own_account: no Vault service_role_key; leaving clip files for the nightly cleanup job';
+  else
+    for obj in
+      select o.name
+      from storage.objects o
+      join pairs p on p.id::text = (storage.foldername(o.name))[1]
+      where o.bucket_id = 'clips'
+        and (p.user_a = auth.uid() or p.user_b = auth.uid())
+        -- Anchored so a crafted object name can't traverse out of the bucket
+        -- when interpolated into the URL below. The storage INSERT policy
+        -- only checks the *first* path segment, so a name like
+        -- `<pair-id>/../../other` would satisfy it; this won't match it.
+        -- Optional extension covers rows written before storage_path went
+        -- extensionless (see the comment on `clips`).
+        and o.name ~ '^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}/\d{4}-\d{2}-\d{2}(\.[A-Za-z0-9]{2,4})?$'
+    loop
+      perform net.http_delete(
+        url => project_url || '/storage/v1/object/clips/' || obj.name,
+        headers => jsonb_build_object(
+          'Authorization', 'Bearer ' || service_key,
+          'apikey', service_key
+        )
+      );
+    end loop;
+  end if;
+
   delete from auth.users where id = auth.uid();
 end;
 $$;
@@ -634,6 +684,13 @@ begin
       and not exists (
         select 1 from public.clips c where c.storage_path = o.name
       )
+      -- Same anchoring as delete_own_account: the name goes straight into a
+      -- URL below, and the storage INSERT policy only constrains the first
+      -- path segment, so `<pair-id>/../../other` would pass it. A name that
+      -- doesn't match is skipped rather than requested -- meaning a
+      -- malformed one is never swept, which is the right way round: this
+      -- job exists to reclaim quota, not to act on paths it can't vouch for.
+      and o.name ~ '^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}/\d{4}-\d{2}-\d{2}(\.[A-Za-z0-9]{2,4})?$'
     order by o.created_at
     limit max_deletions
   loop

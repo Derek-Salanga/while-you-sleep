@@ -134,7 +134,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
 
       <Text style={styles.deleteNote}>
         Deleting your account also deletes the clips you and your partner have
-        shared. Videos are purged within 48 hours.
+        shared, including the videos themselves.
       </Text>
     </Screen>
   );
