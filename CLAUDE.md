@@ -806,6 +806,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Account deletion purging clip files immediately: on a throwaway pair with a
+  clip from each side, both objects were gone from the bucket within seconds
+  of deleting (not the next nightly run), and `net._http_response` showed two
+  200s. Includes the partner's file, which is the half a client-driven purge
+  could never have reached
 - Account deletion from Account Settings: both alerts fire, Cancel at either
   step aborts with nothing deleted, confirming lands on AuthScreen. Cascade
   verified in SQL on a throwaway pair that had a real clip from each side —
@@ -861,10 +866,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Account deletion now purging clip files immediately (pg_net from
-  `delete_own_account`), rather than leaving them to the nightly job. Needs a
-  fresh throwaway pair with a clip from each side; check the bucket seconds
-  after deleting, not the next day.
 - The two orphaned files from the 2026-08-29 deletion, which predate that
   change and so still depend on the nightly sweep. Not checkable before
   **2026-08-31 04:17 UTC** — created ~08:46 on the 29th against a grace

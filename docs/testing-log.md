@@ -548,3 +548,33 @@ created ~08:46 UTC on 2026-08-29, and the job's grace period is
 them and **2026-08-31 04:17 is the first run that will sweep them**. Still
 present on the 30th is expected. That sweep is the one part of this PR still
 unverified.
+
+Confirmed on a real device (2026-08-29, PR #61): account deletion now purges
+the clip files itself instead of leaving them to the nightly job.
+
+Fresh throwaway pair with a clip recorded from each side, so the bucket held
+two objects under the pair's prefix. Deleting one account from the app left
+zero within seconds, and `net._http_response` showed two 200s — pg_net is
+fire-and-forget, so checking that table is the only way to know the requests
+were accepted rather than merely queued. Both files went, including the
+partner's, which is the half a client-driven purge could never have reached:
+`clips_select_pair_members` hides a partner's clip on any date the caller
+didn't post one, so the client cannot enumerate those paths at all.
+
+The name guard added to both functions was validated against real data before
+relying on it — every one of the ten most recent objects in the bucket matched
+`^<uuid>/<uuid>/<YYYY-MM-DD>(.ext)?$`, including day-old rows. Worth doing
+first: too strict a pattern would have silently matched nothing, and the
+symptom (files not disappearing) is indistinguishable from the feature simply
+not being deployed.
+
+Which it wasn't, at first — `create or replace` was run against both functions
+and neither took on the first attempt. Checking `body_len` or eyeballing the
+editor isn't enough to tell; `select prosrc like '%http_delete%'` on `pg_proc`
+is what actually distinguishes the new body from the old one-liner, and it's
+worth running after any live function replace in this project.
+
+Still pending: the two orphans from the earlier 2026-08-29 deletion, which
+predate this change and depend on the nightly sweep — first eligible run is
+2026-08-31 04:17 UTC. That run is also what verifies the name guard on the
+cleanup path, since only the delete path has been exercised so far.
