@@ -463,3 +463,50 @@ saves — worth checking explicitly, since `unmountOnBlur` exists partly to
 stop a native `DateTimePicker` lingering in the background
 (`MainTabs.tsx`), and this PR inserted a navigator between the tab and the
 screen that owns it. Nickname editing also unaffected.
+
+Confirmed on a real device (2026-08-29, PRs #54–#57): four changes from the
+UX batch, tested together on one build with all four branches merged, then
+merged individually.
+
+**Cold-start gate (#57).** Force-quit and reopen on a paired account with a
+stored session now goes straight to MainTabs. Previously `RootNavigator`
+gated only on `AuthContext`'s `loading`, which means just "the auth session
+hasn't resolved yet", so it flipped false while the pair query was still in
+flight and an already-paired user got a flash of PairingScreen.
+
+**Timeline card colour (#55).** The `*Soft` fills plus a 4pt left edge read
+as distinct at a glance. The cards were already colour-coded — the `*Tint`
+values they used sit ~4% off `background`, so the feed read as one column of
+white cards.
+
+**Private partner nickname (#56).** Renders for the person who set it,
+`Your name` still edits `display_name`, blank-on-save clears it. The privacy
+claim was checked two ways, because the app not *showing* a value and the
+database not *serving* it are different claims: signed in as the second
+account the nickname is absent from Timeline/Home/StoryRings, and at the RLS
+layer, impersonating the partner inside a transaction, `rows_visible = 0`
+and `rows_leaked = 0`.
+
+Worth recording how that check has to be run: **the Supabase SQL editor
+bypasses RLS**, and `auth.uid()` is null there, so running the verify query
+directly returns 0 no matter what the policies say — a false pass. It only
+means something wrapped in `begin; select set_config('request.jwt.claims',
+…); set local role authenticated; … rollback;`. The query also uses
+`is distinct from` rather than `<>` on purpose: with `<>`, a null
+`auth.uid()` (failed impersonation) makes every comparison null, no rows
+match, and you get 0 again — a silent false pass in exactly the case where
+the test is broken. Confirming `acting_as` is non-null is part of the check,
+not a formality; it also proves a nickname row existed at all, so the
+assertion wasn't vacuous.
+
+**Pairing auto-refresh (#54).** Two devices, two previously unpaired
+accounts: created an invite on A, left A foregrounded and untouched, joined
+from B, and A moved to MainTabs on its own within ~5s. That is specifically
+the case `useFocusEffect` could never catch — PairingScreen is the only
+mounted screen at that point, so it never blurs and re-focuses, and the
+creator previously sat there until the app was backgrounded and reopened.
+A manual refresh passing would not have tested anything.
+
+Not exercised: `MonthlySummaryScreen`'s `if (!pair)` guard fix, also in #57.
+MainTabs only mounts once a pair exists, so the path isn't reachable from
+the UI — it's a correctness fix, not an observed bug.
