@@ -698,6 +698,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
   is confirmed.
+- Timeline card colour: that the deepened `*Soft` fills plus the 4pt left
+  edge read as distinct at a glance, and don't compete with HeroCard directly
+  above the list — visual, iOS
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
