@@ -156,6 +156,39 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
+## EAS Build (in progress, started 2026-08-29)
+
+Moving off Expo Go — see the dedicated plan for the full comparison
+against a test-framework arc, reasoning on Dev Client vs. standalone,
+and the EAS-secrets correction (`SUPABASE_URL`/`SUPABASE_ANON_KEY` are
+already hardcoded in `app.json`'s `extra`, not read from `.env`; only
+`EXPO_PUBLIC_SENTRY_DSN` needs an EAS secret).
+
+**Done:** `expo-dev-client` installed; `eas.json` added with four
+profiles — `development` (device, internal distribution),
+`development-simulator` (extends `development`, `ios.simulator: true`,
+so it can be built and tested with no Apple account at all),
+`preview` (internal distribution, for sideloading/TestFlight-adjacent
+testing), and `production` (`autoIncrement: true`, for store
+submission).
+
+**Blocked on, both external and only the user can do them:**
+- `eas login` — a free Expo account, separate from Apple's. Nothing
+  past this point (`eas init`/`eas build:configure` to link
+  `extra.eas.projectId`, or any actual `eas build`) can proceed
+  without it.
+- Apple Developer Program enrollment (in progress as of 2026-08-29) —
+  only blocks the `development` (device) and `production`/TestFlight
+  profiles. `development-simulator` and the Android profiles don't
+  need it.
+
+**Not yet done:** first actual build on any profile (needs the above),
+confirming native Sentry crash capture, Android BlurView/extensionless-
+MIME playback on a real build, EAS secret for
+`EXPO_PUBLIC_SENTRY_DSN`, Apple bundle ID/provisioning/TestFlight setup,
+Android build in parallel, Google Play Console account (only needed for
+Play Store distribution, not sideloading).
+
 ## Daily Question feature (video daily question, merged with the clip)
 
 Each pair gets one shared prompt per day, picked deterministically from
