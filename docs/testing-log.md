@@ -377,3 +377,13 @@ happened to land correctly, but was second-guessed and reverted before
 being confirmed against `auth.users` — costing a redo. Matching against
 `auth.users.email` first is the reliable way to find the right `pair_id`
 when multiple test pairs exist.
+
+Confirmed on a real device (2026-08-28, two fresh accounts paired
+specifically for this check, since the main pair had already posted for
+the day): letting the recording run without manually stopping it, it
+auto-stopped right at 30s — the native `recordAsync({ maxDuration: 30 })`
+cap, not just the JS-side countdown pill display. The caption step's text
+("thank u") shows correctly on the "You" card in the `revealed` phase.
+Still open on the video-daily-question bullet: `RETIRED_REMINDER_IDS`
+cleanup, which needs a device that had the old two-reminder version
+scheduled before this feature's merge.
