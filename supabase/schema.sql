@@ -92,8 +92,17 @@ create policy "pairs_select_own" on pairs
   );
 create policy "pairs_insert_self_as_a" on pairs
   for insert with check (auth.uid() = user_a);
-create policy "pairs_update_members_only" on pairs
-  for update using (auth.uid() = user_a or auth.uid() = user_b);
+
+-- Deliberately no client-side UPDATE policy on pairs. The app never
+-- updates a pairs row directly -- creating one is an insert
+-- (PairingScreen.tsx), and joining is the security definer
+-- join_pair_by_code() below, which atomically claims an open pair by
+-- exact invite code. A generic "member can update" policy with no
+-- `with check` would let any pair member rewrite invite_code or
+-- reassign user_a/user_b via a direct API call, bypassing that
+-- function's "only if unclaimed, only by exact code" invariant
+-- entirely -- there's no legitimate use for it, so it's removed
+-- rather than tightened.
 
 -- Joins an open pair by exact invite code. security definer so it can
 -- look up a not-yet-joined pair (by code, not by scanning every open
@@ -169,13 +178,67 @@ create policy "clips_insert_own_as_sender" on clips
       where p.id = clips.pair_id and is_pair_member(p, auth.uid())
     )
   );
-create policy "clips_update_pair_members" on clips
+
+-- Update is scoped to the sender's own row, not "any pair member" --
+-- useUploadClip's upsert (onConflict: pair_id,sender_id,recorded_for_date)
+-- becomes a Postgres INSERT ... ON CONFLICT DO UPDATE whenever a row
+-- already exists for that day, and that DO UPDATE branch needs an UPDATE
+-- policy same as any other update. Scoping it to the sender preserves
+-- that "the upsert always overwrites in place" design (see the comment
+-- on `clips` above) for your *own* clip, while still preventing a
+-- partner from rewriting the other's clip content (caption,
+-- storage_path, even recorded_for_date) via a direct API call, which the
+-- old blanket "any pair member" policy allowed. The recipient's one
+-- legitimate write -- marking a clip viewed -- goes through
+-- mark_clip_viewed() below instead, a narrow security definer function
+-- rather than a second broad policy, matching join_pair_by_code()'s
+-- pattern above of using a function for a write RLS can't scope tightly
+-- enough on its own.
+create policy "clips_update_own_as_sender" on clips
   for update using (
-    exists (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from pairs p
+      where p.id = clips.pair_id and is_pair_member(p, auth.uid())
+    )
+  )
+  with check (
+    auth.uid() = sender_id
+    and exists (
       select 1 from pairs p
       where p.id = clips.pair_id and is_pair_member(p, auth.uid())
     )
   );
+create or replace function mark_clip_viewed(target_clip_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clip_row clips;
+begin
+  select * into clip_row from clips where id = target_clip_id;
+
+  if clip_row is null then
+    raise exception 'Clip not found';
+  end if;
+
+  if not exists (
+    select 1 from pairs p
+    where p.id = clip_row.pair_id and is_pair_member(p, auth.uid())
+  ) then
+    raise exception 'Not a member of this clip''s pair';
+  end if;
+
+  if clip_row.sender_id = auth.uid() then
+    raise exception 'Cannot mark your own clip as viewed';
+  end if;
+
+  update clips set viewed_at = coalesce(viewed_at, now())
+  where id = target_clip_id;
+end;
+$$;
 
 -- Helper: does the current user already have their own answer for this
 -- pair/date? Used by the select policy below to gate seeing the
@@ -340,6 +403,22 @@ create policy "clip_files_pair_members_read" on storage.objects
 
 create policy "clip_files_pair_members_write" on storage.objects
   for insert with check (
+    bucket_id = 'clips'
+    and exists (
+      select 1 from pairs p
+      where p.id::text = (storage.foldername(name))[1]
+        and is_pair_member(p, auth.uid())
+    )
+  );
+
+-- Supabase Storage's upsert:true upload path (useUploadClip's "always
+-- overwrites in place" design -- see the comment on `clips` above) needs
+-- both an INSERT and an UPDATE policy to actually overwrite an existing
+-- object; without this, re-uploading to an already-used storage_path
+-- (a same-day re-record, or a retry after a partial upload failure)
+-- fails with a permissions error instead of overwriting.
+create policy "clip_files_pair_members_update" on storage.objects
+  for update using (
     bucket_id = 'clips'
     and exists (
       select 1 from pairs p

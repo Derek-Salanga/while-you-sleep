@@ -434,3 +434,15 @@ Not exercised: the notification firing live at that time and tap routing
 to Home, since that means either waiting for 13:00 local or advancing the
 device clock (which would also perturb Supabase's JWT `iat` check and any
 other now()-based logic, so not a shortcut worth taking).
+
+Confirmed on a real device (2026-08-28, main pair): after an RLS audit
+(triggered by deciding whether the leaked Supabase anon key needed
+rotating — it didn't, since the audit is what actually mattered) fixed
+three gaps in `schema.sql` — an exploitable `pairs` update policy, a
+`clips` update policy broader than the app uses, and a missing
+`storage.objects` UPDATE policy — watching a clip through
+`mark_clip_viewed()`'s new RPC path still clears the unwatched dot with
+no error, confirming the swap from a raw table update didn't break the
+live viewed-marking flow. The `clips_update_own_as_sender` policy and the
+`storage.objects` UPDATE policy remain unverified on-device, since
+there's no re-record-after-send path in the current UI to exercise them.
