@@ -589,8 +589,22 @@ would invert the one property that keeps it safe.
 `on delete cascade`, so deleting your `auth.users` row takes your profile,
 the `pairs` row you belong to, and through it `clips`, `daily_answers`,
 `pair_trips` and `pair_anniversary` — **including your partner's**. They
-keep their login and profile, lose everything shared, and land back on
-`PairingScreen` with no explanation. Blocking deletion while paired was
+keep their login and profile and lose everything shared.
+
+**The partner's running app does not notice until it is relaunched.**
+Nothing refetches `['pair', userId]` once a pair is complete: `refreshPair`
+is only called from `PairingScreen`, `usePair`'s `refetchInterval` returns
+`false` for a complete pair, `PairProvider` mounts at the app root so
+`unmountOnBlur` never remounts it, and there's no `focusManager`/`AppState`
+wiring (see "Data layer"). So until they force-quit, the partner keeps a
+stale `pair` and sees a tab bar over an app that looks like a fresh empty
+pairing — Timeline's empty state, Home's "Plan your next visit" — and
+recording fails with an RLS error rather than a handled message. On next
+launch the gate routes them to `PairingScreen` correctly. Accepted for now;
+wiring `focusManager` to `AppState` is the fix if this ever matters, and
+would make the whole app refresh on foreground rather than just this case.
+
+Blocking deletion while paired was
 considered and rejected: there's no unpair feature, so it would mean
 building one first. Notifying the partner needs a tombstone row that
 survives the cascade plus somewhere to show it. Soft-delete makes "Delete
@@ -816,7 +830,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 **Not verified:**
 - Account deletion end to end from the app: both alerts fire, Cancel at
   either step aborts, deletion lands on AuthScreen, and the partner's device
-  drops to PairingScreen. Also the 24h-later check that the nightly job
+  routes to PairingScreen *after a relaunch* (it will not while running —
+  see "Account deletion"). Also the 24h-later check that the nightly job
   swept the orphaned videos
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version

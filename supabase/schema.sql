@@ -413,8 +413,11 @@ create policy "pair_anniversary_update_pair_members" on pair_anniversary
 -- this also removes: the caller's profiles row; the pairs row they belong
 -- to (via user_a/user_b); and through that pair -- clips, daily_answers,
 -- pair_trips and pair_anniversary, *including the partner's*. The partner
--- keeps their login and profile and loses everything shared, landing back
--- on PairingScreen. That's accepted rather than blocked (blocking would
+-- keeps their login and profile and loses everything shared. Their running
+-- app won't notice until relaunched -- nothing refetches the pair once it's
+-- complete -- so until then they see a stale tab bar over what looks like a
+-- fresh empty pairing, and recording fails on RLS. That's accepted rather
+-- than blocked (blocking would
 -- mean building an unpair feature first), so AccountSettingsScreen's
 -- confirmation names the consequence explicitly.
 --
