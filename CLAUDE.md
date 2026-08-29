@@ -758,6 +758,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
   is confirmed.
+- Timeline card colour: that the deepened `*Soft` fills plus the 4pt left
+  edge read as distinct at a glance, and don't compete with HeroCard directly
+  above the list — visual, iOS
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
@@ -790,7 +793,12 @@ to use *within* these constraints, not sources to consult for new
 palette/type proposals:
 
 - **Palette:** `#6A85F1` night-blue = "you", `#FFC670` day-orange =
-  "partner" (`src/theme/colors.ts`).
+  "partner" (`src/theme/colors.ts`). The `*Soft` steps were added to that
+  file's existing scale (Dark → base → Light → Soft → Tint), not chosen
+  fresh: `*Tint` sits only ~4% off `background`, so a card filled with it
+  reads as plain white. The `*Tint` values themselves are unchanged —
+  `secondaryTint` also backs `Button`'s secondary variant, which is a
+  different semantic and shouldn't move with the Timeline.
 - **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
