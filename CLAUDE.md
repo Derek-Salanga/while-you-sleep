@@ -577,6 +577,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - Reveal gating — a partner's clip is hidden until you post your own that day;
   two-account pass confirms the `revealed` phase resolves in both directions
   without a manual refresh
+- Video daily question: 30s recording cap auto-stops (native `maxDuration`,
+  matching the on-screen countdown), and the caption step's text shows
+  correctly on the "You" card
 - Extensionless `storage_path` + real MIME types, iOS only; old `.mov` rows
   still play
 - Capture-time compression: 720p / 2.5 Mbps caps hold (~9 MB for a full clip)
@@ -605,9 +608,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - App boots on `@sentry/react-native` 7 and the pinned `react-native-worklets`
 
 **Not verified:**
-- Video daily question, remaining pieces: question overlay at the 30s cap,
-  caption step, and `RETIRED_REMINDER_IDS` cleanup on a device that had the
-  old two-reminder version
+- Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
+  device that had the old two-reminder version
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
