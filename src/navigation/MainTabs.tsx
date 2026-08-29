@@ -1,16 +1,35 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import NavIcon from '@/components/NavIcon';
 import { NavIconKey } from '@/theme/navIcons';
-import { MainTabParamList } from '@/types';
+import { MainTabParamList, SettingsStackParamList } from '@/types';
 import { colors } from '@/theme/colors';
 
 import HomeScreen from '@/screens/HomeScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
 import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
+import AccountSettingsScreen from '@/screens/AccountSettingsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+
+// Nested inside the tab rather than pushed on the root stack so the tab bar
+// stays visible. unmountOnBlur below tears the whole stack down on a tab
+// switch, so it always reopens on SettingsHome -- which is what you want
+// from a settings tab, not a resumed sub-screen.
+function SettingsNavigator() {
+  return (
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} />
+      <SettingsStack.Screen
+        name="AccountSettings"
+        component={AccountSettingsScreen}
+      />
+    </SettingsStack.Navigator>
+  );
+}
 
 // Icon-only tabs (tabBarShowLabel: false below) still need a spoken label
 // for screen readers — without this it falls back to the raw route name
@@ -55,7 +74,7 @@ export default function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Timeline" component={TimelineScreen} />
       <Tab.Screen name="MonthlySummary" component={MonthlySummaryScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Settings" component={SettingsNavigator} />
     </Tab.Navigator>
   );
 }

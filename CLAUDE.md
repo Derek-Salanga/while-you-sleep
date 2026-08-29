@@ -79,6 +79,9 @@ src/
                                 of a single clip
     MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
                                 month's clips" reel
+    SettingsScreen.tsx          nickname, anniversary, and an Account row
+    AccountSettingsScreen.tsx   email + sign out, pushed over Settings inside
+                                the Settings tab's own small stack (MainTabs)
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -652,6 +655,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Account Settings sub-screen: email reads there and is gone from Settings,
+  `Account ›` pushes with the tab bar still visible, sign-out confirmation
+  works both ways. `unmountOnBlur` still tears the nested stack down on a
+  tab switch (reopens on Settings, not Account), and the anniversary
+  spinner still opens and saves with a navigator now between the tab and
+  the screen that owns it
 - Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
 - Trips + anniversary two-account pass: either partner sets, both see the same
   value after a tab-away-and-back (no live sync — focus/remount refetch only)

@@ -446,3 +446,20 @@ no error, confirming the swap from a raw table update didn't break the
 live viewed-marking flow. The `clips_update_own_as_sender` policy and the
 `storage.objects` UPDATE policy remain unverified on-device, since
 there's no re-record-after-send path in the current UI to exercise them.
+
+Confirmed on a real device (2026-08-29, PR #53): the Account Settings
+sub-screen. The email no longer appears on the main Settings screen and
+reads correctly on the sub-screen; `Account ›` pushes with **the tab bar
+still visible**, which is the whole reason it's a stack nested inside the
+Settings tab rather than a push on the root stack; `‹ Settings` returns.
+Sign-out confirmation works in both directions — Cancel is a genuine
+no-op, Sign out lands on `AuthScreen`.
+
+Also confirmed the two things the nesting put at risk. Tabbing away from
+Account and back reopens **Settings**, not the sub-screen, so
+`unmountOnBlur: true` still tears the whole nested stack down on blur as
+it did the single screen. And the anniversary spinner still opens and
+saves — worth checking explicitly, since `unmountOnBlur` exists partly to
+stop a native `DateTimePicker` lingering in the background
+(`MainTabs.tsx`), and this PR inserted a navigator between the tab and the
+screen that owns it. Nickname editing also unaffected.
