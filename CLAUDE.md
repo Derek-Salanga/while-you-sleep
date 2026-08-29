@@ -574,7 +574,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 **Confirmed on a real device or the live project:**
 - Email OTP sign-in; two-user pairing (create, join, reused-code rejection)
 - Camera recording, upload, playback, viewed-status marking
-- Reveal gating — a partner's clip is hidden until you post your own that day
+- Reveal gating — a partner's clip is hidden until you post your own that day;
+  two-account pass confirms the `revealed` phase resolves in both directions
+  without a manual refresh
 - Extensionless `storage_path` + real MIME types, iOS only; old `.mov` rows
   still play
 - Capture-time compression: 720p / 2.5 Mbps caps hold (~9 MB for a full clip)
@@ -584,8 +586,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
 - Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
+- Trips + anniversary two-account pass: either partner sets, both see the same
+  value after a tab-away-and-back (no live sync — focus/remount refetch only)
+- Save-time range rejection: both alerts fire (trip before today, anniversary
+  after today), and today itself saves on both — the boundary is inclusive
 - HeroCard on real trip data; story rings track any unwatched clip, not just
   today's
+- HeroCard's anniversary branch ("N days / together", "since <date>") and its
+  "neither set" state (bare split card, heart only, no text)
+- Empty states: Timeline with no clips, PairingScreen with an unclaimed invite
 - Fonts (Fraunces/Inter), gradient record button, frosted prompt card,
   entrance motion — iOS
 - Storage orphan cleanup: deletion confirmed end to end, nightly `pg_cron` job
@@ -593,9 +602,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - App boots on `@sentry/react-native` 7 and the pinned `react-native-worklets`
 
 **Not verified:**
-- Video daily question end to end (two-account pass): question overlay at the
-  30s cap, caption step, `revealed` phase, and `RETIRED_REMINDER_IDS` cleanup
-  on a device that had the old two-reminder version
+- Video daily question, remaining pieces: question overlay at the 30s cap,
+  caption step, and `RETIRED_REMINDER_IDS` cleanup on a device that had the
+  old two-reminder version
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
@@ -604,11 +613,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   for 20:00 UTC, tap routing to Home
 - Monthly Summary: stats/grid against real multi-day data, month navigation,
   end-of-queue behavior in the reel
-- Trips + anniversary two-account pass: either partner sets, both see the same
-- Save-time range rejection (trip before today, anniversary after today)
-- HeroCard's anniversary branch, and its "neither set" empty state
-- Story-ring colors at the reveal-gating boundary (needs two accounts)
-- Empty states: Timeline with no clips, PairingScreen with an unclaimed invite
+- Story-ring colors at the reveal-gating boundary: the gray-because-invisible
+  case (partner has posted, you haven't yet) — needs a fresh day, since it's
+  unreachable once both have posted. The unwatched→watched transition itself
+  is confirmed.
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
