@@ -387,3 +387,28 @@ cap, not just the JS-side countdown pill display. The caption step's text
 Still open on the video-daily-question bullet: `RETIRED_REMINDER_IDS`
 cleanup, which needs a device that had the old two-reminder version
 scheduled before this feature's merge.
+
+Confirmed on a real device (2026-08-28, main pair, 9 synthetic `clips`
+rows seeded across August via SQL): Monthly Summary's stats tiles and
+calendar grid render correctly against multi-day data, and month
+navigation between an empty month (July, "No clips this month", disabled
+button) and the populated one (August) works, including the `>` button
+correctly disabling once back on the current month.
+
+One real finding from this pass, not a test artifact: the screen's stats
+undercounted by exactly one day, and a synthetic day-10 partner-only clip
+was invisible in the grid — because `MonthlySummaryScreen`'s fetch is a
+plain `clips` select, so it's subject to the same `has_own_clip()` RLS
+that gates `RecordScreen`'s reveal. Unlike that reveal, which just delays
+until you post, a past day can never be retroactively posted to, so a day
+where only your partner posted and you didn't is permanently excluded
+from your own Monthly Summary. Verified this was the cause (not a UI bug)
+by checking the rows existed in the database via a direct `select`, then
+confirming the one row Monthly Summary dropped was exactly the one
+`has_own_clip()` would reject. Discussed with the user; decided to accept
+this as consistent with the app's existing reveal-gating philosophy
+rather than fix it — see "Monthly Summary feature" in CLAUDE.md.
+
+Not exercised this pass: the reel's end-of-queue behavior, since the
+seeded rows had fake `storage_path` values with no real video to
+actually play through to the end.

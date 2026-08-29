@@ -241,6 +241,22 @@ weekdays — a simple wrapped grid, not a literal calendar layout), and a
 otherwise behaves exactly as before (single clip, manual controls,
 no auto-advance) for the normal Timeline-card tap path.
 
+**Inherits same-day reveal-gating, permanently, for past days.** The
+screen's fetch is a plain `select` against `clips`, so it's subject to
+the same `has_own_clip()` RLS as everywhere else (see "Reveal gating"
+under "Daily Question feature"): a partner's clip for a given date is
+only visible to you if you also have a clip of your own for that same
+date. Unlike `RecordScreen`'s reveal, which is just delayed until you
+post, a *past* day can never be retroactively posted to — so if there's
+ever a day where your partner posted and you didn't, that day's clip is
+permanently invisible in your own Monthly Summary stats, grid, and
+"watch this month's clips" queue, not just gated until you catch up.
+Confirmed on a real device (2026-08-28): a synthetic partner-only day
+undercounted the partner/both-days stats and the grid by exactly one
+day, consistent with `has_own_clip()` rejecting it. Accepted as
+consistent with the app's existing reveal-gating philosophy rather than
+treated as a bug — not fixed.
+
 ## Trips/Goals feature
 
 Scoped as a single shared "next visit" countdown, not multiple/past
@@ -606,18 +622,23 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - Storage orphan cleanup: deletion confirmed end to end, nightly `pg_cron` job
   fires
 - App boots on `@sentry/react-native` 7 and the pinned `react-native-worklets`
+- Monthly Summary: stats/grid against real multi-day data (seeded), month
+  navigation between an empty and a populated month; inherits same-day
+  reveal-gating for past days (see "Monthly Summary feature" above) —
+  accepted, not a bug
 
 **Not verified:**
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
+- Monthly Summary reel's end-of-queue behavior (what happens after the last
+  clip finishes) — not exercised this pass, since the seeded rows used fake
+  `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
 - Daily local notification: permission prompt, firing at the right local time
   for 20:00 UTC, tap routing to Home
-- Monthly Summary: stats/grid against real multi-day data, month navigation,
-  end-of-queue behavior in the reel
 - Story-ring colors at the reveal-gating boundary: the gray-because-invisible
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
