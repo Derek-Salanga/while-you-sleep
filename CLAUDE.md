@@ -701,9 +701,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Cold-start gate: that an already-paired user with a stored session goes
-  straight to MainTabs with no flash of PairingScreen, and that a user with
-  no pair still lands on PairingScreen rather than hanging on the spinner
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
@@ -711,6 +708,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
+- Cold-start gate: that an already-paired user with a stored session goes
+  straight to MainTabs with no flash of PairingScreen, and that a user with
+  no pair still lands on PairingScreen rather than hanging on the spinner
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
 - Daily local notification: actually firing at 20:00 UTC and tap routing to
