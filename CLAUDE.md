@@ -701,6 +701,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
+- `clips_update_own_as_sender` and `storage.objects`' UPDATE policy (RLS
+  hardening, see that section above) — not reachable through the app's
+  current UI, since there's no re-record-after-send path
 
 ## Design tooling installed
 
