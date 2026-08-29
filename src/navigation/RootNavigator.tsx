@@ -18,7 +18,7 @@ import ClipViewScreen from '@/screens/ClipViewScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { session, pair, loading } = usePairing();
+  const { session, pair, pairPending, loading } = usePairing();
   // A pair row exists as soon as one side creates an invite, with user_b
   // still null until the partner joins — that's not a completed pairing
   // yet, so route to Pairing until both sides are set.
@@ -54,7 +54,14 @@ export default function RootNavigator() {
     return () => subscription.remove();
   }, []);
 
-  if (loading) {
+  // `loading` alone was not enough. It means only "the auth session hasn't
+  // resolved yet" (AuthContext), so on a cold start with a stored session it
+  // flipped false while the pair query was still in flight -- pair undefined,
+  // isPaired false -- and an already-paired user got a flash of PairingScreen
+  // before MainTabs swapped in. Hold the same spinner until the pair query
+  // has actually settled. A user with no pair still lands on PairingScreen:
+  // that query resolves to null, which is not pending.
+  if (loading || (session && pairPending)) {
     return (
       <View
         style={{
