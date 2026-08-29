@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,8 @@ import Animated, {
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
+import { useQueryClient } from '@tanstack/react-query';
+import { useClips, usePairTrip, usePairAnniversary } from '@/hooks/queries';
 import {
   todayDateString,
   sharedTodayDateString,
@@ -31,7 +33,6 @@ import {
 } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
-import { PairTrip, PairAnniversary } from '@/types';
 import { countries, flagEmoji, countryName } from '@/data/countries';
 
 function tripCountdownLabel(targetDate: string): string {
@@ -53,9 +54,29 @@ export default function HomeScreen({ navigation }: any) {
   const { session, pair } = usePairing();
   const partnerName = usePartnerName();
   const insets = useSafeAreaInsets();
-  const [answeredToday, setAnsweredToday] = useState(false);
-  const [trip, setTrip] = useState<PairTrip | null>(null);
-  const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
+  const queryClient = useQueryClient();
+  // These used to be useState + useFocusEffect fetches. Because
+  // unmountOnBlur remounts this screen on every tab visit, that state reset
+  // to its falsy default each time and the screen rendered "Plan your next
+  // visit" and a hidden anniversary line as though they were loaded data --
+  // a flash of *wrong* content, not of blank space. Reading the react-query
+  // cache instead means a remount renders the previous value immediately and
+  // refetches behind it, so the flash only exists on a cold start.
+  const { data: trip } = usePairTrip(pair?.id);
+  const { data: anniversary } = usePairAnniversary(pair?.id);
+  // Derived from the clips list rather than its own query: TimelineScreen
+  // already populates ['clips', pairId], so arriving from that tab costs no
+  // request at all. `undefined` while loading is load-bearing -- see the dot
+  // below.
+  const { data: clips } = useClips(pair?.id);
+  const answeredToday =
+    clips === undefined
+      ? undefined
+      : clips.some(
+          (c) =>
+            c.sender_id === session?.user.id &&
+            c.recorded_for_date === sharedTodayDateString()
+        );
   const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(
@@ -74,64 +95,6 @@ export default function HomeScreen({ navigation }: any) {
   const handleRecordCtaPressOut = () => {
     recordCtaScale.value = withTiming(1, { duration: 100 });
   };
-
-  // The daily clip IS the daily question's answer now -- see "Video daily
-  // question" in CLAUDE.md -- so "answered today" checks clips, not the
-  // now-unused daily_answers table.
-  const loadQuestionStatus = useCallback(async () => {
-    if (!pair || !session?.user) return;
-    const { data, error } = await supabase
-      .from('clips')
-      .select('id')
-      .eq('pair_id', pair.id)
-      .eq('sender_id', session.user.id)
-      .eq('recorded_for_date', sharedTodayDateString())
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to load question status:', error.message);
-      return;
-    }
-    setAnsweredToday(!!data);
-  }, [pair, session]);
-
-  const loadTrip = useCallback(async () => {
-    if (!pair) return;
-    const { data, error } = await supabase
-      .from('pair_trips')
-      .select('*')
-      .eq('pair_id', pair.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to load trip:', error.message);
-      return;
-    }
-    setTrip(data);
-  }, [pair]);
-
-  const loadAnniversary = useCallback(async () => {
-    if (!pair) return;
-    const { data, error } = await supabase
-      .from('pair_anniversary')
-      .select('*')
-      .eq('pair_id', pair.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to load anniversary:', error.message);
-      return;
-    }
-    setAnniversary(data);
-  }, [pair]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadQuestionStatus();
-      loadTrip();
-      loadAnniversary();
-    }, [loadQuestionStatus, loadTrip, loadAnniversary])
-  );
 
   const startEditingTrip = () => {
     setPickerDate(parseDateString(trip?.target_date));
@@ -169,7 +132,9 @@ export default function HomeScreen({ navigation }: any) {
       console.error('Failed to save trip:', error.message);
       return;
     }
-    setTrip(data);
+    // setQueryData rather than invalidate: the upsert already returned the
+    // saved row, so there's nothing to go back for.
+    queryClient.setQueryData(['pairTrip', pair.id], data);
     setEditingTrip(false);
   };
 
@@ -207,7 +172,7 @@ export default function HomeScreen({ navigation }: any) {
             style={StyleSheet.absoluteFill}
           />
           <Text style={styles.recordCtaLabel}>Today's question</Text>
-          {!answeredToday && <View style={styles.unwatchedDot} />}
+          {answeredToday === false && <View style={styles.unwatchedDot} />}
         </Animated.View>
       </Pressable>
       {editingTrip ? (

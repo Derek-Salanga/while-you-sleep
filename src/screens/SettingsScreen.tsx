@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
@@ -16,15 +15,18 @@ import { usePairing } from '@/lib/PairingContext';
 import { formatDateString, parseDateString, todayDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
-import { PairAnniversary } from '@/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePartnerNickname } from '@/hooks/queries';
+import { usePairAnniversary, usePartnerNickname } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 
 export default function SettingsScreen({ navigation }: any) {
   const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
-  const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
+  // Cached rather than useState + useFocusEffect: unmountOnBlur remounts
+  // this screen on every tab visit, so local state reset to null each time
+  // and the row rendered "Not set" while loading -- indistinguishable from
+  // genuinely unset. The cache serves the previous value on remount instead.
+  const { data: anniversary } = usePairAnniversary(pair?.id);
   const [editingAnniversary, setEditingAnniversary] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [editingNickname, setEditingNickname] = useState(false);
@@ -34,27 +36,6 @@ export default function SettingsScreen({ navigation }: any) {
   const partnerName = usePartnerName();
   const [editingPartnerNickname, setEditingPartnerNickname] = useState(false);
   const [partnerNicknameInput, setPartnerNicknameInput] = useState('');
-
-  const loadAnniversary = useCallback(async () => {
-    if (!pair) return;
-    const { data, error } = await supabase
-      .from('pair_anniversary')
-      .select('*')
-      .eq('pair_id', pair.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Failed to load anniversary:', error.message);
-      return;
-    }
-    setAnniversary(data);
-  }, [pair]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadAnniversary();
-    }, [loadAnniversary])
-  );
 
   const startEditingAnniversary = () => {
     setPickerDate(parseDateString(anniversary?.anniversary_date));
@@ -86,7 +67,9 @@ export default function SettingsScreen({ navigation }: any) {
       console.error('Failed to save anniversary:', error.message);
       return;
     }
-    setAnniversary(data);
+    // The upsert already returned the saved row, so write it straight into
+    // the cache rather than invalidating and going back for it.
+    queryClient.setQueryData(['pairAnniversary', pair.id], data);
     setEditingAnniversary(false);
   };
 

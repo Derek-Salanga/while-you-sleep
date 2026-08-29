@@ -104,9 +104,9 @@ export function useClip(clipId: string) {
 // Both of these are singleton rows keyed on pair_id, so maybeSingle() and a
 // null result are the normal "not set yet" case, not an error.
 //
-// HomeScreen still fetches the same two tables inline with its own state --
-// it owns the edit forms, and migrating those is a separate job. These exist
-// for read-only consumers like HeroCard.
+// HomeScreen and SettingsScreen own the edit forms for these and now read
+// them through here too, writing the upsert's returned row straight back
+// with setQueryData rather than refetching.
 export function usePairTrip(pairId: string | null | undefined) {
   return useQuery({
     queryKey: ['pairTrip', pairId],
