@@ -827,6 +827,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Home and Settings reading through the query cache: repeated tab visits show
+  the real trip, anniversary and days-together line immediately, with no
+  flash of "Plan your next visit" / "Not set", and Home's unanswered dot no
+  longer appears on a day already posted. Saving a trip updates HeroCard on
+  the Timeline tab with no manual refresh, which the old local-state write
+  couldn't do
 - Account deletion purging clip files immediately: on a throwaway pair with a
   clip from each side, both objects were gone from the bucket within seconds
   of deleting (not the next nightly run), and `net._http_response` showed two
@@ -887,9 +893,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Home/Settings no longer flashing "Not set" / "Plan your next visit" on
-  every tab visit, and Home's unanswered dot not appearing before the clips
-  list has loaded
 - The two orphaned files from the 2026-08-29 deletion, which predate that
   change and so still depend on the nightly sweep. Not checkable before
   **2026-08-31 04:17 UTC** — created ~08:46 on the 29th against a grace

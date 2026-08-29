@@ -578,3 +578,24 @@ Still pending: the two orphans from the earlier 2026-08-29 deletion, which
 predate this change and depend on the nightly sweep — first eligible run is
 2026-08-31 04:17 UTC. That run is also what verifies the name guard on the
 cleanup path, since only the delete path has been exercised so far.
+
+Confirmed on a real device (2026-08-29, PR #62): Home and Settings read
+through the react-query cache instead of local state.
+
+Repeated Home <-> Timeline and Settings <-> Home tab switches now show the
+real trip, anniversary and days-together line immediately, with no flash of
+"Plan your next visit" or "Not set", and Home's unanswered dot no longer
+appears on a day already posted. A cold start still shows one flash, which is
+expected -- there's no cached value yet -- and is not what this fixed.
+
+Also confirmed the side effect that came free with the shared cache: saving a
+trip on Home updates HeroCard on the Timeline tab with no manual refresh. The
+old `setTrip(data)` wrote to local state only, so HeroCard waited for its own
+remount.
+
+The framing this started from was "a loading state -- I'm not sure where".
+The audit found the opposite of a missing loading state: both screens held
+fetched rows in useState initialised to null while unmountOnBlur remounted
+them on every tab visit, so they rendered falsy defaults *as though they were
+loaded data*. A spinner or skeleton would have been the wrong fix for a flash
+of wrong content. The right one deleted 52 lines.
