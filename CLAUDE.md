@@ -505,10 +505,23 @@ whole list down by ~60pt until the refetch landed — and claimed a pull
 had happened when none had. It now tracks its own `pulling` flag around
 an explicit `refetch()`. Any future pull-to-refresh should do the same.
 
-Query keys are plain arrays, no key factory — there are four of them:
+Query keys are plain arrays, no key factory — there are six of them:
 `['pair', userId]`, `['profile', userId]`, `['clips', pairId]`,
-`['clip', clipId]`. Both mutations invalidate `['clips']` on success,
-which is what makes the Timeline update on its own.
+`['clip', clipId]`, `['pairTrip', pairId]`, `['pairAnniversary', pairId]`.
+Both mutations invalidate `['clips']` on success, which is what makes the
+Timeline update on its own.
+
+**One deliberate deviation from the stock defaults**, and the only one:
+`usePair` sets a `refetchInterval` of 5s, but *only* while a pairs row
+exists with `user_b` still null. The partner who creates an invite would
+otherwise sit on `PairingScreen` forever — that screen refreshes via
+`useFocusEffect`, but it's the only mounted screen at that point, so it
+never blurs and never re-focuses. Chosen over Supabase realtime, which
+would be the app's only websocket plus a publication change on the live
+project, to cover a window that happens once per account;
+`RecordScreen`'s 15s partner-reveal poll already set that precedent. The
+interval returns `false` the moment `user_b` lands, so a completed pair is
+never polled.
 
 `useClip` deliberately returns `{ clip, videoUrl }` — the row fetch and
 the 10-minute signed Storage URL in one `queryFn` — because
@@ -767,6 +780,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - `clips_update_own_as_sender` and `storage.objects`' UPDATE policy (RLS
   hardening, see that section above) — not reachable through the app's
   current UI, since there's no re-record-after-send path
+- Pairing auto-refresh: that the invite creator's app transitions to MainTabs
+  on its own within ~5s of the partner joining, with no tab switch and no
+  backgrounding (a manual refresh passing proves nothing here)
 
 ## Design tooling installed
 
