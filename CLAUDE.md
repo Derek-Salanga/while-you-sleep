@@ -717,6 +717,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - `clips_update_own_as_sender` and `storage.objects`' UPDATE policy (RLS
   hardening, see that section above) — not reachable through the app's
   current UI, since there's no re-record-after-send path
+- Pairing auto-refresh: that the invite creator's app transitions to MainTabs
+  on its own within ~5s of the partner joining, with no tab switch and no
+  backgrounding (a manual refresh passing proves nothing here)
 
 ## Design tooling installed
 
