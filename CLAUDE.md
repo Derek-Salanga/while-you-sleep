@@ -711,6 +711,18 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Pairing auto-refresh: the invite creator's app moved to MainTabs on its own
+  within ~5s of the partner joining, with the creating device left
+  foregrounded and untouched — the case `useFocusEffect` could never catch
+- Cold-start gate: force-quit and reopen on a paired account with a stored
+  session goes straight to MainTabs, no flash of PairingScreen
+- Private partner nickname: renders for the person who set it, `Your name`
+  still edits `display_name`, blank-on-save clears it — and the partner
+  cannot see it, confirmed both in-app from the second account and at the
+  RLS layer (0 rows visible, 0 leaked, while impersonating the partner in a
+  transaction)
+- Timeline card colour: the `*Soft` fills plus the 4pt left edge read as
+  distinct at a glance and don't compete with HeroCard — iOS
 - Account Settings sub-screen: email reads there and is gone from Settings,
   `Account ›` pushes with the tab bar still visible, sign-out confirmation
   works both ways. `unmountOnBlur` still tears the nested stack down on a
@@ -747,11 +759,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Private partner nickname: that it renders on Timeline/Home/StoryRings for
-  the person who set it, that blank-on-save clears it back to the partner's
-  own `display_name`, and — the actual feature — that the **partner does
-  not see it**, checked from the second account with the query in
-  `schema.sql`
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
@@ -759,9 +766,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
-- Cold-start gate: that an already-paired user with a stored session goes
-  straight to MainTabs with no flash of PairingScreen, and that a user with
-  no pair still lands on PairingScreen rather than hanging on the spinner
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
 - Daily local notification: actually firing at 20:00 UTC and tap routing to
@@ -771,18 +775,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
   is confirmed.
-- Timeline card colour: that the deepened `*Soft` fills plus the 4pt left
-  edge read as distinct at a glance, and don't compete with HeroCard directly
-  above the list — visual, iOS
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
 - `clips_update_own_as_sender` and `storage.objects`' UPDATE policy (RLS
   hardening, see that section above) — not reachable through the app's
   current UI, since there's no re-record-after-send path
-- Pairing auto-refresh: that the invite creator's app transitions to MainTabs
-  on its own within ~5s of the partner joining, with no tab switch and no
-  backgrounding (a manual refresh passing proves nothing here)
 
 ## Design tooling installed
 
