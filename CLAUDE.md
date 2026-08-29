@@ -551,11 +551,32 @@ and errors also falls through to `PairingScreen`, same as before.
 `enabled: false` until `partnerId` resolves.
 
 **Partially adopted, on purpose.** Migrated: `TimelineScreen`,
-`ClipViewScreen`, `PairingContext`, and `RecordScreen`'s upload.
-Still querying Supabase inline: `HomeScreen`, `SettingsScreen`,
-`MonthlySummaryScreen`, `PairingScreen`, and `RecordScreen`'s
-`loadTodayClips` (+ its 15s partner-reveal poll). Those still rely on
-`useFocusEffect` refetching, so `unmountOnBlur` must stay.
+`ClipViewScreen`, `PairingContext`, `RecordScreen`'s upload, and — as of
+2026-08-29 — `HomeScreen`'s and `SettingsScreen`'s reads.
+Still querying Supabase inline: `MonthlySummaryScreen`, `PairingScreen`,
+and `RecordScreen`'s `loadTodayClips` (+ its 15s partner-reveal poll).
+Those still rely on `useFocusEffect` refetching, so `unmountOnBlur` must
+stay — and the migrated screens now depend on it too, for the opposite
+reason: remount is what refetches them.
+
+**Why Home and Settings were migrated: they flashed wrong content, not
+blank space.** Both held fetched rows in `useState` initialised to `null`,
+and `unmountOnBlur` remounts them on every tab visit — so the state reset
+to its falsy default each time and the screen rendered "Not set", "Plan
+your next visit" and a missing anniversary line *as though those were
+loaded data*. No spinner would have fixed that; the fix was to stop
+throwing the value away. The cache now serves the previous row instantly on
+remount and refetches behind it, so the flash only exists on a cold start.
+Net −52 lines, and no skeleton components.
+
+Two details worth keeping: `HomeScreen`'s "you haven't answered" dot is
+derived from `['clips', pairId]` — the list `TimelineScreen` already
+populates, so arriving from that tab costs no request — and it renders on
+`answeredToday === false`, never on `undefined`, so it can't assert you
+haven't posted before it knows. Saves write the upsert's returned row back
+with `setQueryData` rather than invalidating, which keeps the old
+`setTrip(data)` immediacy and, because the cache is shared, updates
+`HeroCard` on the Timeline tab too.
 
 Not done, both deliberate: no `focusManager`/`AppState` wiring (so
 returning from background doesn't refetch on its own — add if that feels
@@ -806,6 +827,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Home and Settings reading through the query cache: repeated tab visits show
+  the real trip, anniversary and days-together line immediately, with no
+  flash of "Plan your next visit" / "Not set", and Home's unanswered dot no
+  longer appears on a day already posted. Saving a trip updates HeroCard on
+  the Timeline tab with no manual refresh, which the old local-state write
+  couldn't do
 - Account deletion purging clip files immediately: on a throwaway pair with a
   clip from each side, both objects were gone from the bucket within seconds
   of deleting (not the next nightly run), and `net._http_response` showed two
