@@ -294,3 +294,69 @@ UTC — that's the one open item on this PR before merge.
 Confirmed on a real device (2026-08-27): the bottom tab bar
 (`feat/bottom-tab-nav` — Home/Timeline/Month/Settings, icon-only)
 works as expected.
+
+Confirmed on a real device (2026-08-28, `docs/two-account-testing-pass`,
+two accounts): the video daily question's `revealed` phase and its
+reveal-gating resolve in both directions without any manual refresh.
+Account A posted first and sat on "Waiting for your partner to answer…";
+after Account B recorded, A's screen swapped in the partner card on its
+own within a few seconds (the 15s `loadTodayClips` poll in
+`RecordScreen.tsx`). B, having posted second, was shown A's clip a few
+seconds after finishing their own recording — the case where RLS's
+`has_own_clip()` starts permitting the partner row the moment your own
+row exists.
+
+Still open on that bullet: the question overlay at the 30s cap and the
+caption step weren't checked off explicitly on this pass, and
+`RETIRED_REMINDER_IDS` cleanup still needs a device that had the old
+two-reminder version scheduled.
+
+Same pass, story rings: on Account A the partner ring went gray after
+watching Account B's clip, confirming the unwatched→watched transition
+drives the ring color off `viewed_at` with no manual refresh. The
+gray-because-invisible case at the reveal boundary (partner has posted,
+you have not, so RLS hides their row entirely and the ring is gray for a
+different reason) was not reachable on this pass — both accounts had
+already posted by the time the rings were checked. It needs a fresh day
+where only one account posts.
+
+Same pass, trips + anniversary across two accounts: values set by one
+partner show up for the other after switching tabs away and back, exactly
+as the focus/remount refetch predicts — nothing updates live while sitting
+on an already-open screen, since there is no realtime subscription
+anywhere in the app.
+
+Same pass, save-time range rejection: both alerts fire as written — "That's
+in the past" for a trip date before today, "That's in the future" for an
+anniversary date after today — and the form stays open with nothing saved.
+Today itself saves on both, confirming the boundary is inclusive on each
+side, which the plain `YYYY-MM-DD` string compare in `handleSaveTrip` /
+`handleSaveAnniversary` is what gives you. This closes the open question
+left on the `fix/anniversary-epoch-date` entry above, which had noted the
+rejection case was never explicitly tried.
+
+Same pass, HeroCard's two remaining branches, checked on-device by
+deleting the backing rows in the SQL editor (there is no in-app way to
+unset either value). With only an anniversary left, the card reads
+"6 days" / "together" on the left and "since" / "August 22, 2026" on the
+right. With both rows gone it renders as a bare split-color card — heart
+icon only, no text in any of the four slots, which is the intended
+"neither set" state rather than a placeholder string.
+
+Not exercised: the past-trip fallthrough, where a trip whose date has
+already passed makes the card silently show the anniversary instead. It
+is unreachable through the UI, since save-time validation refuses a past
+trip date in the first place; it would need a row edited directly in SQL.
+
+Same pass, both empty states. Timeline with every `clips` row deleted shows
+the CrossoverHeart, "Your story starts here", and "Record your first clip.
+Your partner will find it waiting when they wake up." — with HeroCard and
+the story rings still rendered above it, as intended. The same screen also
+incidentally confirms the "You" ring drops to gray once you have no clip
+for today, the inverse of the ring check above.
+
+PairingScreen's unclaimed-invite state, checked on a throwaway third
+account rather than by breaking the existing pair: heart icon, "Waiting for
+your other half", the "Your invite code" label, the generated code, and the
+"Share this code with your partner…" helper text, above the usual join
+field and Sign out.
