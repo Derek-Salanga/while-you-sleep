@@ -34,7 +34,14 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   const isCurrentMonth = isSameMonth(refDate, new Date());
 
   const loadMonth = useCallback(async () => {
-    if (!pair) return;
+    // Clearing the flag matters: `loading` initialises to true, so returning
+    // ahead of the setLoading(false) calls below would leave the screen
+    // spinning forever. Defensive rather than observed -- MainTabs only
+    // mounts once a pair exists -- but the guard sat on the wrong side of it.
+    if (!pair) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const monthStart = formatDateString(
       new Date(refDate.getFullYear(), refDate.getMonth(), 1)

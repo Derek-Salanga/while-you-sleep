@@ -516,13 +516,23 @@ the 10-minute signed Storage URL in one `queryFn` — because
 match the `['clips', …]` prefix, so invalidating the list never refetches
 it (which is why the mark-viewed effect in `ClipViewScreen` can't loop).
 
-`PairingContext` keeps its exact public API (`session`, `pair`,
+`PairingContext`'s public API is `session`, `pair`, `pairPending`,
 `loading`, `refreshPair`, `myProfile`, `partnerProfile`,
-`refreshProfiles`) but is now a thin wrapper over `usePair` /
-`useProfile` — so screens read pair/profile data from one cache instead
-of a second copy. `session` and the `onAuthStateChange` listener are
-still plain state, and `loading` still means only "the auth session
-hasn't resolved yet" (`RootNavigator`'s gate depends on that).
+`refreshProfiles`; it's a thin wrapper over `usePair` / `useProfile` — so
+screens read pair/profile data from one cache instead of a second copy.
+`session` and the `onAuthStateChange` listener are still plain state.
+
+**`loading` and `pairPending` are not interchangeable.** `loading` still
+means only "the auth session hasn't resolved yet"; `pairPending` means "we
+have a session but don't yet know whether it's paired". `RootNavigator`
+gates on **both** (`loading || (session && pairPending)`). It gated on
+`loading` alone until 2026-08-29, which meant that on a cold start with a
+stored session, `loading` flipped false while the pair query was still in
+flight — `pair` undefined, so `isPaired` false — and an already-paired
+user got a flash of `PairingScreen` before `MainTabs` swapped in. A user
+with genuinely no pair still lands on `PairingScreen`: that query resolves
+to `null`, which is not pending. A pair query that exhausts its retries
+and errors also falls through to `PairingScreen`, same as before.
 `useProfile` is called twice (mine, partner) rather than the old single
 `.in('id', [...])` — two cheap requests, but the partner one stays
 `enabled: false` until `partnerId` resolves.
@@ -736,6 +746,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
+- Cold-start gate: that an already-paired user with a stored session goes
+  straight to MainTabs with no flash of PairingScreen, and that a user with
+  no pair still lands on PairingScreen rather than hanging on the spinner
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
 - Daily local notification: actually firing at 20:00 UTC and tap routing to
