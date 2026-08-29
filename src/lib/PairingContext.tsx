@@ -16,8 +16,13 @@ export function PairingProvider({ children }: { children: React.ReactNode }) {
 // auth's userId to derive partnerId), composed together here.
 export function usePairing() {
   const { session, loading, myProfile, refreshMyProfile } = useAuth();
-  const { pair, refreshPair, partnerProfile, refreshPartnerProfile } =
-    usePairContext();
+  const {
+    pair,
+    pairPending,
+    refreshPair,
+    partnerProfile,
+    refreshPartnerProfile,
+  } = usePairContext();
 
   const refreshProfiles = useCallback(async () => {
     await Promise.all([refreshMyProfile(), refreshPartnerProfile()]);
@@ -26,6 +31,7 @@ export function usePairing() {
   return {
     session,
     pair,
+    pairPending,
     loading,
     refreshPair,
     myProfile,

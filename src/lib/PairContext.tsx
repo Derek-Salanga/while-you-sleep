@@ -5,6 +5,11 @@ import { useAuth } from './AuthContext';
 
 interface PairContextValue {
   pair: Pair | null;
+  // Distinct from AuthContext's `loading`, which means only "the auth
+  // session hasn't resolved yet". This is "we have a session but don't yet
+  // know whether it's paired" -- the window RootNavigator used to render
+  // PairingScreen in.
+  pairPending: boolean;
   refreshPair: () => Promise<void>;
   partnerProfile: Profile | null;
   refreshPartnerProfile: () => Promise<void>;
@@ -16,7 +21,11 @@ export function PairProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const userId = session?.user.id ?? null;
 
-  const { data: pair, refetch: refetchPair } = usePair(userId);
+  const {
+    data: pair,
+    isPending: pairPending,
+    refetch: refetchPair,
+  } = usePair(userId);
 
   const partnerId =
     pair && userId
@@ -39,11 +48,12 @@ export function PairProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       pair: pair ?? null,
+      pairPending,
       refreshPair,
       partnerProfile: partnerProfile ?? null,
       refreshPartnerProfile,
     }),
-    [pair, refreshPair, partnerProfile, refreshPartnerProfile]
+    [pair, pairPending, refreshPair, partnerProfile, refreshPartnerProfile]
   );
 
   return <PairContext.Provider value={value}>{children}</PairContext.Provider>;
