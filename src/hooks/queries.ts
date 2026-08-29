@@ -10,6 +10,21 @@ export function usePair(userId: string | null | undefined) {
   return useQuery({
     queryKey: ['pair', userId],
     enabled: !!userId,
+    // Polls only while an invite is outstanding -- a pairs row exists with
+    // user_b still null. Without this, the partner who created the invite
+    // sits on PairingScreen indefinitely: its useFocusEffect refetch never
+    // fires again, because Pairing is the only mounted screen at that point
+    // and so never blurs and re-focuses.
+    //
+    // Polling rather than realtime deliberately. This covers a window that
+    // happens once per account, and realtime would mean the app's only
+    // websocket plus a publication change on the live project. RecordScreen
+    // already set this precedent with its 15s partner-reveal poll.
+    //
+    // Turns itself off the moment user_b lands, so a completed pair is never
+    // polled: RootNavigator swaps Pairing -> MainTabs off the same value.
+    refetchInterval: (query) =>
+      query.state.data && !query.state.data.user_b ? 5000 : false,
     queryFn: async (): Promise<Pair | null> => {
       const { data, error } = await supabase
         .from('pairs')
