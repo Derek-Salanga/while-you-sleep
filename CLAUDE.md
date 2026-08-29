@@ -655,6 +655,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Account Settings sub-screen: email reads there and is gone from Settings,
+  `Account ›` pushes with the tab bar still visible, sign-out confirmation
+  works both ways. `unmountOnBlur` still tears the nested stack down on a
+  tab switch (reopens on Settings, not Account), and the anniversary
+  spinner still opens and saves with a navigator now between the tab and
+  the screen that owns it
 - Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
 - Trips + anniversary two-account pass: either partner sets, both see the same
   value after a tab-away-and-back (no live sync — focus/remount refetch only)
@@ -685,9 +691,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Account Settings sub-screen: the email row, the sign-out confirmation
-  (Cancel is a no-op / Sign out lands on AuthScreen), and that tabbing away
-  from Account and back reopens Settings rather than resuming the sub-screen
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
