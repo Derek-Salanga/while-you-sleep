@@ -618,14 +618,40 @@ crashes came from here (`docs/datepicker-debugging.md`). The second alert
 exists so the destructive button can't be hit by muscle memory from the
 sign-out row directly above it.
 
-**Storage is not handled by the delete path**, and doesn't need to be — the
-nightly `cleanup_orphaned_clip_files` re-derives orphans from current state
-(objects in `clips` with no matching `clips.storage_path`), which is exactly
-what cascaded clip rows leave. Consequences: videos outlive the account by
-up to ~48h (1-day grace period + the 04:17 schedule), and by more than one
-night if the pair had over `max_deletions` clips. The UI says "within 48
-hours" rather than implying instant. Client-side deletion isn't available
-anyway: `storage.objects` has no DELETE policy.
+**Storage is purged by the delete path itself**, via pg_net requests fired
+from `delete_own_account()` before the row cascade runs — the pairs row has
+to still exist to find the objects by prefix.
+
+It originally leaned on the nightly `cleanup_orphaned_clip_files`, which
+does find these files (cascaded clip rows leave textbook orphans), but not
+for 24–48h. That lag isn't a tuning choice: the job's grace period exists to
+protect an **in-flight upload**, since `useUploadClip` writes the file before
+its row, so a just-uploaded file is briefly a legitimate orphan. None of that
+applies to a deleted account, whose rows are never coming back. Fine for a
+free-tier quota sweep, not fine for "delete my account" — especially with the
+App Store's account-deletion expectations in view. The nightly job stays as
+the backstop for anything the requests miss.
+
+**It has to be server-side.** A client-driven purge can't work here:
+`clips_select_pair_members` hides a partner's clip on any date you didn't
+post one, so the client cannot enumerate the very files it would need to
+delete, and would silently skip exactly those. `storage.objects` also has no
+DELETE policy for the client to use. Matching is done on the storage prefix
+(`<pair-id>/…`) rather than by joining `clips`, for the same reason.
+
+**Object names are anchored to `<uuid>/<uuid>/<YYYY-MM-DD>` before being put
+in a URL**, in both this function and the nightly job. The storage INSERT
+policy only constrains the *first* path segment, so a crafted name like
+`<pair-id>/../../other` satisfies it — and both functions interpolate the
+name straight into a Storage API URL. A non-matching name is skipped rather
+than requested.
+
+**A missing Vault secret degrades, it doesn't block.** The account is still
+deleted and the nightly job picks the files up; refusing to delete an account
+because a storage credential is absent would be the worse failure. pg_net is
+fire-and-forget, which is acceptable *here* precisely because that backstop
+exists — the same reasoning that makes it unacceptable for the account
+deletion itself.
 
 `signOut` is scoped to `'local'` in `useDeleteAccount`. The default revokes
 server-side, but the user it belongs to is already gone by then, so that
@@ -835,12 +861,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- Account deletion, remaining piece: that the nightly job sweeps the two
-  orphaned clip files left by the 2026-08-29 deletion. Not checkable before
-  **2026-08-31 04:17 UTC** — the files were created ~08:46 on the 29th and
-  the job's grace period is `created_at < now() - interval '1 day'`, so the
-  run on the 30th skips them and the run on the 31st is the first eligible
-  one. Still present on the 30th is correct, not a failure.
+- Account deletion now purging clip files immediately (pg_net from
+  `delete_own_account`), rather than leaving them to the nightly job. Needs a
+  fresh throwaway pair with a clip from each side; check the bucket seconds
+  after deleting, not the next day.
+- The two orphaned files from the 2026-08-29 deletion, which predate that
+  change and so still depend on the nightly sweep. Not checkable before
+  **2026-08-31 04:17 UTC** — created ~08:46 on the 29th against a grace
+  period of `created_at < now() - interval '1 day'`, so the run on the 30th
+  skips them. Still present on the 30th is correct, not a failure.
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
