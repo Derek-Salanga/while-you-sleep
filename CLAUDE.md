@@ -594,6 +594,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   today's
 - HeroCard's anniversary branch ("N days / together", "since <date>") and its
   "neither set" state (bare split card, heart only, no text)
+- HeroCard's past-trip fallthrough: a `pair_trips` row dated in the past
+  correctly falls through to the anniversary branch instead of showing
+  anything trip-related
 - Empty states: Timeline with no clips, PairingScreen with an unclaimed invite
 - Fonts (Fraunces/Inter), gradient record button, frosted prompt card,
   entrance motion — iOS

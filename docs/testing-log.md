@@ -360,3 +360,20 @@ account rather than by breaking the existing pair: heart icon, "Waiting for
 your other half", the "Your invite code" label, the generated code, and the
 "Share this code with your partner…" helper text, above the usual join
 field and Sign out.
+
+Confirmed on a real device (2026-08-28, main pair, via a `pair_trips` row
+inserted directly in SQL since the app's own save-time validation refuses
+a past trip date): with a trip dated 10 days in the past and an
+anniversary both present, HeroCard shows the anniversary branch ("29
+days" / "together" / "since July 30, 2026"), not the trip. Confirms the
+`showTrip` guard (`daysToTrip >= 0`) correctly falls through to the
+`else if (anniversary)` branch rather than rendering stale trip data.
+
+One mixup worth noting for next time: this pair (`dereksalanga@gmail.com`
+/ `dereksalanga+partner@gmail.com`) is one of several joined pairs left
+over from earlier throwaway test accounts in this session. A first
+attempt at finding "the" pair via `where user_b is not null limit 1`
+happened to land correctly, but was second-guessed and reverted before
+being confirmed against `auth.users` — costing a redo. Matching against
+`auth.users.email` first is the reliable way to find the right `pair_id`
+when multiple test pairs exist.
