@@ -10,6 +10,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips } from '@/hooks/queries';
+import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
@@ -51,7 +52,8 @@ function formatClipDate(dateStr: string): string {
 }
 
 export default function TimelineScreen({ navigation }: any) {
-  const { session, pair, myProfile, partnerProfile } = usePairing();
+  const { session, pair, myProfile } = usePairing();
+  const partnerName = usePartnerName();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
@@ -117,7 +119,7 @@ export default function TimelineScreen({ navigation }: any) {
             <Text style={styles.cardSender}>
               {mine
                 ? (myProfile?.display_name ?? 'You')
-                : (partnerProfile?.display_name ?? 'Your partner')}
+                : (partnerName ?? 'Your partner')}
             </Text>
             {unwatched && <View style={styles.unwatchedDot} />}
           </View>

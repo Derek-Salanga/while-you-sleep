@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { Clip, Pair, PairAnniversary, PairTrip, Profile } from '@/types';
+import {
+  Clip,
+  Pair,
+  PairAnniversary,
+  PairTrip,
+  PartnerNickname,
+  Profile,
+} from '@/types';
 
 // Query keys are plain arrays, no key factory -- there are six of them.
 // Every queryFn throws on a Supabase error so react-query owns the error
@@ -110,6 +117,27 @@ export function usePairAnniversary(pairId: string | null | undefined) {
         .from('pair_anniversary')
         .select('*')
         .eq('pair_id', pairId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+// Keyed on the *owner* (you), not the partner: the row is yours, and its
+// select policy is `auth.uid() = owner_id`, so nobody else can read it.
+// Resolving this against the partner's display_name is usePartnerName's
+// job -- that lives outside this file because it needs PairingContext,
+// which imports from here.
+export function usePartnerNickname(userId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['partnerNickname', userId],
+    enabled: !!userId,
+    queryFn: async (): Promise<PartnerNickname | null> => {
+      const { data, error } = await supabase
+        .from('partner_nicknames')
+        .select('*')
+        .eq('owner_id', userId!)
         .maybeSingle();
       if (error) throw error;
       return data;
