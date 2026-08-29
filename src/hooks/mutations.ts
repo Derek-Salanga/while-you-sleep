@@ -91,3 +91,29 @@ export function useMarkClipViewed() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clips'] }),
   });
 }
+
+// Deletes the caller's auth.users row via the delete_own_account() RPC,
+// which cascades their profile, their pair, and every clip / trip /
+// anniversary hanging off that pair -- the partner's included. See the
+// comment on that function in schema.sql.
+//
+// signOut is scoped to 'local' deliberately: the default revokes the
+// session server-side, but by then the user it belongs to no longer
+// exists, so that call fails and would leave the app holding a session for
+// a deleted account. Clearing locally is all that's needed -- the JWT is
+// unusable regardless, since every RLS policy resolves through auth.uid().
+//
+// The cache is cleared after, not before: dropping it while the session is
+// still live would let queries refetch against an account that's already
+// gone.
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) throw error;
+      await supabase.auth.signOut({ scope: 'local' });
+      queryClient.clear();
+    },
+  });
+}

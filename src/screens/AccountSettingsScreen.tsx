@@ -1,7 +1,16 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { usePartnerName } from '@/hooks/usePartnerName';
+import { useDeleteAccount } from '@/hooks/mutations';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
@@ -27,8 +36,49 @@ function confirmSignOut() {
   ]);
 }
 
+// Two chained alerts rather than a typed "DELETE" confirmation. Typed is
+// the stronger pattern, but Alert.prompt is iOS-only in React Native, so
+// the Android half would need a custom Modal -- and Modal is exactly what
+// six rounds of device crashes came from here (docs/datepicker-debugging.md).
+//
+// The first alert names the consequence in full, including the partner by
+// name, because the cascade takes their clips too and they get no warning
+// of their own. The second exists so the destructive button can't be hit by
+// muscle memory from the sign-out flow directly above it.
+function confirmDeleteAccount(
+  partnerName: string | null,
+  onConfirm: () => void
+) {
+  const shared = partnerName
+    ? `every clip you and ${partnerName} have shared`
+    : 'every clip you have shared';
+
+  Alert.alert(
+    'Delete your account?',
+    `This permanently deletes your account and ${shared} — including their copy. They will lose all of it too, and this cannot be undone.`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert('Last chance', 'There is no way to get any of it back.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete forever',
+              style: 'destructive',
+              onPress: onConfirm,
+            },
+          ]),
+      },
+    ]
+  );
+}
+
 export default function AccountSettingsScreen({ navigation }: any) {
   const { session } = usePairing();
+  const partnerName = usePartnerName();
+  const deleteAccount = useDeleteAccount();
 
   return (
     <Screen padding={20} topInset>
@@ -55,6 +105,37 @@ export default function AccountSettingsScreen({ navigation }: any) {
       >
         <Text style={styles.dangerText}>Sign out</Text>
       </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [
+          styles.dangerRow,
+          styles.deleteRow,
+          pressed && styles.pressed,
+        ]}
+        disabled={deleteAccount.isPending}
+        onPress={() =>
+          confirmDeleteAccount(partnerName, () =>
+            deleteAccount.mutate(undefined, {
+              // No success branch: deleting drops the session, so
+              // RootNavigator swaps this whole stack out for AuthScreen on
+              // its own. There is no screen left to show a message on.
+              onError: (err) =>
+                Alert.alert("Couldn't delete your account", err.message),
+            })
+          )
+        }
+      >
+        {deleteAccount.isPending ? (
+          <ActivityIndicator color={colors.error} />
+        ) : (
+          <Text style={styles.dangerText}>Delete account</Text>
+        )}
+      </Pressable>
+
+      <Text style={styles.deleteNote}>
+        Deleting your account also deletes the clips you and your partner have
+        shared. Videos are purged within 48 hours.
+      </Text>
     </Screen>
   );
 }
@@ -113,6 +194,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.error,
+  },
+  deleteRow: {
+    marginTop: 12,
+  },
+  deleteNote: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.xs,
+    color: colors.muted,
+    lineHeight: 17,
+    marginTop: 12,
+    paddingHorizontal: 4,
   },
   pressed: {
     opacity: 0.7,

@@ -562,6 +562,61 @@ returning from background doesn't refetch on its own — add if that feels
 stale in practice), and no AsyncStorage cache persistence (offline reads
 are their own backlog item).
 
+## Account deletion
+
+`delete_own_account()` (`supabase/schema.sql`), called from
+`AccountSettingsScreen` via `useDeleteAccount`. **`security definer`, takes
+no arguments** — the target is always `auth.uid()`, so there's no parameter
+a caller could point at someone else's account.
+
+**No service_role key, no Edge Function, no Vault.** That key is only needed
+to reach the Admin API *over HTTP*; a `security definer` function owned by
+`postgres` deletes the `auth.users` row directly. Verified against a
+throwaway account on the live project (2026-08-29) inside a rolled-back
+transaction, impersonating an `authenticated` user — so it tested the real
+client path, not the SQL editor's privileged one.
+
+The Vault + pg_net pattern used by `cleanup_orphaned_clip_files` would have
+been the *wrong* precedent here even though it's in this repo. It suits that
+job because the job is unattended and self-healing: pg_net is
+fire-and-forget, so a failure is just retried tomorrow. A user tapping
+"Delete account" needs a synchronous yes/no, which pg_net structurally can't
+give. And `cleanup_orphaned_clip_files` revokes execute from
+`authenticated` — making a function that holds a service key client-callable
+would invert the one property that keeps it safe.
+
+**The cascade is accepted, not mitigated.** Every FK in `schema.sql` is
+`on delete cascade`, so deleting your `auth.users` row takes your profile,
+the `pairs` row you belong to, and through it `clips`, `daily_answers`,
+`pair_trips` and `pair_anniversary` — **including your partner's**. They
+keep their login and profile, lose everything shared, and land back on
+`PairingScreen` with no explanation. Blocking deletion while paired was
+considered and rejected: there's no unpair feature, so it would mean
+building one first. Notifying the partner needs a tombstone row that
+survives the cascade plus somewhere to show it. Soft-delete makes "Delete
+account" not a deletion. So the confirmation copy carries the consequence
+instead, naming the partner via `usePartnerName()`.
+
+**Confirmation is two chained `Alert`s**, not a typed "DELETE". Typed is
+stronger, but `Alert.prompt` is iOS-only in React Native and the Android
+half would need a custom `Modal` — which is what six rounds of device
+crashes came from here (`docs/datepicker-debugging.md`). The second alert
+exists so the destructive button can't be hit by muscle memory from the
+sign-out row directly above it.
+
+**Storage is not handled by the delete path**, and doesn't need to be — the
+nightly `cleanup_orphaned_clip_files` re-derives orphans from current state
+(objects in `clips` with no matching `clips.storage_path`), which is exactly
+what cascaded clip rows leave. Consequences: videos outlive the account by
+up to ~48h (1-day grace period + the 04:17 schedule), and by more than one
+night if the pair had over `max_deletions` clips. The UI says "within 48
+hours" rather than implying instant. Client-side deletion isn't available
+anyway: `storage.objects` has no DELETE policy.
+
+`signOut` is scoped to `'local'` in `useDeleteAccount`. The default revokes
+server-side, but the user it belongs to is already gone by then, so that
+call fails and would strand the app holding a session for a deleted account.
+
 ## Storage cleanup: orphaned clip files
 
 Deleting a `clips` row never deleted its video. **A DELETE trigger can't
@@ -747,6 +802,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
+- Account deletion end to end from the app: both alerts fire, Cancel at
+  either step aborts, deletion lands on AuthScreen, and the partner's device
+  drops to PairingScreen. Also the 24h-later check that the nightly job
+  swept the orphaned videos
 - Private partner nickname: that it renders on Timeline/Home/StoryRings for
   the person who set it, that blank-on-save clears it back to the partner's
   own `display_name`, and — the actual feature — that the **partner does
