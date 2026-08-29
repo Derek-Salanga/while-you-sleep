@@ -599,3 +599,24 @@ fetched rows in useState initialised to null while unmountOnBlur remounted
 them on every tab visit, so they rendered falsy defaults *as though they were
 loaded data*. A spinner or skeleton would have been the wrong fix for a flash
 of wrong content. The right one deleted 52 lines.
+
+Confirmed on the live project (2026-08-29): `cleanup_orphaned_clip_files`,
+including the object-name guard added in #61. A manual run with
+`grace_period` set to 0 swept 9 orphans in a single pass — every one
+returning 200 in `net._http_response` — and the bucket afterwards held 4
+objects with 0 orphans. That covers the guard on the cleanup path, which #61's
+device test had not exercised: only the delete path fired there.
+
+Two reading errors on the way to that conclusion, both from the same cause.
+`select ... from net._http_response order by created desc limit 5` truncated
+the history, which made the 04:17 nightly run look like 3 deletions when it
+was 9, and hid the 9-deletion manual run entirely. That in turn made two
+already-swept files look like they had vanished by an unexplained mechanism.
+Query that table with a limit well above the number of deletions you expect,
+or the window itself becomes the misleading part.
+
+Worth keeping separate as claims: a `cleanup_orphaned_clip_files` run
+returning 0 means only that it found nothing to act on. It is not evidence the
+job works — a too-strict name guard would also return 0, and the two are
+indistinguishable from outside. Only a run that actually deletes something
+verifies the path.

@@ -833,6 +833,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   longer appears on a day already posted. Saving a trip updates HeroCard on
   the Timeline tab with no manual refresh, which the old local-state write
   couldn't do
+- `cleanup_orphaned_clip_files` including its object-name guard: a manual run
+  with `grace_period` 0 swept 9 real orphans in one pass, all 200 in
+  `net._http_response`, leaving the bucket at 0 orphans. Confirms the guard's
+  regex accepts genuine paths rather than silently matching nothing
 - Account deletion purging clip files immediately: on a throwaway pair with a
   clip from each side, both objects were gone from the bucket within seconds
   of deleting (not the next nightly run), and `net._http_response` showed two
@@ -893,11 +897,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
-- The two orphaned files from the 2026-08-29 deletion, which predate that
-  change and so still depend on the nightly sweep. Not checkable before
-  **2026-08-31 04:17 UTC** — created ~08:46 on the 29th against a grace
-  period of `created_at < now() - interval '1 day'`, so the run on the 30th
-  skips them. Still present on the 30th is correct, not a failure.
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
