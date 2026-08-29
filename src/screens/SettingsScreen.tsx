@@ -17,8 +17,11 @@ import { formatDateString, parseDateString, todayDateString } from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { PairAnniversary } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePartnerNickname } from '@/hooks/queries';
+import { usePartnerName } from '@/hooks/usePartnerName';
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }: any) {
   const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
   const [anniversary, setAnniversary] = useState<PairAnniversary | null>(null);
@@ -26,6 +29,11 @@ export default function SettingsScreen() {
   const [pickerDate, setPickerDate] = useState(new Date());
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
+  const queryClient = useQueryClient();
+  const { data: partnerNickname } = usePartnerNickname(session?.user.id);
+  const partnerName = usePartnerName();
+  const [editingPartnerNickname, setEditingPartnerNickname] = useState(false);
+  const [partnerNicknameInput, setPartnerNicknameInput] = useState('');
 
   const loadAnniversary = useCallback(async () => {
     if (!pair) return;
@@ -107,12 +115,43 @@ export default function SettingsScreen() {
     setEditingNickname(false);
   };
 
+  const startEditingPartnerNickname = () => {
+    setPartnerNicknameInput(partnerNickname?.nickname ?? '');
+    setEditingPartnerNickname(true);
+  };
+
+  // Blank clears the nickname rather than erroring, which is why there's no
+  // separate "remove" affordance -- the display then falls back to whatever
+  // your partner set for themselves. A blank string is unstorable anyway
+  // (the check constraint's lower bound), so deleting is the only way to
+  // express "unset".
+  const handleSavePartnerNickname = async () => {
+    if (!session?.user) return;
+    const trimmed = partnerNicknameInput.trim();
+
+    const { error } = trimmed
+      ? await supabase
+          .from('partner_nicknames')
+          .upsert(
+            { owner_id: session.user.id, nickname: trimmed },
+            { onConflict: 'owner_id' }
+          )
+      : await supabase
+          .from('partner_nicknames')
+          .delete()
+          .eq('owner_id', session.user.id);
+
+    if (error) {
+      console.error('Failed to save partner nickname:', error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ['partnerNickname'] });
+    setEditingPartnerNickname(false);
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Settings</Text>
-      {session?.user.email && (
-        <Text style={styles.email}>Signed in as {session.user.email}</Text>
-      )}
       {editingNickname ? (
         <View style={styles.editCard}>
           <TextInput
@@ -148,10 +187,53 @@ export default function SettingsScreen() {
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           onPress={startEditingNickname}
         >
-          <Text style={styles.rowLabel}>Nickname</Text>
+          <Text style={styles.rowLabel}>Your name</Text>
           <Text style={styles.rowValue}>
             {myProfile?.display_name ?? '...'}
           </Text>
+        </Pressable>
+      )}
+      {editingPartnerNickname ? (
+        <View style={styles.editCard}>
+          <Text style={styles.editHint}>
+            Only you can see this. Leave it blank to go back to the name they
+            set for themselves.
+          </Text>
+          <TextInput
+            style={styles.nicknameInput}
+            value={partnerNicknameInput}
+            onChangeText={setPartnerNicknameInput}
+            placeholder="What you call them"
+            placeholderTextColor={colors.muted}
+            autoFocus
+            maxLength={20}
+          />
+          <Pressable
+            style={({ pressed }) => [
+              styles.pickerSave,
+              pressed && styles.pressed,
+            ]}
+            onPress={handleSavePartnerNickname}
+          >
+            <Text style={styles.pickerSaveText}>Save</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => setEditingPartnerNickname(false)}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={startEditingPartnerNickname}
+        >
+          <Text style={styles.rowLabel}>Name for them</Text>
+          <Text style={styles.rowValue}>{partnerName ?? '...'}</Text>
         </Pressable>
       )}
       {editingAnniversary ? (
@@ -207,13 +289,11 @@ export default function SettingsScreen() {
         </Pressable>
       )}
       <Pressable
-        style={({ pressed }) => [
-          styles.signOutButton,
-          pressed && styles.pressed,
-        ]}
-        onPress={() => supabase.auth.signOut()}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() => navigation.navigate('AccountSettings')}
       >
-        <Text style={styles.signOutText}>Sign out</Text>
+        <Text style={styles.rowLabel}>Account</Text>
+        <Text style={styles.rowValue}>›</Text>
       </Pressable>
     </View>
   );
@@ -225,13 +305,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
     color: colors.ink,
-    marginBottom: 8,
-  },
-  email: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
@@ -262,6 +336,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 16,
+  },
+  editHint: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.xs,
+    color: colors.muted,
+    lineHeight: 17,
+    marginBottom: 12,
   },
   nicknameInput: {
     borderWidth: 1,
@@ -299,19 +380,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
     color: colors.muted,
-  },
-  signOutButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  signOutText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.error,
   },
   pressed: {
     opacity: 0.7,

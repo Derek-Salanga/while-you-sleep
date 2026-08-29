@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { usePartnerName } from '@/hooks/usePartnerName';
 import {
   todayDateString,
   sharedTodayDateString,
@@ -49,7 +50,8 @@ function formatLongDate(dateString: string): string {
 }
 
 export default function HomeScreen({ navigation }: any) {
-  const { session, pair, partnerProfile } = usePairing();
+  const { session, pair } = usePairing();
+  const partnerName = usePartnerName();
   const insets = useSafeAreaInsets();
   const [answeredToday, setAnsweredToday] = useState(false);
   const [trip, setTrip] = useState<PairTrip | null>(null);
@@ -184,7 +186,7 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.anniversaryText}>
           {daysBetween(anniversary.anniversary_date, todayDateString())} days
           together
-          {partnerProfile ? ` with ${partnerProfile.display_name}` : ''}
+          {partnerName ? ` with ${partnerName}` : ''}
         </Text>
       )}
       {/* The daily clip IS the daily question's answer now -- RecordScreen

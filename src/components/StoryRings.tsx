@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips } from '@/hooks/queries';
+import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
@@ -79,7 +80,8 @@ function Ring({
 }
 
 export default function StoryRings({ navigation }: { navigation: any }) {
-  const { session, pair, myProfile, partnerProfile } = usePairing();
+  const { session, pair, myProfile } = usePairing();
+  const partnerName = usePartnerName();
   const { data: clips = [] } = useClips(pair?.id);
 
   const today = sharedTodayDateString();
@@ -124,8 +126,8 @@ export default function StoryRings({ navigation }: { navigation: any }) {
         onPress={myClipToday ? () => goToClip(myClipToday) : undefined}
       />
       <Ring
-        label={partnerProfile?.display_name ?? 'Partner'}
-        initialLetter={initial(partnerProfile?.display_name, 'P')}
+        label={partnerName ?? 'Partner'}
+        initialLetter={initial(partnerName, 'P')}
         gradientId="ringPartner"
         gradientFrom={colors.secondary}
         gradientTo={colors.secondaryLight}

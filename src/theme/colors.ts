@@ -5,11 +5,16 @@ export const colors = {
   primary: '#6A85F1',
   primaryLight: '#8FA8FF',
   primaryDark: '#4F63D1',
+  // Scale runs dark -> light: Dark, base, Light, Soft, Tint.
+  // Soft exists because Tint is only ~4% off `background` -- fine as a wash
+  // behind something else, but a card filled with it reads as plain white.
+  primarySoft: '#DDE4FF',
   primaryTint: '#EEF1FF',
 
   secondary: '#FFC670',
   secondaryLight: '#FFE0A3',
   secondaryDark: '#E6A94F',
+  secondarySoft: '#FFEBC9',
   secondaryTint: '#FFF6E8',
 
   ink: '#2E2A3D',

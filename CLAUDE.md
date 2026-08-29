@@ -79,6 +79,9 @@ src/
                                 of a single clip
     MonthlySummaryScreen.tsx    per-month stats, calendar grid, "watch this
                                 month's clips" reel
+    SettingsScreen.tsx          nickname, anniversary, and an Account row
+    AccountSettingsScreen.tsx   email + sign out, pushed over Settings inside
+                                the Settings tab's own small stack (MainTabs)
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -359,6 +362,39 @@ a `display_name` has to respect the cap itself (`ensureProfile` slices to
 20 at the source), since the constraint is the source of truth, not a
 backstop.
 
+**Two separate name features now, not one.** `display_name` above is the
+name you set for *yourself*, and your partner can read it. Alongside it,
+`partner_nicknames` is the name *you* give your partner, private to you —
+Settings shows them as "Your name" and "Name for them". `display_name`
+is unchanged and still the fallback.
+
+It's a separate table rather than a column on `profiles` because RLS is
+row-level: any column added there is covered by
+`profiles_select_pair_partner` too, so the partner could read it with a
+direct REST call regardless of what the app's own `select` asks for.
+Column-level grants can't express "only on your own row" either — they're
+per-role, not per-row. `partner_nicknames`' only select policy is
+`auth.uid() = owner_id`, and it deliberately has **no** partner-read
+policy, unlike every other table in `schema.sql`. `schema.sql` carries a
+one-line query to verify that from the other account rather than trusting
+it.
+
+Keyed on `owner_id`, not `pair_id` — the nickname belongs to the person
+who set it, so it shouldn't survive into a re-pairing with someone else.
+Blank-on-save deletes the row (that's how you clear one), which is why the
+check constraint's lower bound is 1, not 0, and why there's no separate
+"remove" button.
+
+Resolution order is `usePartnerName()` (`src/hooks/usePartnerName.ts`),
+the single answer to "what do I call my partner on screen": your private
+nickname → their `display_name` → `null`. It returns `null` rather than a
+built-in fallback so each caller keeps its own wording — Timeline says
+"Your partner", StoryRings says "Partner", Home drops its clause entirely
+rather than naming an unknown person. Those three had already drifted
+apart because each site hand-rolled its own `??` ladder. It lives outside
+`hooks/queries.ts` because it reads `PairingContext`, which imports from
+there.
+
 ## Video capture: capped at capture time, not compressed after
 
 `RecordScreen.tsx` originally uploaded whatever `expo-camera` handed
@@ -493,13 +529,23 @@ the 10-minute signed Storage URL in one `queryFn` — because
 match the `['clips', …]` prefix, so invalidating the list never refetches
 it (which is why the mark-viewed effect in `ClipViewScreen` can't loop).
 
-`PairingContext` keeps its exact public API (`session`, `pair`,
+`PairingContext`'s public API is `session`, `pair`, `pairPending`,
 `loading`, `refreshPair`, `myProfile`, `partnerProfile`,
-`refreshProfiles`) but is now a thin wrapper over `usePair` /
-`useProfile` — so screens read pair/profile data from one cache instead
-of a second copy. `session` and the `onAuthStateChange` listener are
-still plain state, and `loading` still means only "the auth session
-hasn't resolved yet" (`RootNavigator`'s gate depends on that).
+`refreshProfiles`; it's a thin wrapper over `usePair` / `useProfile` — so
+screens read pair/profile data from one cache instead of a second copy.
+`session` and the `onAuthStateChange` listener are still plain state.
+
+**`loading` and `pairPending` are not interchangeable.** `loading` still
+means only "the auth session hasn't resolved yet"; `pairPending` means "we
+have a session but don't yet know whether it's paired". `RootNavigator`
+gates on **both** (`loading || (session && pairPending)`). It gated on
+`loading` alone until 2026-08-29, which meant that on a cold start with a
+stored session, `loading` flipped false while the pair query was still in
+flight — `pair` undefined, so `isPaired` false — and an already-paired
+user got a flash of `PairingScreen` before `MainTabs` swapped in. A user
+with genuinely no pair still lands on `PairingScreen`: that query resolves
+to `null`, which is not pending. A pair query that exhausts its retries
+and errors also falls through to `PairingScreen`, same as before.
 `useProfile` is called twice (mine, partner) rather than the old single
 `.in('id', [...])` — two cheap requests, but the partner one stays
 `enabled: false` until `partnerId` resolves.
@@ -665,6 +711,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   auto-advances
 - Pull-to-refresh no longer opens a gap on plain screen open
 - Bottom tab bar
+- Account Settings sub-screen: email reads there and is gone from Settings,
+  `Account ›` pushes with the tab bar still visible, sign-out confirmation
+  works both ways. `unmountOnBlur` still tears the nested stack down on a
+  tab switch (reopens on Settings, not Account), and the anniversary
+  spinner still opens and saves with a navigator now between the tab and
+  the screen that owns it
 - Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
 - Trips + anniversary two-account pass: either partner sets, both see the same
   value after a tab-away-and-back (no live sync — focus/remount refetch only)
@@ -695,6 +747,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
+- Private partner nickname: that it renders on Timeline/Home/StoryRings for
+  the person who set it, that blank-on-save clears it back to the partner's
+  own `display_name`, and — the actual feature — that the **partner does
+  not see it**, checked from the second account with the query in
+  `schema.sql`
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
@@ -702,6 +759,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
+- Cold-start gate: that an already-paired user with a stored session goes
+  straight to MainTabs with no flash of PairingScreen, and that a user with
+  no pair still lands on PairingScreen rather than hanging on the spinner
 - Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
   `dimezisBlurView` on the prompt card
 - Daily local notification: actually firing at 20:00 UTC and tap routing to
@@ -711,6 +771,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
   is confirmed.
+- Timeline card colour: that the deepened `*Soft` fills plus the 4pt left
+  edge read as distinct at a glance, and don't compete with HeroCard directly
+  above the list — visual, iOS
 - Splash holding with no flash of unstyled text
 - Gradient record button's press-scale feel; entrance motion not re-triggering
   on scroll or pull-to-refresh
@@ -746,7 +809,12 @@ to use *within* these constraints, not sources to consult for new
 palette/type proposals:
 
 - **Palette:** `#6A85F1` night-blue = "you", `#FFC670` day-orange =
-  "partner" (`src/theme/colors.ts`).
+  "partner" (`src/theme/colors.ts`). The `*Soft` steps were added to that
+  file's existing scale (Dark → base → Light → Soft → Tint), not chosen
+  fresh: `*Tint` sits only ~4% off `background`, so a card filled with it
+  reads as plain white. The `*Tint` values themselves are unchanged —
+  `secondaryTint` also backs `Button`'s secondary variant, which is a
+  different semantic and shouldn't move with the Timeline.
 - **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
