@@ -44,6 +44,14 @@ export interface PairAnniversary {
 
 // The Settings tab is a small stack, not a single screen, so Account
 // settings pushes over it with the tab bar still visible.
+// The nickname YOU gave your partner -- private to you, unlike
+// Profile.display_name which is self-set and mutually visible.
+export interface PartnerNickname {
+  owner_id: string;
+  nickname: string;
+  updated_at: string;
+}
+
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   AccountSettings: undefined;

@@ -387,6 +387,56 @@ create policy "pair_anniversary_update_pair_members" on pair_anniversary
     )
   );
 
+-- Private partner nickname: the name YOU give your partner, visible only
+-- to you. Distinct from profiles.display_name, which is self-set and which
+-- your partner can read via profiles_select_pair_partner.
+--
+-- WHY THIS ISN'T A COLUMN ON `profiles`. RLS is row-level, so any column
+-- added there is covered by profiles_select_pair_partner too -- your
+-- partner could read it with a direct REST call no matter what the app's
+-- own select asks for. Column-level grants can't express "only on your own
+-- row" either: they're per-role, not per-row. A separate table whose only
+-- select policy is `auth.uid() = owner_id` is the one shape that actually
+-- makes it private.
+--
+-- Keyed on owner_id, not pair_id: the nickname belongs to the person who
+-- set it, not to the pairing, so it shouldn't survive into a re-pairing
+-- with someone else. It cascades with the owner's auth.users row.
+--
+-- 20 chars mirrors profiles.display_name's constraint, so a nickname and
+-- the name it falls back to can never render at different widths. The
+-- lower bound is load-bearing: SettingsScreen deletes the row on a blank
+-- save (that's how you clear a nickname), so an empty string should never
+-- be storable in the first place.
+create table if not exists partner_nicknames (
+  owner_id uuid primary key references auth.users (id) on delete cascade,
+  nickname text not null check (char_length(nickname) between 1 and 20),
+  updated_at timestamptz not null default now()
+);
+
+alter table partner_nicknames enable row level security;
+
+-- Deliberately no partner-read policy, unlike every other table in this
+-- file. Privacy from the partner IS the feature -- adding one to "be
+-- consistent" would delete the whole point.
+create policy "partner_nicknames_select_own" on partner_nicknames
+  for select using (auth.uid() = owner_id);
+
+-- insert + update + delete because the client upserts on owner_id and
+-- deletes the row to clear the nickname.
+create policy "partner_nicknames_insert_own" on partner_nicknames
+  for insert with check (auth.uid() = owner_id);
+create policy "partner_nicknames_update_own" on partner_nicknames
+  for update using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+create policy "partner_nicknames_delete_own" on partner_nicknames
+  for delete using (auth.uid() = owner_id);
+
+-- Verify the privacy claim rather than trusting it. As partner A, with a
+-- nickname row set, run this signed in as partner B -- it must return 0.
+-- If it ever returns 1, a select policy has been added that shouldn't be.
+--   select count(*) from partner_nicknames where owner_id <> auth.uid();
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);

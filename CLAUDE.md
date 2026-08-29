@@ -362,6 +362,39 @@ a `display_name` has to respect the cap itself (`ensureProfile` slices to
 20 at the source), since the constraint is the source of truth, not a
 backstop.
 
+**Two separate name features now, not one.** `display_name` above is the
+name you set for *yourself*, and your partner can read it. Alongside it,
+`partner_nicknames` is the name *you* give your partner, private to you —
+Settings shows them as "Your name" and "Name for them". `display_name`
+is unchanged and still the fallback.
+
+It's a separate table rather than a column on `profiles` because RLS is
+row-level: any column added there is covered by
+`profiles_select_pair_partner` too, so the partner could read it with a
+direct REST call regardless of what the app's own `select` asks for.
+Column-level grants can't express "only on your own row" either — they're
+per-role, not per-row. `partner_nicknames`' only select policy is
+`auth.uid() = owner_id`, and it deliberately has **no** partner-read
+policy, unlike every other table in `schema.sql`. `schema.sql` carries a
+one-line query to verify that from the other account rather than trusting
+it.
+
+Keyed on `owner_id`, not `pair_id` — the nickname belongs to the person
+who set it, so it shouldn't survive into a re-pairing with someone else.
+Blank-on-save deletes the row (that's how you clear one), which is why the
+check constraint's lower bound is 1, not 0, and why there's no separate
+"remove" button.
+
+Resolution order is `usePartnerName()` (`src/hooks/usePartnerName.ts`),
+the single answer to "what do I call my partner on screen": your private
+nickname → their `display_name` → `null`. It returns `null` rather than a
+built-in fallback so each caller keeps its own wording — Timeline says
+"Your partner", StoryRings says "Partner", Home drops its clause entirely
+rather than naming an unknown person. Those three had already drifted
+apart because each site hand-rolled its own `??` ladder. It lives outside
+`hooks/queries.ts` because it reads `PairingContext`, which imports from
+there.
+
 ## Video capture: capped at capture time, not compressed after
 
 `RecordScreen.tsx` originally uploaded whatever `expo-camera` handed
@@ -701,6 +734,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   UTC-7)
 
 **Not verified:**
+- Private partner nickname: that it renders on Timeline/Home/StoryRings for
+  the person who set it, that blank-on-save clears it back to the partner's
+  own `display_name`, and — the actual feature — that the **partner does
+  not see it**, checked from the second account with the query in
+  `schema.sql`
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
