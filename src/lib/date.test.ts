@@ -1,117 +1,94 @@
-// Self-check for the two day-boundary conventions in date.ts. No test
-// framework in this repo by design -- run it directly:
-//
-//   node src/lib/date.test.ts
-//   TZ=America/Los_Angeles node src/lib/date.test.ts
-//   TZ=Asia/Tokyo node src/lib/date.test.ts
+// The two day-boundary conventions in date.ts, under Jest.
 //
 // The whole point of the split is that the SHARED boundary must not move
-// with the device's timezone while the LOCAL one must. Running this under
-// several TZs is what actually proves that.
+// with the device's timezone while the LOCAL one must. `npm test` runs this
+// file once per TZ (see the "test" script in package.json) -- that's what
+// actually proves the split holds, since Node/V8 read TZ once per process
+// rather than reliably picking up a mid-run change.
 
-import assert from 'node:assert/strict';
-/* eslint-disable no-console */
-// The .ts extension is required by Node's ESM resolver when running this
-// directly. tsconfig.json excludes *.test.ts for exactly that reason --
-// this file is a standalone script, never bundled by Metro.
 import {
   formatDateString,
   sharedTodayDateString,
   sharedYesterdayDateString,
   utcTimeToLocal,
   daysBetween,
-} from './date.ts';
+} from './date';
 
 // 2026-06-18 20:00 US Pacific == 2026-06-19 03:00 UTC. This is exactly the
 // window that broke partners apart: west of UTC, the local calendar day is
 // still the 18th while UTC has already rolled to the 19th.
 const instant = new Date('2026-06-19T03:00:00Z');
 
-// The shared boundary must be the UTC date for this instant in every
-// timezone. If someone "simplifies" sharedTodayDateString into a
-// local-components implementation, this fails everywhere west of UTC.
-const sharedForInstant = sharedTodayDateString(instant);
-assert.equal(
-  sharedForInstant,
-  '2026-06-19',
-  'shared day boundary must be the UTC date, identical on every device'
-);
-assert.equal(
-  sharedYesterdayDateString(instant),
-  '2026-06-18',
-  'shared yesterday must roll back on the same UTC boundary'
-);
+test('shared day boundary is the UTC date, identical on every device', () => {
+  // If someone "simplifies" sharedTodayDateString into a local-components
+  // implementation, this fails everywhere west of UTC.
+  expect(sharedTodayDateString(instant)).toBe('2026-06-19');
+});
 
-// The local convention must track the device instead -- that's what makes a
-// date the user picked on a wheel round-trip to the same calendar date.
-const localForInstant = formatDateString(instant);
-const offsetMinutes = instant.getTimezoneOffset();
-const expectedLocal = offsetMinutes >= 180 ? '2026-06-18' : '2026-06-19';
-assert.equal(
-  localForInstant,
-  expectedLocal,
-  `local date should follow the device timezone (offset ${offsetMinutes}min)`
-);
+test('shared yesterday rolls back on the same UTC boundary', () => {
+  expect(sharedYesterdayDateString(instant)).toBe('2026-06-18');
+});
 
-// A picked date must survive the round trip through formatDateString --
-// this is the property that breaks if the local helper is switched to UTC
-// (picking June 19 would store June 18 for anyone west of UTC).
-const picked = new Date(2026, 5, 19); // local midnight, June 19
-assert.equal(
-  formatDateString(picked),
-  '2026-06-19',
-  'a locally-picked calendar date must store as that same date'
-);
+test('local date follows the device timezone', () => {
+  // The local convention must track the device instead -- that's what makes
+  // a date the user picked on a wheel round-trip to the same calendar date.
+  const offsetMinutes = instant.getTimezoneOffset();
+  const expectedLocal = offsetMinutes >= 180 ? '2026-06-18' : '2026-06-19';
+  expect(formatDateString(instant)).toBe(expectedLocal);
+});
 
-// The daily reminder is pinned to 20:00 UTC but expo-notifications only
-// accepts a device-local hour/minute, so this conversion is what keeps
-// the two aligned. Whatever local time it returns must refer back to the
-// same instant -- checked here by converting forward and reading the UTC
-// hour back off a Date built from the local result.
-const reminder = utcTimeToLocal(20, 0, instant);
-const roundTrip = new Date(instant);
-roundTrip.setHours(reminder.hour, reminder.minute, 0, 0);
-assert.equal(
-  roundTrip.getUTCHours(),
-  20,
-  'local reminder time must map back to 20:00 UTC'
-);
-assert.equal(
-  roundTrip.getUTCMinutes(),
-  0,
-  'local reminder time must map back to :00 -- sub-hour offsets (India ' +
-    'UTC+5:30, Nepal UTC+5:45) break if the minute is assumed unchanged'
-);
+test('a locally-picked calendar date stores as that same date', () => {
+  // This is the property that breaks if the local helper is switched to
+  // UTC (picking June 19 would store June 18 for anyone west of UTC).
+  const picked = new Date(2026, 5, 19); // local midnight, June 19
+  expect(formatDateString(picked)).toBe('2026-06-19');
+});
 
-// daysBetween feeds the trip countdown and the "days together" counter, both
-// of which the user reads against their own calendar. The Math.round is
-// load-bearing, not cosmetic: across a DST transition the elapsed
-// milliseconds are not a whole multiple of 86400000, so truncating would
-// under- or over-count by a day for anyone in a DST-observing zone.
-assert.equal(daysBetween('2026-06-18', '2026-06-19'), 1, 'one day forward');
-assert.equal(daysBetween('2026-06-19', '2026-06-18'), -1, 'one day back');
-assert.equal(daysBetween('2026-06-18', '2026-06-18'), 0, 'same day is zero');
-// 2026-03-08 is the US spring-forward date: that local day is only 23h long.
-assert.equal(
-  daysBetween('2026-03-07', '2026-03-09'),
-  2,
-  'must span a DST transition without losing a day'
-);
-// ...and 2026-11-01 is the fall-back date, a 25h local day.
-assert.equal(
-  daysBetween('2026-10-31', '2026-11-02'),
-  2,
-  'must span a DST transition without gaining a day'
-);
-assert.equal(
-  daysBetween('2026-01-01', '2027-01-01'),
-  365,
-  'a full non-leap year'
-);
+test('utcTimeToLocal maps back to the same UTC instant', () => {
+  // The daily reminder is pinned to 20:00 UTC but expo-notifications only
+  // accepts a device-local hour/minute, so this conversion is what keeps
+  // the two aligned. Whatever local time it returns must refer back to the
+  // same instant -- checked here by converting forward and reading the UTC
+  // hour/minute back off a Date built from the local result.
+  const reminder = utcTimeToLocal(20, 0, instant);
+  const roundTrip = new Date(instant);
+  roundTrip.setHours(reminder.hour, reminder.minute, 0, 0);
+  expect(roundTrip.getUTCHours()).toBe(20);
+  // Sub-hour offsets (India UTC+5:30, Nepal UTC+5:45) break this if the
+  // minute is assumed unchanged.
+  expect(roundTrip.getUTCMinutes()).toBe(0);
+});
 
-console.log(
-  `ok  TZ=${Intl.DateTimeFormat().resolvedOptions().timeZone}  ` +
-    `shared=${sharedForInstant}  local=${localForInstant}  ` +
-    `reminder=${String(reminder.hour).padStart(2, '0')}:` +
-    `${String(reminder.minute).padStart(2, '0')} local`
-);
+describe('daysBetween', () => {
+  // Feeds the trip countdown and the "days together" counter, both of which
+  // the user reads against their own calendar. The Math.round in the
+  // implementation is load-bearing, not cosmetic: across a DST transition
+  // the elapsed milliseconds are not a whole multiple of 86400000, so
+  // truncating would under- or over-count by a day for anyone in a
+  // DST-observing zone.
+  test('one day forward', () => {
+    expect(daysBetween('2026-06-18', '2026-06-19')).toBe(1);
+  });
+
+  test('one day back', () => {
+    expect(daysBetween('2026-06-19', '2026-06-18')).toBe(-1);
+  });
+
+  test('same day is zero', () => {
+    expect(daysBetween('2026-06-18', '2026-06-18')).toBe(0);
+  });
+
+  test('spans the US spring-forward transition (23h local day) without losing a day', () => {
+    // 2026-03-08 is the US spring-forward date.
+    expect(daysBetween('2026-03-07', '2026-03-09')).toBe(2);
+  });
+
+  test('spans the US fall-back transition (25h local day) without gaining a day', () => {
+    // 2026-11-01 is the US fall-back date.
+    expect(daysBetween('2026-10-31', '2026-11-02')).toBe(2);
+  });
+
+  test('a full non-leap year', () => {
+    expect(daysBetween('2026-01-01', '2027-01-01')).toBe(365);
+  });
+});

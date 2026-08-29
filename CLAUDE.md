@@ -42,6 +42,7 @@ npx expo start            # start dev server (Expo Go, SDK 54)
 npm run lint               # eslint
 npm run format             # prettier --write
 npx tsc --noEmit            # type-check (also runs in CI)
+npm test                    # jest, run once per TZ (UTC/LA/Tokyo) — also runs in CI
 ```
 
 ## Project structure
@@ -57,8 +58,8 @@ src/
     date.ts                    YYYY-MM-DD helpers — LOCAL (picked dates)
                                vs UTC (shared day boundary); see
                                "Two day boundaries" below
-    date.test.ts               standalone self-check for the above,
-                               run with `node src/lib/date.test.ts`
+    date.test.ts               Jest tests for the above, run via `npm test`
+                               (once per TZ — see "Two day boundaries" below)
     notifications.ts           schedules the daily question/clip local reminders
   hooks/
     queries.ts                 usePair / useProfile / useClips / useClip
@@ -87,7 +88,7 @@ src/
   types/index.ts                shared data models
 supabase/
   schema.sql                    tables + RLS policies (source of truth for schema)
-.github/workflows/ci.yml        lint + type-check on every push/PR to main
+.github/workflows/ci.yml        lint + type-check + test on every push/PR to main
 ```
 
 ## Environment / accounts already set up
@@ -469,18 +470,17 @@ schema but is still unused, and there's no UI to set one).
    multi-day data yet, and fixing it properly means deciding whether
    "this month" itself is local or UTC.
 
-`src/lib/date.test.ts` is a standalone self-check (no test framework in
-this repo by design). Run it under several timezones — that's what
-actually proves the split holds:
+`src/lib/date.test.ts` is a Jest test (`jest-expo` preset, added
+2026-08-29 — see "Testing" below). It's still run under several
+timezones, since that's what actually proves the split holds — Node/V8
+read `TZ` once per process, so this is three separate Jest runs, not one
+run with the env swapped mid-test:
 
 ```bash
-for tz in UTC America/Los_Angeles Asia/Tokyo; do TZ=$tz node src/lib/date.test.ts; done
+npm test   # loops TZ=UTC / America/Los_Angeles / Asia/Tokyo, one jest run each
 ```
 
-It's excluded from `tsconfig.json` (`exclude: ["**/*.test.ts"]`) because
-it imports with an explicit `.ts` extension, which Node's ESM resolver
-requires and this tsconfig would otherwise reject. Never bundled by
-Metro — nothing in the app imports it.
+Never bundled by Metro — nothing in the app imports it.
 
 ## Data layer (TanStack Query)
 
@@ -811,6 +811,10 @@ the old wrapper did. Nothing special is configured for it.
 Current state only. Dated verification history: [docs/testing-log.md](docs/testing-log.md).
 
 **Confirmed on a real device or the live project:**
+- `date.ts`'s day-boundary logic under Jest (`jest-expo`, added 2026-08-29),
+  wired into CI (`npm test`) so it's no longer possible to regress the
+  UTC/local split silently — all 11 assertions pass under `TZ=UTC`,
+  `America/Los_Angeles`, and `Asia/Tokyo`
 - Email OTP sign-in; two-user pairing (create, join, reused-code rejection)
 - Camera recording, upload, playback, viewed-status marking
 - Reveal gating — a partner's clip is hidden until you post your own that day;
