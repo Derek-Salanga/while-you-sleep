@@ -194,13 +194,18 @@ set up — a later, optional step, not a blocker.
   profiles. `development-simulator` and the Android profiles don't
   need it.
 
-**Not yet done:** first actual build on any profile, confirming native
-Sentry crash capture, Android BlurView/extensionless-MIME playback on a
-real build, EAS secret for `EXPO_PUBLIC_SENTRY_DSN`, Sentry
-org/project + `SENTRY_AUTH_TOKEN` for source-map upload, Apple bundle
-ID/provisioning/TestFlight setup, Android build in parallel, Google Play
-Console account (only needed for Play Store distribution, not
-sideloading).
+First `development-simulator` build succeeded 2026-08-29 (after the
+Sentry fix above) — confirms the whole pipeline (login, project link,
+profile config) end to end. Install it with `eas build:run --platform
+ios`, or the link/QR code EAS prints, to drag into the iOS Simulator.
+
+**Not yet done:** installing/running the simulator build, confirming
+native Sentry crash capture, Android build in parallel + BlurView/
+extensionless-MIME playback on it, EAS secret for
+`EXPO_PUBLIC_SENTRY_DSN`, Sentry org/project + `SENTRY_AUTH_TOKEN` for
+source-map upload, Apple bundle ID/provisioning/TestFlight setup once
+enrollment clears, Google Play Console account (only needed for Play
+Store distribution, not sideloading).
 
 ## Daily Question feature (video daily question, merged with the clip)
 

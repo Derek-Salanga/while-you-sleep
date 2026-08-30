@@ -638,3 +638,17 @@ through Jest's own transform. `tsc --noEmit`, lint, and format:check all
 still pass with the new files in place. This is the first slice of the
 "add a test framework" arc — component tests and Postgres/RLS testing are
 separate, later pieces, not covered here.
+
+2026-08-29: EAS Build pipeline stood up. `eas login` (account `fretz143`),
+`eas init` linked `extra.eas.projectId` in `app.json`. First
+`eas build --profile development-simulator --platform ios` failed: the
+`@sentry/react-native` Expo config plugin runs `sentry-cli` during the
+native build to auto-upload source maps, and with no Sentry org/project
+configured anywhere in the repo it failed the whole build rather than
+degrading gracefully — a correction to the plan's assumption that a missing
+Sentry build config only costs symbolication quality. Fixed by setting
+`SENTRY_DISABLE_AUTO_UPLOAD: "true"` in each `eas.json` build profile's
+`env`. Retried build succeeded, confirming the full pipeline (login,
+project link, profile config, cloud build) end to end. Not yet installed
+on the simulator or checked for native Sentry crash capture — that's the
+next step.
