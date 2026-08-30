@@ -652,3 +652,17 @@ Sentry build config only costs symbolication quality. Fixed by setting
 project link, profile config, cloud build) end to end. Not yet installed
 on the simulator or checked for native Sentry crash capture — that's the
 next step.
+
+Installing that iOS build locally hit a separate blocker: this Mac
+(`iMac21,1`, M1, macOS 15.3.1) needs Xcode for the Simulator, and the App
+Store's Xcode 27 requires macOS 26.2, which isn't installed. Hardware
+supports macOS 26 fine, so this is just sequencing, not a real constraint —
+either update macOS, or install an older Xcode (16.x) compatible with
+15.3.1 directly from developer.apple.com/download/all/ (works with any
+Apple ID, no paid Developer Program needed) to unblock Simulator testing
+without an OS upgrade.
+
+Android `preview` build (`eas build --profile preview --platform android`)
+succeeded on the first try — the Sentry env fix from the iOS build applied
+to all profiles already, so no repeat of that failure. No Apple/Xcode
+dependency at all for this one. Neither build has been installed/run yet.

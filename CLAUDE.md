@@ -198,12 +198,22 @@ First `development-simulator` build succeeded 2026-08-29 (after the
 Sentry fix above) — confirms the whole pipeline (login, project link,
 profile config) end to end. Install it with `eas build:run --platform
 ios`, or the link/QR code EAS prints, to drag into the iOS Simulator.
+Testing it locally is blocked on a separate, unrelated thing: this
+machine's Xcode is out of date and the App Store's latest Xcode needs a
+newer macOS than is currently installed. Not an EAS/project problem —
+either update macOS or install an older Xcode compatible with the
+current one directly from developer.apple.com/download/all/.
 
-**Not yet done:** installing/running the simulator build, confirming
-native Sentry crash capture, Android build in parallel + BlurView/
-extensionless-MIME playback on it, EAS secret for
-`EXPO_PUBLIC_SENTRY_DSN`, Sentry org/project + `SENTRY_AUTH_TOKEN` for
-source-map upload, Apple bundle ID/provisioning/TestFlight setup once
+An Android `preview` build also succeeded 2026-08-29, same command
+shape (`eas build --profile preview --platform android`), no Xcode/
+Apple-anything involved. Install via `eas build:run --platform
+android` or the printed link/QR code, onto an emulator or device.
+
+**Not yet done:** installing/running either build, confirming native
+Sentry crash capture, BlurView/extensionless-MIME playback on the
+Android build, EAS secret for `EXPO_PUBLIC_SENTRY_DSN`, Sentry
+org/project + `SENTRY_AUTH_TOKEN` for source-map upload, Apple bundle
+ID/provisioning/TestFlight setup once
 enrollment clears, Google Play Console account (only needed for Play
 Store distribution, not sideloading).
 
