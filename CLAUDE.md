@@ -156,6 +156,67 @@ This codebase currently imports from `expo-file-system/legacy` in
 than migrating. A proper migration to the new API is a reasonable
 cleanup task later, not urgent.
 
+## EAS Build (in progress, started 2026-08-29)
+
+Moving off Expo Go — see the dedicated plan for the full comparison
+against a test-framework arc, reasoning on Dev Client vs. standalone,
+and the EAS-secrets correction (`SUPABASE_URL`/`SUPABASE_ANON_KEY` are
+already hardcoded in `app.json`'s `extra`, not read from `.env`; only
+`EXPO_PUBLIC_SENTRY_DSN` needs an EAS secret).
+
+**Done:** `expo-dev-client` installed; `eas.json` added with four
+profiles — `development` (device, internal distribution),
+`development-simulator` (extends `development`, `ios.simulator: true`,
+so it can be built and tested with no Apple account at all),
+`preview` (internal distribution, for sideloading/TestFlight-adjacent
+testing), and `production` (`autoIncrement: true`, for store
+submission). `eas login` done (account `fretz143`) and `eas init` has
+linked `extra.eas.projectId` in `app.json`.
+
+**Correction to what was assumed going in:** a missing Sentry
+org/project config was expected to just degrade gracefully (native
+crashes still captured, less-readable stack traces). It doesn't — the
+`@sentry/react-native` Expo config plugin tries to auto-upload source
+maps during every native build via `sentry-cli`, and with no org/project
+configured anywhere (`app.json`'s `plugins` entry is the bare string
+`"@sentry/react-native"`, no `sentry.properties` exists), that upload
+step **fails the whole build**, first hit on the `development-simulator`
+profile 2026-08-29. Fixed by setting `SENTRY_DISABLE_AUTO_UPLOAD: "true"`
+as a build-profile `env` var in `eas.json` (all three non-`extends`
+profiles — `development-simulator` inherits it). Source-map upload
+(needed for readable native stack traces, not for crash capture itself)
+is deferred until a real Sentry org/project + `SENTRY_AUTH_TOKEN` are
+set up — a later, optional step, not a blocker.
+
+**Blocked on, both external and only the user can do them:**
+- Apple Developer Program enrollment (in progress as of 2026-08-29) —
+  only blocks the `development` (device) and `production`/TestFlight
+  profiles. `development-simulator` and the Android profiles don't
+  need it.
+
+First `development-simulator` build succeeded 2026-08-29 (after the
+Sentry fix above) — confirms the whole pipeline (login, project link,
+profile config) end to end. Install it with `eas build:run --platform
+ios`, or the link/QR code EAS prints, to drag into the iOS Simulator.
+Testing it locally is blocked on a separate, unrelated thing: this
+machine's Xcode is out of date and the App Store's latest Xcode needs a
+newer macOS than is currently installed. Not an EAS/project problem —
+either update macOS or install an older Xcode compatible with the
+current one directly from developer.apple.com/download/all/.
+
+An Android `preview` build also succeeded 2026-08-29, same command
+shape (`eas build --profile preview --platform android`), no Xcode/
+Apple-anything involved. Install via `eas build:run --platform
+android` or the printed link/QR code, onto an emulator or device.
+
+**Not yet done:** installing/running either build, confirming native
+Sentry crash capture, BlurView/extensionless-MIME playback on the
+Android build, EAS secret for `EXPO_PUBLIC_SENTRY_DSN`, Sentry
+org/project + `SENTRY_AUTH_TOKEN` for source-map upload, Apple bundle
+ID/provisioning/TestFlight setup once
+enrollment clears, Google Play Console account (only needed for Play
+Store distribution, not sideloading).
+
 ## Daily Question feature (video daily question, merged with the clip)
 
 Each pair gets one shared prompt per day, picked deterministically from
