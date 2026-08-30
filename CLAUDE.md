@@ -170,24 +170,37 @@ profiles — `development` (device, internal distribution),
 so it can be built and tested with no Apple account at all),
 `preview` (internal distribution, for sideloading/TestFlight-adjacent
 testing), and `production` (`autoIncrement: true`, for store
-submission).
+submission). `eas login` done (account `fretz143`) and `eas init` has
+linked `extra.eas.projectId` in `app.json`.
+
+**Correction to what was assumed going in:** a missing Sentry
+org/project config was expected to just degrade gracefully (native
+crashes still captured, less-readable stack traces). It doesn't — the
+`@sentry/react-native` Expo config plugin tries to auto-upload source
+maps during every native build via `sentry-cli`, and with no org/project
+configured anywhere (`app.json`'s `plugins` entry is the bare string
+`"@sentry/react-native"`, no `sentry.properties` exists), that upload
+step **fails the whole build**, first hit on the `development-simulator`
+profile 2026-08-29. Fixed by setting `SENTRY_DISABLE_AUTO_UPLOAD: "true"`
+as a build-profile `env` var in `eas.json` (all three non-`extends`
+profiles — `development-simulator` inherits it). Source-map upload
+(needed for readable native stack traces, not for crash capture itself)
+is deferred until a real Sentry org/project + `SENTRY_AUTH_TOKEN` are
+set up — a later, optional step, not a blocker.
 
 **Blocked on, both external and only the user can do them:**
-- `eas login` — a free Expo account, separate from Apple's. Nothing
-  past this point (`eas init`/`eas build:configure` to link
-  `extra.eas.projectId`, or any actual `eas build`) can proceed
-  without it.
 - Apple Developer Program enrollment (in progress as of 2026-08-29) —
   only blocks the `development` (device) and `production`/TestFlight
   profiles. `development-simulator` and the Android profiles don't
   need it.
 
-**Not yet done:** first actual build on any profile (needs the above),
-confirming native Sentry crash capture, Android BlurView/extensionless-
-MIME playback on a real build, EAS secret for
-`EXPO_PUBLIC_SENTRY_DSN`, Apple bundle ID/provisioning/TestFlight setup,
-Android build in parallel, Google Play Console account (only needed for
-Play Store distribution, not sideloading).
+**Not yet done:** first actual build on any profile, confirming native
+Sentry crash capture, Android BlurView/extensionless-MIME playback on a
+real build, EAS secret for `EXPO_PUBLIC_SENTRY_DSN`, Sentry
+org/project + `SENTRY_AUTH_TOKEN` for source-map upload, Apple bundle
+ID/provisioning/TestFlight setup, Android build in parallel, Google Play
+Console account (only needed for Play Store distribution, not
+sideloading).
 
 ## Daily Question feature (video daily question, merged with the clip)
 
