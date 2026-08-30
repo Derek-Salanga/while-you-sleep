@@ -26,7 +26,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-1024.png",
         "backgroundColor": "#F5F3FA"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -44,7 +48,11 @@
     ],
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",
-      "supabaseAnonKey": "sb_publishable_rRuR_xXpVoiKgi6db_t7Gw_L25jTylo"
-    }
+      "supabaseAnonKey": "sb_publishable_rRuR_xXpVoiKgi6db_t7Gw_L25jTylo",
+      "eas": {
+        "projectId": "9f2181e9-cf7e-4c87-9667-18ee04d0924a"
+      }
+    },
+    "owner": "fretz143"
   }
 }
