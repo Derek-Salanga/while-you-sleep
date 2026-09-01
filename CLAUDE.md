@@ -198,16 +198,39 @@ First `development-simulator` build succeeded 2026-08-29 (after the
 Sentry fix above) — confirms the whole pipeline (login, project link,
 profile config) end to end. Install it with `eas build:run --platform
 ios`, or the link/QR code EAS prints, to drag into the iOS Simulator.
-Testing it locally is blocked on a separate, unrelated thing: this
-machine's Xcode is out of date and the App Store's latest Xcode needs a
-newer macOS than is currently installed. Not an EAS/project problem —
-either update macOS or install an older Xcode compatible with the
-current one directly from developer.apple.com/download/all/.
+Local testing was briefly blocked by this machine's Xcode being out of
+date (App Store's latest needed a newer macOS than was installed) — not
+an EAS/project problem. Resolved 2026-09-01: installed Xcode 16.4
+directly from developer.apple.com/download/all/ instead of waiting on
+a macOS upgrade (works fine with macOS 15.3.1). Two one-time setup
+snags along the way, neither EAS/project-specific: the downloaded
+Xcode.app needed moving into `/Applications` and `xcode-select -s`
+pointed at it before `xcodebuild`/`simctl` would work, and a fresh
+Simulator.app moved manually (rather than installed normally) needed
+`lsregister -f` before macOS's Launch Services would resolve it by
+name (`open -a Simulator` failing with "unable to find application").
+
+**Confirmed 2026-09-01, iOS Simulator (iPhone 16 Pro):** the
+`development-simulator` build installs and launches cleanly via
+`eas build:run --platform ios`. Connected it to a local Metro
+(`npx expo start --dev-client`) and it loaded the real app — Home
+screen rendered correctly with live Supabase data (existing paired
+session, "N days together" line, Today's question card, trip
+countdown card), Fraunces/Inter fonts and the gradient card both
+correct. This is the first time any of this has run outside Expo Go.
+One harness-specific snag, not relevant outside this session: Metro
+kept getting killed between conversation turns since it's a
+long-running background process in a background job session — the fix
+was running `npx expo start --dev-client` in the user's own terminal
+instead of leaving Claude to manage it.
 
 An Android `preview` build also succeeded 2026-08-29, same command
 shape (`eas build --profile preview --platform android`), no Xcode/
 Apple-anything involved. Install via `eas build:run --platform
-android` or the printed link/QR code, onto an emulator or device.
+android` or the printed link/QR code, onto an emulator or device. Not
+yet installed/tested (iOS was prioritized since it hit the Xcode
+snag first) — same BlurView/extensionless-MIME checks from the
+"Not verified" list still apply here.
 
 **Not yet done:** installing/running either build, confirming native
 Sentry crash capture, BlurView/extensionless-MIME playback on the
@@ -960,6 +983,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   actually schedules a real repeating `UNCalendarNotificationTrigger` with
   the correct device-local hour/minute for 20:00 UTC (verified 13:00 at
   UTC-7)
+- The app running outside Expo Go at all, iOS Simulator (2026-09-01): the
+  EAS `development-simulator` build connects to Metro and renders the real
+  Home screen against a live paired session — "N days together" line,
+  Today's question card, trip countdown card, Fraunces/Inter fonts and the
+  gradient card all correct. Doesn't itself confirm native Sentry crash
+  capture, splash timing, or press-scale feel — those are still below,
+  now genuinely testable for the first time rather than structurally
+  blocked
 
 **Not verified:**
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a

@@ -666,3 +666,48 @@ Android `preview` build (`eas build --profile preview --platform android`)
 succeeded on the first try — the Sentry env fix from the iOS build applied
 to all profiles already, so no repeat of that failure. No Apple/Xcode
 dependency at all for this one. Neither build has been installed/run yet.
+
+2026-09-01: Installed Xcode 16.4 directly (developer.apple.com/download/all/)
+rather than waiting on a macOS upgrade — this Mac's hardware (`iMac21,1`, M1)
+supports macOS 26 fine, but there was no reason to do a multi-GB OS upgrade
+just to unblock Simulator testing today. Two setup snags, both one-time and
+unrelated to the app itself: the downloaded Xcode.app was sitting in
+`~/Downloads` and needed moving to `/Applications` plus `sudo xcode-select -s`
+before `xcodebuild`/`simctl` worked, and `open -a Simulator` failed with
+"unable to find application named 'Simulator'" until
+`lsregister -f <path to Simulator.app>` re-indexed it with Launch Services
+(a manually-moved app isn't auto-registered the way an installer would).
+
+Installed the `development-simulator` build via `eas build:run --platform ios
+--simulator "iPhone 16 Pro"` — needed the target simulator already booted
+first (`xrun simctl boot`, the run failed with a `CoreSimulator` "Unable to
+lookup in current state: Shutdown" error otherwise). Confirmed installed via
+`simctl listapps` and a screenshot: app icon correct, launches into
+expo-dev-client's own launcher screen (expected — that's what a Dev Client
+build shows with no Metro server to connect to yet).
+
+Connected it to a local Metro (`npx expo start --dev-client`) via
+`simctl openurl` with an `exp+while-you-sleep://expo-development-client/?url=`
+deep link. First attempt only registered the server in the launcher's list
+(green dot, didn't auto-navigate); terminating the app and re-sending the
+same deep link cold-started it straight into a system "Open in While You
+Sleep?" confirmation instead, which needed a real tap — `simctl` has no tap
+synthesis, and AppleScript/System Events UI automation timed out (likely a
+stuck Accessibility permission prompt for Terminal, not investigated
+further). Had the user tap it directly rather than fighting automation
+permissions.
+
+Metro itself got killed twice by the harness between conversation turns
+before the tap happened — this session runs as a background job, and a
+long-lived process backgrounded from inside it doesn't reliably survive
+between turns. Not a project issue; fixed by having the user run
+`npx expo start --dev-client` in their own terminal instead.
+
+Once connected: **first confirmation of any of this app running outside
+Expo Go.** Screenshot showed the real Home screen against a live paired
+session — "10 days together with derek" line, Today's question card,
+trip countdown card (flag, date, day count, "until we see each other
+again"), Fraunces/Inter fonts and the gradient card all rendering
+correctly. Native Sentry crash capture, splash timing, and press-scale
+feel are still unverified but no longer structurally blocked — genuinely
+testable now. Android build (from 2026-08-29) still not installed/tested.
