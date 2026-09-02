@@ -924,3 +924,19 @@ the reel button above remains the only thing that plays the month through, and
 the two entry points into `ClipViewScreen` stay distinct. Uses the screen's
 existing `styles.pressed` for press feedback, same as its other buttons.
 Unverified on device for the same two reasons as the previous entries.
+
+2026-09-02 (follow-up 5): the user verified all four caption surfaces on
+Android — RecordScreen's same-day `revealed` card, the Timeline card,
+`ClipViewScreen`, and Monthly Summary's "What you said" list. This supersedes
+the "unverified on device" notes closing follow-ups 1 through 4, which were
+written when the preview APK's bundled JS and a signed-out Expo Go left no way
+to see the changes from this session.
+
+Two items from those same commits are **not** covered by that pass and stay
+unverified, rather than being swept in with them:
+
+- The `review` phase's `insets.top + 64` fix, which stops the close ✕ landing
+  on the "Add a caption?" heading. Reaching that phase needs a day you haven't
+  posted on. Still correct by construction, still never looked at after the fix.
+- Tapping a Monthly Summary caption row through to `ClipView`. The rows render;
+  whether the tap navigates was not exercised.

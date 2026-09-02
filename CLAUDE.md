@@ -1074,8 +1074,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   emulator's clock across the UTC boundary served a different prompt
   ("What made today different from yesterday?" in place of the previous
   day's) and put `RecordScreen` back in its `camera` phase
+- `caption_text` on all four surfaces that render it, Android (2026-09-02,
+  verified by the user after the change landed): RecordScreen's same-day
+  `revealed` card, the Timeline card under the date, `ClipViewScreen` above
+  the date line, and Monthly Summary's "What you said" list. Before this the
+  column was written on every clip and displayed on exactly one screen
 
 **Not verified:**
+- The `review` phase clearing the close button (`insets.top + 64`, fixed
+  2026-09-02). Reaching that phase needs a day you haven't posted on, and it
+  was not part of the caption pass that confirmed the four surfaces above.
+  Correct by construction — content sits 12 below the button's bottom edge —
+  but never looked at after the fix, on either platform
+- Tapping a Monthly Summary caption row to open that clip (`ClipView` with no
+  `queue`). The row's *text* is confirmed; the navigation off it is not
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
