@@ -868,3 +868,18 @@ and never shown again. Confirmed it really is persisted, not just held in
 component state: the caption survived into a completely fresh Expo Go instance
 with its own storage. Where it should surface is a design call, so it was left
 for the user to decide.
+
+2026-09-02 (follow-up): `clips.caption_text` is now rendered on the Timeline
+card too, under the date, per the user's call on the open question above.
+`useClips` already selects `*`, so the row carried the column all along and no
+query changed. Deliberately not truncated — `ClipViewScreen` still doesn't
+render it, so an ellipsis would put the rest of a long caption out of reach.
+No empty-string guard is needed either: `useUploadClip` writes
+`caption.trim() || null`, so the column is null or a non-empty trimmed string.
+
+Not verified on device. The standalone `preview` APK has its JS bundled in and
+so can't show the change, and the Expo Go instance on that emulator is signed
+out — collateral from the clock experiment above, and signing back in needs an
+emailed OTP. `tsc`, eslint and `npm test` pass. To see it: sign in to Expo Go
+on the emulator against `npx expo start --go`, then open the Timeline — today's
+clip carries the caption "android test caption".

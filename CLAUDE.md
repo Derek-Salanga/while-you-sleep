@@ -271,14 +271,16 @@ day (e.g. partner posts after you) goes straight to `revealed` without
 ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
-**`caption_text` is only ever rendered on the same-day `revealed` card.**
-Neither `TimelineScreen` nor `ClipViewScreen` reads the column — it appears
-in `src/types/index.ts` and nowhere else in `src/` — so the text half of
-"answer in both video and text" is written to the DB and then invisible from
-the next day onward. Found 2026-09-02 while verifying the caption path on
-Android. Left as-is rather than fixed on the spot: where it should surface
-(under the Timeline card's date, over the video in `ClipViewScreen`, or both)
-is a design call, not a bug fix.
+**`caption_text` renders on the same-day `revealed` card and on the Timeline
+card, but still not in `ClipViewScreen`.** Until 2026-09-02 the reveal card was
+the only place it appeared — the column was in `src/types/index.ts` and nowhere
+else in `src/` — so the text half of "answer in both video and text" was written
+to the DB and then invisible from the next day onward. Found while verifying the
+caption path on Android; the user's call was to surface it on the Timeline card,
+under the date. It is deliberately **not** truncated there: captions are short by
+design, and with `ClipViewScreen` still not rendering the column, an ellipsis
+would put the rest of a long caption out of reach entirely. `useClips` already
+selects `*`, so this needed no query change.
 
 The `review` phase's content starts at `insets.top + 64` so it clears the
 absolutely-positioned close button (`insets.top + 12`, 40 tall) — same

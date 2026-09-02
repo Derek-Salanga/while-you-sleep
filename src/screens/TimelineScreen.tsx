@@ -126,6 +126,9 @@ export default function TimelineScreen({ navigation }: any) {
           <Text style={styles.cardDate}>
             {formatClipDate(item.recorded_for_date)}
           </Text>
+          {item.caption_text && (
+            <Text style={styles.cardCaption}>{item.caption_text}</Text>
+          )}
         </Card>
       </Animated.View>
     );
@@ -232,6 +235,15 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     color: colors.muted,
     marginTop: 4,
+  },
+  // Not truncated: captions are short by design, and no other screen renders
+  // caption_text, so an ellipsis here would put the rest out of reach.
+  cardCaption: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.ink,
+    lineHeight: 20,
+    marginTop: 8,
   },
   empty: {
     fontFamily: fonts.body,
