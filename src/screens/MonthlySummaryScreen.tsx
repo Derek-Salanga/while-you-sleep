@@ -213,7 +213,19 @@ export default function MonthlySummaryScreen({ navigation }: any) {
             <View style={styles.captions}>
               <Text style={styles.captionsHeading}>What you said</Text>
               {captioned.map((clip) => (
-                <View key={clip.id} style={styles.captionRow}>
+                // No `queue`: opening one row plays that clip on its own, with
+                // manual controls and no auto-advance. The reel button above
+                // is what plays the month through.
+                <Pressable
+                  key={clip.id}
+                  style={({ pressed }) => [
+                    styles.captionRow,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('ClipView', { clipId: clip.id })
+                  }
+                >
                   <Text style={styles.captionMeta}>
                     {Number(clip.recorded_for_date.split('-')[2])}
                     {'  ·  '}
@@ -222,7 +234,7 @@ export default function MonthlySummaryScreen({ navigation }: any) {
                       : (partnerName ?? 'Your partner')}
                   </Text>
                   <Text style={styles.captionText}>{clip.caption_text}</Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           )}

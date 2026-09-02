@@ -915,3 +915,12 @@ The "watch this month's clips" reel already picked captions up from the previous
 entry's `ClipViewScreen` change, since the reel is that screen in `queue` mode.
 Still unverified on device, same two reasons: bundled JS in the preview APK, and
 a signed-out Expo Go. `tsc`, eslint and `npm test` pass.
+
+2026-09-02 (follow-up 4): the Monthly Summary caption rows are now tappable,
+per the user's follow-up ask, reversing the non-tappable call in the previous
+entry. Each row navigates to `ClipView` with `clipId` and deliberately **no**
+`queue`, so it plays that one clip with manual controls and no auto-advance —
+the reel button above remains the only thing that plays the month through, and
+the two entry points into `ClipViewScreen` stay distinct. Uses the screen's
+existing `styles.pressed` for press feedback, same as its other buttons.
+Unverified on device for the same two reasons as the previous entries.

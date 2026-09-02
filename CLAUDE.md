@@ -286,9 +286,10 @@ clip's content and the date is metadata; the `VideoView` is `flex: 1`, so a long
 caption shrinks the player rather than being clipped, and in reel (`queue`) mode
 it changes per clip along with the row. The Monthly Summary list filters to
 clips that actually carry text, so a month with no captions renders nothing
-rather than an empty heading, and it is **not** tappable — the screen's other
-per-day elements aren't either, and the reel is already the way to play from
-there.
+rather than an empty heading, and each row opens that clip: `ClipView` with **no**
+`queue`, so it plays on its own with manual controls and no auto-advance. The
+reel button above it is still what plays the whole month through — the two
+entry points into that screen stay distinct.
 
 No surface needed a query change: `useClips` selects `*`, `useClip` returns the
 whole row, and `MonthlySummaryScreen`'s inline query already selected `*`. None
