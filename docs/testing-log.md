@@ -896,3 +896,22 @@ that comment said no other screen rendered the column, which stopped being true
 here — so it now reads that both surfaces show the same text in full. Still
 unverified on device for the same reason as the previous entry: bundled JS in
 the preview APK, and a signed-out Expo Go. `tsc`, eslint and `npm test` pass.
+
+2026-09-02 (follow-up 3): captions added to `MonthlySummaryScreen` as a "What
+you said" list below the reel button, per the user's follow-up ask. That screen
+had no per-clip list at all — stats, the dot grid and the reel button — so this
+is a new section rather than a field added to an existing row. Placed below the
+button so a long month doesn't push the primary CTA off screen, filtered to
+clips that carry text so an empty month renders nothing, and left non-tappable
+to match the grid cells around it. Its inline query already selected `*`, so
+again no query change. Names resolve through `usePartnerName()`, the same ladder
+Timeline uses.
+
+Note this list inherits the screen's existing reveal-gating: a partner's caption
+on a day you never posted is invisible here for exactly the reason their clip is
+(`has_own_clip()`), which is consistent rather than a new gap.
+
+The "watch this month's clips" reel already picked captions up from the previous
+entry's `ClipViewScreen` change, since the reel is that screen in `queue` mode.
+Still unverified on device, same two reasons: bundled JS in the preview APK, and
+a signed-out Expo Go. `tsc`, eslint and `npm test` pass.

@@ -271,21 +271,31 @@ day (e.g. partner posts after you) goes straight to `revealed` without
 ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
-**`caption_text` renders in all three places it can: the same-day `revealed`
-card, the Timeline card (under the date) and `ClipViewScreen` (above the date
-line, below the video).** Until 2026-09-02 the reveal card was the only one —
-the column was in `src/types/index.ts` and nowhere else in `src/` — so the text
-half of "answer in both video and text" was written to the DB and then invisible
-from the next day onward. Found while verifying the caption path on Android.
+**`caption_text` renders on every surface that shows a clip:** the same-day
+`revealed` card, the Timeline card (under the date), `ClipViewScreen` (above the
+date line, below the video) and `MonthlySummaryScreen` (a "What you said" list
+below the reel button). Until 2026-09-02 the reveal card was the only one — the
+column was in `src/types/index.ts` and nowhere else in `src/` — so the text half
+of "answer in both video and text" was written to the DB and then invisible from
+the next day onward. Found while verifying the caption path on Android.
 
-It is deliberately **not** truncated on either surface: captions are short by
-design and both show the same text in full, so they can't disagree. In
+It is deliberately **not** truncated anywhere: captions are short by design and
+every surface shows the same text in full, so they can't disagree. In
 `ClipViewScreen` the caption sits above the date because the caption is the
 clip's content and the date is metadata; the `VideoView` is `flex: 1`, so a long
 caption shrinks the player rather than being clipped, and in reel (`queue`) mode
-it changes per clip along with the row. Neither screen needed a query change —
-`useClips` selects `*` and `useClip` returns the whole row — and neither needs an
-empty-string guard, since `useUploadClip` writes `caption.trim() || null`.
+it changes per clip along with the row. The Monthly Summary list filters to
+clips that actually carry text, so a month with no captions renders nothing
+rather than an empty heading, and it is **not** tappable — the screen's other
+per-day elements aren't either, and the reel is already the way to play from
+there.
+
+No surface needed a query change: `useClips` selects `*`, `useClip` returns the
+whole row, and `MonthlySummaryScreen`'s inline query already selected `*`. None
+needs an empty-string guard either, since `useUploadClip` writes
+`caption.trim() || null`. The Monthly Summary list inherits that screen's
+existing reveal-gating (see "Monthly Summary feature"): a partner's caption on a
+day you never posted is invisible there for the same reason their clip is.
 
 The `review` phase's content starts at `insets.top + 64` so it clears the
 absolutely-positioned close button (`insets.top + 12`, 40 tall) — same
