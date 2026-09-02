@@ -226,17 +226,34 @@ instead of leaving Claude to manage it.
 
 An Android `preview` build also succeeded 2026-08-29, same command
 shape (`eas build --profile preview --platform android`), no Xcode/
-Apple-anything involved. Install via `eas build:run --platform
-android` or the printed link/QR code, onto an emulator or device. Not
-yet installed/tested (iOS was prioritized since it hit the Xcode
-snag first) — same BlurView/extensionless-MIME checks from the
-"Not verified" list still apply here.
+Apple-anything involved. Installed and exercised end to end on a Pixel 7 /
+API 34 emulator (first run 2026-09-01, full pass 2026-09-02) — see "Testing
+status". Its JS is **bundled in**, so it ignores Metro entirely: that makes it
+the right tool for testing a shipped build and the wrong one for testing a
+change you just made.
 
-**Not yet done:** installing/running either build, confirming native
-Sentry crash capture, BlurView/extensionless-MIME playback on the
-Android build, EAS secret for `EXPO_PUBLIC_SENTRY_DSN`, Sentry
-org/project + `SENTRY_AUTH_TOKEN` for source-map upload, Apple bundle
-ID/provisioning/TestFlight setup once
+An Android `development` (dev client) build followed, 2026-09-02
+(`eas build --profile development --platform android`). Installed over the
+preview build with `adb install -r` — the signing keys matched, so no uninstall
+and the logged-in session survived. It loads JS from Metro
+(`npx expo start --dev-client`, plus `adb reverse tcp:8081 tcp:8081` on an
+emulator), and the dev launcher discovers the server on its own. Two
+emulator-specific traps, both hit for real:
+
+- **Don't free port 8081 with `lsof -ti tcp:8081 | xargs kill -9`.** With
+  `adb reverse` in place the emulator process itself holds a socket there, so
+  that kills the emulator. Kill Metro by PID.
+- **A quick-boot snapshot can silently roll back an install.** After a restart
+  the emulator restored a day-old snapshot: `lastUpdateTime` reverted, the
+  118MB preview APK was back in place of the 212MB dev client, and the app
+  appeared to run with Metro serving nothing. Re-install after boot, or start
+  with `-no-snapshot-load`.
+
+**Not yet done:** confirming native Sentry crash capture (the SDK is
+compiled into the Android builds — `io.sentry.*` view managers register at
+startup — but no native crash has been thrown), EAS secret for
+`EXPO_PUBLIC_SENTRY_DSN`, Sentry org/project + `SENTRY_AUTH_TOKEN` for
+source-map upload, Apple bundle ID/provisioning/TestFlight setup once
 enrollment clears, Google Play Console account (only needed for Play
 Store distribution, not sideloading).
 
@@ -1079,6 +1096,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `revealed` card, the Timeline card under the date, `ClipViewScreen` above
   the date line, and Monthly Summary's "What you said" list. Before this the
   column was written on every clip and displayed on exactly one screen
+- Tapping a Monthly Summary caption row through to `ClipView` (2026-09-02,
+  Android dev client): the clip opens and plays with its caption above the
+  date. The list also renders the partner's caption, which additionally shows
+  reveal-gating passing on a day both people posted
+- The Android `development` (dev client) build itself: installs over the
+  preview build in place, discovers Metro on its own and runs the working
+  tree's JS — confirmed by seeing an unreleased change (the "What you said"
+  list) render on a build made from a commit that predates it
 
 **Not verified:**
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
@@ -1086,8 +1111,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   was not part of the caption pass that confirmed the four surfaces above.
   Correct by construction — content sits 12 below the button's bottom edge —
   but never looked at after the fix, on either platform
-- Tapping a Monthly Summary caption row to open that clip (`ClipView` with no
-  `queue`). The row's *text* is confirmed; the navigation off it is not
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
   device that had the old two-reminder version
 - Monthly Summary reel's end-of-queue behavior (what happens after the last
