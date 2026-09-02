@@ -940,3 +940,41 @@ unverified, rather than being swept in with them:
   posted on. Still correct by construction, still never looked at after the fix.
 - Tapping a Monthly Summary caption row through to `ClipView`. The rows render;
   whether the tap navigates was not exercised.
+
+2026-09-02 (follow-up 6): the Android `development` (dev client) build, queued
+at 08:44 and finished 10:10, is installed on the Pixel 7 emulator and running
+the working tree's JS over Metro. `adb install -r` updated it in place over the
+`preview` APK — the signing keys matched, so no uninstall was needed and the
+logged-in Supabase session survived. The dev launcher discovered
+`http://10.0.2.2:8081` on its own (with `adb reverse tcp:8081 tcp:8081` set) and
+bundled 2056 modules in 2.1s.
+
+`eas fingerprint:compare --build-id <id>` returned a match against the local
+directory beforehand: the build was made from `55e79b9` and the tree was three
+commits ahead at `f8687d0`, but those commits touched only `src/**` and docs, so
+the native fingerprint was unchanged and no rebuild was warranted. That command
+is the cheap way to settle "do I need to rebuild" without guessing.
+
+Confirmed while there: **tapping a Monthly Summary caption row opens that clip**
+in `ClipView`, playing with its caption above the date — the second of the two
+items left unverified by the user's own pass. The "What you said" list also
+renders the partner's caption alongside the user's, which incidentally shows
+reveal-gating passing on a day both people posted. This also proves the dev
+client is genuinely serving the working tree rather than a baked-in bundle: the
+list is an unreleased change relative to the commit the build was made from.
+
+Two emulator traps hit for real, both worth not repeating:
+
+- `lsof -ti tcp:8081 | xargs kill -9`, intended for a stale Metro, **killed the
+  emulator** — with `adb reverse` in place the emulator process holds a socket
+  on that port. Kill Metro by PID instead.
+- After restarting, the emulator **restored a day-old quick-boot snapshot**,
+  silently undoing the install: `lastUpdateTime` reverted to 09-01 and the 118MB
+  preview APK was back in place of the 212MB dev client. The symptom was the app
+  rendering normally while Metro's log showed it had never served a bundle — if
+  that combination ever shows up again, check `lastUpdateTime` before debugging
+  anything else. Re-installing after boot fixed it; `-no-snapshot-load` avoids it.
+
+Still unverified from this session's commits: the `review` phase's
+`insets.top + 64` close-button fix, which needs a day the account hasn't posted
+on to reach.
