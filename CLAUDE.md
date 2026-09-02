@@ -268,8 +268,25 @@ and `revealed` (your answer + your partner's, once they've posted —
 tapping either navigates to the existing `ClipViewScreen` rather than
 building inline playback). Landing back on this screen later in the
 day (e.g. partner posts after you) goes straight to `revealed` without
-ever requesting camera permission, since only the `camera`/`review`
-phases need it.
+ever requesting camera or microphone permission, since only the
+`camera`/`review` phases need them.
+
+**Both camera *and* microphone permission are required**, and the screen
+gates on both (`useCameraPermissions` + `useMicrophonePermissions`,
+two separate hooks in `expo-camera`). Only the camera half was requested
+until 2026-09-01: iOS never surfaced the gap, but Android rejects
+`recordAsync` outright with "Missing permissions:
+android.permission.RECORD_AUDIO" — found the first time the app ran on
+Android at all. `RECORD_AUDIO` was already correctly declared in
+`app.json`'s `android.permissions`; the missing piece was purely the
+runtime request. Confirmed by `adb shell dumpsys package`: `CAMERA` had
+the `USER_SET` flag (prompted and granted), `RECORD_AUDIO` had no such
+flag, i.e. the OS was never asked.
+
+The two requests are **awaited in sequence, not fired together** —
+Android shows one runtime permission dialog at a time and silently drops
+a second request made while one is in flight, so firing both at once
+grants only the camera.
 
 Same reveal mechanic `daily_answers` had: you can't see your partner's
 clip for a given day until you've posted your own for that day. This
@@ -983,6 +1000,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   actually schedules a real repeating `UNCalendarNotificationTrigger` with
   the correct device-local hour/minute for 20:00 UTC (verified 13:00 at
   UTC-7)
+- Android, first run ever (2026-09-01, Pixel 7 emulator, API 34): the app
+  launches, renders, and the camera preview works. BlurView's
+  `dimezisBlurView` frosted prompt card renders correctly — one of the two
+  long-standing Android unknowns, now closed. Recording works once both
+  camera and microphone permission are granted (see the `RECORD_AUDIO` fix
+  under "Daily Question feature"), verified in Expo Go where the combined
+  permission gate prompts for both and capture then succeeds
 - The app running outside Expo Go at all, iOS Simulator (2026-09-01): the
   EAS `development-simulator` build connects to Metro and renders the real
   Home screen against a live paired session — "N days together" line,
@@ -1000,8 +1024,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
-- Anything on Android: extensionless `storage_path` (`video/mp4`), BlurView's
-  `dimezisBlurView` on the prompt card
+- Android, remaining pieces: extensionless `storage_path` (`video/mp4`)
+  playback, and whether the caption/send path and Timeline behave as they do
+  on iOS. BlurView's `dimezisBlurView` on the prompt card **is** confirmed —
+  see the Confirmed list
 - Daily local notification: actually firing at 20:00 UTC and tap routing to
   Home (permission grant and correct scheduled local time are confirmed —
   see "Confirmed" list)
