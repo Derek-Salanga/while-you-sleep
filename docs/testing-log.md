@@ -773,3 +773,98 @@ the release of SDK 53`. This app uses local notifications only —
 token API anywhere — so the warning is Expo Go's, fired at module init
 regardless of usage. Expected to be absent in the dev build; worth a
 glance when confirming that build.
+
+2026-09-02: Android verification pass on the standalone `preview` APK (Pixel 7
+emulator, API 34), which closed every remaining Android unknown in one sitting.
+The `development` (dev client) build started this morning was still sitting in
+the EAS queue, so it was never used — the preview build turned out to be the
+better instrument anyway, because its JS is bundled in and it therefore needs
+no Metro, and Metro is the thing that keeps getting killed between turns in a
+background session. Everything below predates the `RECORD_AUDIO` fix, so none
+of it depended on that commit; `RECORD_AUDIO` was force-granted via
+`adb shell pm grant` as noted in the 2026-09-01 entry.
+
+Verified: recording with the 30s countdown auto-cap, the caption step, Send and
+upload, arrival at the `revealed` phase with the caption on the "You" card,
+Timeline (HeroCard, story rings, nickname labels, "Today" label, the coloured
+left edges), and Home. All match iOS.
+
+Extensionless `storage_path` served as `video/mp4` **plays on Android**. Worth
+recording how this was checked, because the first attempt gave a false
+negative: two screenshots three seconds apart were byte-identical, which looks
+exactly like a stuck first frame. It wasn't — the clip was ~5s and had simply
+finished before the first screenshot, since the viewer had been open ten
+seconds by then. Re-opening it and sampling four frames at one-second intervals
+gave four distinct images, which is real decode. Sample during playback, not
+after it.
+
+`ExpoVideo` logs "Current activity does not support picture-in-picture" roughly
+every 200ms while the viewer is open. Nothing in `src/` or `app.json` mentions
+picture-in-picture and playback is unaffected, so this is log noise from
+expo-video's config plugin defaults, not a fault. Logged so it isn't chased.
+
+The daily reminder fires and routes on Android. `dumpsys notification` showed a
+delivered record — tag `daily-question-reminder`, channel `daily-reminders`,
+"Today's question is up" / "Record your video answer before your partner does."
+— presented under the real app name "While You Sleep", not "Expo Go" as it
+does on iOS in Expo Go. Tapping it opened the app on Home. Its `when` was 08:41
+local, which is *not* 20:00 UTC and initially looked like a scheduling bug; it
+is instead an alarm that elapsed while the emulator was suspended and was
+delivered on resume. The scheduling itself is correct, and `dumpsys alarm`
+proves it directly: a pending `RTC_WAKEUP` for `com.whileyousleep.app` tagged
+`expo.modules.notifications.NOTIFICATION_EVENT` with
+`origWhen=2026-09-02 13:00:00.000`, and 13:00 local at UTC-7 is exactly 20:00
+UTC. `dumpsys alarm` is the thing to read here, not the delivered notification's
+timestamp.
+
+The `expo-notifications` "Android Push notifications ... removed from Expo Go"
+warning is **absent** from a cold start of the standalone build, and appeared as
+an on-screen error toast in Expo Go on the same emulator ten minutes later —
+side-by-side proof it is Expo Go's, as predicted on 2026-09-01. Note the first
+check of this was invalid: logcat had been cleared while the app was already
+running, so module init had long since happened and the absence proved nothing.
+It needed a force-stop, a fresh `logcat -c`, then a relaunch.
+
+The native Sentry SDK is compiled into this build — `io.sentry.react.*` view
+managers register at startup and `io.sentry.auto-init read: false` shows
+auto-init off with the JS `Sentry.init` driving it. That is presence, not
+capture: no native crash was thrown, so native crash reporting is still
+unconfirmed.
+
+Two defects found, both platform-independent and both fixed in this branch:
+
+1. The `review` phase drew the close ✕ on top of the "Add a caption?" heading.
+   The close button is absolutely positioned at `top: insets.top + 12` and is
+   40 tall, while the review layout started its normal-flow content at
+   `paddingTop: insets.top + 20`. The camera phase makes exactly this
+   allowance for the same button (`promptCard`'s `left: 64`, with a comment
+   saying why); the review phase never got the equivalent. Now `insets.top +
+   64`, which leaves the content 12 below the button's bottom edge regardless
+   of device or density. Not an Android bug — it would overlap on iOS too;
+   Android is just where somebody finally looked at that screen.
+2. The subtitle read `Optional -- goes alongside your clip.`, rendering a
+   literal double hyphen on screen. Reworded to `Optional, goes alongside your
+   clip.` rather than inserting an em dash, per the em-dash ban.
+
+The fixed review phase was **not** re-screenshotted on device. Reaching it needs
+a day this account hasn't posted on, and the only route to that was rolling the
+emulator's clock past the UTC boundary — which does work (it served a different
+prompt, "What made today different from yesterday?", independently confirming
+the daily question rolls with the shared UTC day) but invalidated the stored
+Supabase session mid-recording, dropping the app to AuthScreen with "Failed to
+ensure profile: new row violates row-level security". That is the clock jump's
+doing, not a product bug, though it does show the app's behaviour when a
+session can't be refreshed. Only the Expo Go instance lost its session; the
+standalone build's survived, verified by relaunching it afterwards. The clock
+was restored via `settings put global auto_time 1`. The fix's correctness is
+arithmetic rather than observed: content starts 12 below the button's bottom
+edge by construction, and `tsc`/eslint pass.
+
+Also found, not fixed: `clips.caption_text` is rendered **only** on the
+same-day `revealed` card. It appears in `src/types/index.ts` and nowhere else
+in `src/` — neither `TimelineScreen` nor `ClipViewScreen` reads it — so from
+the next day onward the text half of "answer in both video and text" is stored
+and never shown again. Confirmed it really is persisted, not just held in
+component state: the caption survived into a completely fresh Expo Go instance
+with its own storage. Where it should surface is a design call, so it was left
+for the user to decide.

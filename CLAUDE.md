@@ -271,6 +271,21 @@ day (e.g. partner posts after you) goes straight to `revealed` without
 ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
+**`caption_text` is only ever rendered on the same-day `revealed` card.**
+Neither `TimelineScreen` nor `ClipViewScreen` reads the column — it appears
+in `src/types/index.ts` and nowhere else in `src/` — so the text half of
+"answer in both video and text" is written to the DB and then invisible from
+the next day onward. Found 2026-09-02 while verifying the caption path on
+Android. Left as-is rather than fixed on the spot: where it should surface
+(under the Timeline card's date, over the video in `ClipViewScreen`, or both)
+is a design call, not a bug fix.
+
+The `review` phase's content starts at `insets.top + 64` so it clears the
+absolutely-positioned close button (`insets.top + 12`, 40 tall) — same
+allowance the camera phase's `promptCard` makes with its `left: 64`. It was
+`insets.top + 20` until 2026-09-02, which drew the ✕ on top of the "Add a
+caption?" heading on both platforms; Android is simply where it got looked at.
+
 **Both camera *and* microphone permission are required**, and the screen
 gates on both (`useCameraPermissions` + `useMicrophonePermissions`,
 two separate hooks in `expo-camera`). Only the camera half was requested
@@ -1015,6 +1030,32 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   capture, splash timing, or press-scale feel — those are still below,
   now genuinely testable for the first time rather than structurally
   blocked
+- Android end-to-end on the standalone `preview` build (2026-09-02, Pixel 7
+  emulator, API 34), which closes every remaining Android unknown: recording
+  with the 30s countdown, the caption step, Send/upload, the `revealed`
+  phase, Timeline (HeroCard, story rings, nickname labels, "Today", the
+  coloured left edges) and Home all render and behave as on iOS. Playback of
+  an **extensionless `storage_path` served as `video/mp4`** works — four
+  distinct sampled frames over four seconds, so real decode, not a single
+  stuck frame. The `expo-notifications` "removed from Expo Go" warning is
+  absent from a cold start here while appearing in Expo Go on the same
+  emulator minutes later — direct side-by-side proof it is an Expo Go
+  artifact. The native Sentry SDK is compiled into this build
+  (`io.sentry.*` view managers register, `io.sentry.auto-init read: false`
+  so the JS `Sentry.init` drives it) — presence only; a native crash was
+  still not thrown
+- Daily local reminder on Android: it fires and routes. `dumpsys notification`
+  showed a delivered record (tag `daily-question-reminder`, channel
+  `daily-reminders`) titled "Today's question is up", under the real app name
+  "While You Sleep" rather than Expo Go; tapping it opened the app on Home.
+  `dumpsys alarm` shows the pending `RTC_WAKEUP` tagged
+  `expo.modules.notifications.NOTIFICATION_EVENT` with
+  `origWhen=2026-09-02 13:00:00` — 13:00 local at UTC-7 is exactly 20:00 UTC,
+  so `utcTimeToLocal()` lands correctly on Android too
+- The daily question rolling with the shared UTC day, on device: moving the
+  emulator's clock across the UTC boundary served a different prompt
+  ("What made today different from yesterday?" in place of the previous
+  day's) and put `RecordScreen` back in its `camera` phase
 
 **Not verified:**
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
@@ -1024,13 +1065,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
-- Android, remaining pieces: extensionless `storage_path` (`video/mp4`)
-  playback, and whether the caption/send path and Timeline behave as they do
-  on iOS. BlurView's `dimezisBlurView` on the prompt card **is** confirmed —
-  see the Confirmed list
-- Daily local notification: actually firing at 20:00 UTC and tap routing to
-  Home (permission grant and correct scheduled local time are confirmed —
-  see "Confirmed" list)
+- Daily local notification on **iOS**: actually firing and tap routing (both
+  are now confirmed on Android — see the Confirmed list). On Android the
+  observed delivery was an alarm that elapsed while the emulator was
+  suspended and fired on resume, so the pending alarm's 20:00 UTC time is
+  verified from `dumpsys alarm` rather than by watching it fire on the hour
 - Story-ring colors at the reveal-gating boundary: the gray-because-invisible
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself

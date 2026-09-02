@@ -305,13 +305,16 @@ export default function RecordScreen({ navigation }: any) {
   if (phase === 'review') {
     return (
       <KeyboardAvoidingView
-        style={[styles.container, { paddingTop: insets.top + 20 }]}
+        // 64 clears the close button, which is absolutely positioned at
+        // top: insets.top + 12 and is 40 tall -- the flow content below
+        // would otherwise start underneath it.
+        style={[styles.container, { paddingTop: insets.top + 64 }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {closeButton}
         <Text style={styles.reviewTitle}>Add a caption?</Text>
         <Text style={styles.reviewSubtitle}>
-          Optional -- goes alongside your clip.
+          Optional, goes alongside your clip.
         </Text>
         <TextInput
           style={styles.captionInput}
