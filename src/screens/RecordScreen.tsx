@@ -10,7 +10,12 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
 } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import {
+  CameraView,
+  CameraType,
+  useCameraPermissions,
+  useMicrophonePermissions,
+} from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,6 +50,7 @@ export default function RecordScreen({ navigation }: any) {
   const { session, pair } = usePairing();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<CameraType>('front');
   const [isRecording, setIsRecording] = useState(false);
   const insets = useSafeAreaInsets();
@@ -264,18 +270,31 @@ export default function RecordScreen({ navigation }: any) {
     );
   }
 
-  if (!permission) return <View style={styles.container} />;
+  if (!permission || !micPermission) return <View style={styles.container} />;
 
-  if (!permission.granted) {
+  // Both are required for recordAsync to succeed -- Android rejects the
+  // call outright if either is missing ("Missing permissions:
+  // android.permission.RECORD_AUDIO"), while iOS never surfaced this, so
+  // only the camera half was ever requested. There's no flow here that
+  // needs one without the other, so they're gated together.
+  //
+  // Awaited in sequence, not fired together: Android shows one runtime
+  // permission dialog at a time, and a second request made while one is
+  // already in flight is dropped rather than queued.
+  if (!permission.granted || !micPermission.granted) {
     return (
       <View style={styles.permissionContainer}>
         {closeButton}
         <Text style={styles.permissionText}>
-          While You Sleep needs camera access to record your daily clip.
+          While You Sleep needs camera and microphone access to record your
+          daily clip.
         </Text>
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          onPress={requestPermission}
+          onPress={async () => {
+            if (!permission.granted) await requestPermission();
+            if (!micPermission.granted) await requestMicPermission();
+          }}
         >
           <Text style={styles.buttonText}>Grant permission</Text>
         </Pressable>

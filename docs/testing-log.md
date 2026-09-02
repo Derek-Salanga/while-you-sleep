@@ -711,3 +711,65 @@ again"), Fraunces/Inter fonts and the gradient card all rendering
 correctly. Native Sentry crash capture, splash timing, and press-scale
 feel are still unverified but no longer structurally blocked — genuinely
 testable now. Android build (from 2026-08-29) still not installed/tested.
+
+2026-09-01: First Android run ever, on a Pixel 7 / API 34 emulator (Android
+SDK wasn't installed on this machine at all — Android Studio, command-line
+tools, OpenJDK, platform-tools, build-tools and an arm64 system image all
+installed from scratch this session). Two findings, one cosmetic-adjacent
+and one a real bug.
+
+**BlurView works.** The frosted prompt card renders correctly with
+`dimezisBlurView` on Android — one of the two long-standing "anything on
+Android" unknowns, closed. Camera preview also renders, though only after
+fixing the AVD: `hw.camera.front=none` by default, so the front-facing
+camera the Record screen defaults to had no feed and showed pure black.
+Set to `emulated` in `~/.android/avd/wys-test.avd/config.ini`, which needs
+a full emulator restart (not just an app relaunch) to take effect. That's
+an emulator config issue, not an app one.
+
+**Real bug: recording failed with "Missing permissions:
+android.permission.RECORD_AUDIO".** `RecordScreen` only ever requested
+camera permission (`useCameraPermissions`), never microphone
+(`useMicrophonePermissions` — a separate hook in expo-camera). iOS never
+surfaced this; Android rejects `recordAsync` outright. `RECORD_AUDIO` was
+already declared correctly in `app.json`'s `android.permissions`, so the
+manifest was never the problem. Confirmed via
+`adb shell dumpsys package com.whileyousleep.app`: `CAMERA` carried the
+`USER_SET` flag (prompted and granted by the user) while `RECORD_AUDIO`
+did not — proof the OS was never asked, rather than asked and denied.
+That flag distinction is the useful diagnostic here; "granted=false" alone
+doesn't tell you which.
+
+Fixed by gating the screen on both permissions and requesting both. The
+two requests are awaited **in sequence**, not fired together: Android
+shows one runtime permission dialog at a time and silently drops a second
+request made while one is in flight, so the naive version would have
+granted only the camera and looked like the same bug.
+
+A false start worth recording: the first fix attempt appeared to change
+nothing, because the installed APK was the **`preview` build, which has
+its JS bundled in** and does not load from Metro — so no amount of
+`expo start` was ever going to deliver the fix to it. The give-away was
+that the app opened straight into the real UI instead of a dev-client
+launcher screen, plus `pm list packages` showing Expo Go wasn't even
+installed. Validated the fix in Expo Go instead (`npx expo start --go`):
+the combined gate prompts for camera and microphone, and recording then
+succeeds. An Android `development` (dev client) build was started in
+parallel so future Android JS changes can hot-reload over Metro rather
+than needing a rebuild.
+
+Also unblocked downstream testing on the existing preview build without
+waiting on that, via `adb shell pm grant com.whileyousleep.app
+android.permission.RECORD_AUDIO` — useful for exercising capture/upload/
+playback while a build is in flight, though it deliberately bypasses the
+prompt and so proves nothing about the fix itself.
+
+Non-issue, logged so it isn't re-investigated: Expo Go on Android logs
+`expo-notifications: Android Push notifications (remote notifications)
+functionality provided by expo-notifications was removed from Expo Go with
+the release of SDK 53`. This app uses local notifications only —
+`notifications.ts` calls `requestPermissionsAsync`,
+`setNotificationChannelAsync` and `scheduleNotificationAsync`, and no push
+token API anywhere — so the warning is Expo Go's, fired at module init
+regardless of usage. Expected to be absent in the dev build; worth a
+glance when confirming that build.
