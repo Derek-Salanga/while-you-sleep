@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { usePartnerName } from '@/hooks/usePartnerName';
 import { formatDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { colors } from '@/theme/colors';
@@ -20,7 +21,8 @@ function isSameMonth(a: Date, b: Date): boolean {
 }
 
 export default function MonthlySummaryScreen({ navigation }: any) {
-  const { session, pair } = usePairing();
+  const { session, pair, myProfile } = usePairing();
+  const partnerName = usePartnerName();
   const insets = useSafeAreaInsets();
 
   // The 1st of the month currently being viewed.
@@ -101,6 +103,10 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // Chronological clip ids for the sequential reel — clips is already
   // ascending-ordered from the query.
   const queueIds = clips.map((c) => c.id);
+
+  // The reel plays every clip; this list is only the ones that carry text,
+  // so a month with no captions renders nothing rather than an empty heading.
+  const captioned = clips.filter((c) => c.caption_text);
 
   return (
     <ScrollView
@@ -202,6 +208,36 @@ export default function MonthlySummaryScreen({ navigation }: any) {
                 : `Watch this month's clips (${queueIds.length})`}
             </Text>
           </Pressable>
+
+          {captioned.length > 0 && (
+            <View style={styles.captions}>
+              <Text style={styles.captionsHeading}>What you said</Text>
+              {captioned.map((clip) => (
+                // No `queue`: opening one row plays that clip on its own, with
+                // manual controls and no auto-advance. The reel button above
+                // is what plays the month through.
+                <Pressable
+                  key={clip.id}
+                  style={({ pressed }) => [
+                    styles.captionRow,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() =>
+                    navigation.navigate('ClipView', { clipId: clip.id })
+                  }
+                >
+                  <Text style={styles.captionMeta}>
+                    {Number(clip.recorded_for_date.split('-')[2])}
+                    {'  ·  '}
+                    {isMine(clip)
+                      ? (myProfile?.display_name ?? 'You')
+                      : (partnerName ?? 'Your partner')}
+                  </Text>
+                  <Text style={styles.captionText}>{clip.caption_text}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </>
       )}
     </ScrollView>
@@ -327,5 +363,29 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  captions: {
+    marginTop: 28,
+  },
+  captionsHeading: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.sm,
+    color: colors.ink,
+    marginBottom: 12,
+  },
+  captionRow: {
+    marginBottom: 16,
+  },
+  captionMeta: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.xs,
+    color: colors.muted,
+    marginBottom: 2,
+  },
+  captionText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.ink,
+    lineHeight: 20,
   },
 });

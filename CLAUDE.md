@@ -271,6 +271,39 @@ day (e.g. partner posts after you) goes straight to `revealed` without
 ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
+**`caption_text` renders on every surface that shows a clip:** the same-day
+`revealed` card, the Timeline card (under the date), `ClipViewScreen` (above the
+date line, below the video) and `MonthlySummaryScreen` (a "What you said" list
+below the reel button). Until 2026-09-02 the reveal card was the only one — the
+column was in `src/types/index.ts` and nowhere else in `src/` — so the text half
+of "answer in both video and text" was written to the DB and then invisible from
+the next day onward. Found while verifying the caption path on Android.
+
+It is deliberately **not** truncated anywhere: captions are short by design and
+every surface shows the same text in full, so they can't disagree. In
+`ClipViewScreen` the caption sits above the date because the caption is the
+clip's content and the date is metadata; the `VideoView` is `flex: 1`, so a long
+caption shrinks the player rather than being clipped, and in reel (`queue`) mode
+it changes per clip along with the row. The Monthly Summary list filters to
+clips that actually carry text, so a month with no captions renders nothing
+rather than an empty heading, and each row opens that clip: `ClipView` with **no**
+`queue`, so it plays on its own with manual controls and no auto-advance. The
+reel button above it is still what plays the whole month through — the two
+entry points into that screen stay distinct.
+
+No surface needed a query change: `useClips` selects `*`, `useClip` returns the
+whole row, and `MonthlySummaryScreen`'s inline query already selected `*`. None
+needs an empty-string guard either, since `useUploadClip` writes
+`caption.trim() || null`. The Monthly Summary list inherits that screen's
+existing reveal-gating (see "Monthly Summary feature"): a partner's caption on a
+day you never posted is invisible there for the same reason their clip is.
+
+The `review` phase's content starts at `insets.top + 64` so it clears the
+absolutely-positioned close button (`insets.top + 12`, 40 tall) — same
+allowance the camera phase's `promptCard` makes with its `left: 64`. It was
+`insets.top + 20` until 2026-09-02, which drew the ✕ on top of the "Add a
+caption?" heading on both platforms; Android is simply where it got looked at.
+
 **Both camera *and* microphone permission are required**, and the screen
 gates on both (`useCameraPermissions` + `useMicrophonePermissions`,
 two separate hooks in `expo-camera`). Only the camera half was requested
@@ -1015,6 +1048,32 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   capture, splash timing, or press-scale feel — those are still below,
   now genuinely testable for the first time rather than structurally
   blocked
+- Android end-to-end on the standalone `preview` build (2026-09-02, Pixel 7
+  emulator, API 34), which closes every remaining Android unknown: recording
+  with the 30s countdown, the caption step, Send/upload, the `revealed`
+  phase, Timeline (HeroCard, story rings, nickname labels, "Today", the
+  coloured left edges) and Home all render and behave as on iOS. Playback of
+  an **extensionless `storage_path` served as `video/mp4`** works — four
+  distinct sampled frames over four seconds, so real decode, not a single
+  stuck frame. The `expo-notifications` "removed from Expo Go" warning is
+  absent from a cold start here while appearing in Expo Go on the same
+  emulator minutes later — direct side-by-side proof it is an Expo Go
+  artifact. The native Sentry SDK is compiled into this build
+  (`io.sentry.*` view managers register, `io.sentry.auto-init read: false`
+  so the JS `Sentry.init` drives it) — presence only; a native crash was
+  still not thrown
+- Daily local reminder on Android: it fires and routes. `dumpsys notification`
+  showed a delivered record (tag `daily-question-reminder`, channel
+  `daily-reminders`) titled "Today's question is up", under the real app name
+  "While You Sleep" rather than Expo Go; tapping it opened the app on Home.
+  `dumpsys alarm` shows the pending `RTC_WAKEUP` tagged
+  `expo.modules.notifications.NOTIFICATION_EVENT` with
+  `origWhen=2026-09-02 13:00:00` — 13:00 local at UTC-7 is exactly 20:00 UTC,
+  so `utcTimeToLocal()` lands correctly on Android too
+- The daily question rolling with the shared UTC day, on device: moving the
+  emulator's clock across the UTC boundary served a different prompt
+  ("What made today different from yesterday?" in place of the previous
+  day's) and put `RecordScreen` back in its `camera` phase
 
 **Not verified:**
 - Video daily question, remaining piece: `RETIRED_REMINDER_IDS` cleanup on a
@@ -1024,13 +1083,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `storage_path` values with no real video to play
 - UTC shared day boundary across two real timezones, incl. Timeline's
   "Today"/"Yesterday" labels near the boundary
-- Android, remaining pieces: extensionless `storage_path` (`video/mp4`)
-  playback, and whether the caption/send path and Timeline behave as they do
-  on iOS. BlurView's `dimezisBlurView` on the prompt card **is** confirmed —
-  see the Confirmed list
-- Daily local notification: actually firing at 20:00 UTC and tap routing to
-  Home (permission grant and correct scheduled local time are confirmed —
-  see "Confirmed" list)
+- Daily local notification on **iOS**: actually firing and tap routing (both
+  are now confirmed on Android — see the Confirmed list). On Android the
+  observed delivery was an alarm that elapsed while the emulator was
+  suspended and fired on resume, so the pending alarm's 20:00 UTC time is
+  verified from `dumpsys alarm` rather than by watching it fire on the hour
 - Story-ring colors at the reveal-gating boundary: the gray-because-invisible
   case (partner has posted, you haven't yet) — needs a fresh day, since it's
   unreachable once both have posted. The unwatched→watched transition itself
