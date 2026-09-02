@@ -883,3 +883,16 @@ out — collateral from the clock experiment above, and signing back in needs an
 emailed OTP. `tsc`, eslint and `npm test` pass. To see it: sign in to Expo Go
 on the emulator against `npx expo start --go`, then open the Timeline — today's
 clip carries the caption "android test caption".
+
+2026-09-02 (follow-up 2): `caption_text` now also renders in `ClipViewScreen`,
+above the existing date line and below the video, per the user's follow-up ask.
+`useClip` already returns the whole row, so again no query change. The caption
+sits above the date because the caption is content and the date is metadata,
+and since `VideoView` is `flex: 1` a long caption shrinks the player rather than
+being clipped. In reel (`queue`) mode it swaps per clip along with the row.
+
+This also retired the reason `TimelineScreen`'s caption was left untruncated —
+that comment said no other screen rendered the column, which stopped being true
+here — so it now reads that both surfaces show the same text in full. Still
+unverified on device for the same reason as the previous entry: bundled JS in
+the preview APK, and a signed-out Expo Go. `tsc`, eslint and `npm test` pass.

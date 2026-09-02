@@ -236,8 +236,8 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 4,
   },
-  // Not truncated: captions are short by design, and no other screen renders
-  // caption_text, so an ellipsis here would put the rest out of reach.
+  // Not truncated: captions are short by design, and ClipViewScreen shows the
+  // same text in full, so the two surfaces stay consistent.
   cardCaption: {
     fontFamily: fonts.body,
     fontSize: fontSizes.sm,

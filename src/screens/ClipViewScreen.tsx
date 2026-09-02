@@ -98,6 +98,9 @@ export default function ClipViewScreen({ route, navigation }: any) {
         contentFit="contain"
       />
       {closeButton}
+      {clip.caption_text && (
+        <Text style={styles.caption}>{clip.caption_text}</Text>
+      )}
       <Text style={styles.dateLabel}>
         {clip.recorded_for_date}
         {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
@@ -115,6 +118,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   video: { flex: 1, width: '100%' },
+  // Above the date rather than below it: the caption is the clip's content,
+  // the date is metadata. The video is flex: 1, so a long one shrinks the
+  // player rather than getting clipped.
+  caption: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    color: colors.surface,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingTop: 16,
+    paddingHorizontal: 24,
+  },
   dateLabel: {
     fontFamily: fonts.body,
     color: colors.surface,

@@ -271,16 +271,21 @@ day (e.g. partner posts after you) goes straight to `revealed` without
 ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
-**`caption_text` renders on the same-day `revealed` card and on the Timeline
-card, but still not in `ClipViewScreen`.** Until 2026-09-02 the reveal card was
-the only place it appeared — the column was in `src/types/index.ts` and nowhere
-else in `src/` — so the text half of "answer in both video and text" was written
-to the DB and then invisible from the next day onward. Found while verifying the
-caption path on Android; the user's call was to surface it on the Timeline card,
-under the date. It is deliberately **not** truncated there: captions are short by
-design, and with `ClipViewScreen` still not rendering the column, an ellipsis
-would put the rest of a long caption out of reach entirely. `useClips` already
-selects `*`, so this needed no query change.
+**`caption_text` renders in all three places it can: the same-day `revealed`
+card, the Timeline card (under the date) and `ClipViewScreen` (above the date
+line, below the video).** Until 2026-09-02 the reveal card was the only one —
+the column was in `src/types/index.ts` and nowhere else in `src/` — so the text
+half of "answer in both video and text" was written to the DB and then invisible
+from the next day onward. Found while verifying the caption path on Android.
+
+It is deliberately **not** truncated on either surface: captions are short by
+design and both show the same text in full, so they can't disagree. In
+`ClipViewScreen` the caption sits above the date because the caption is the
+clip's content and the date is metadata; the `VideoView` is `flex: 1`, so a long
+caption shrinks the player rather than being clipped, and in reel (`queue`) mode
+it changes per clip along with the row. Neither screen needed a query change —
+`useClips` selects `*` and `useClip` returns the whole row — and neither needs an
+empty-string guard, since `useUploadClip` writes `caption.trim() || null`.
 
 The `review` phase's content starts at `insets.top + 64` so it clears the
 absolutely-positioned close button (`insets.top + 12`, 40 tall) — same
