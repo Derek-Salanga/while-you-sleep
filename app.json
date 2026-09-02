@@ -23,6 +23,7 @@
     },
     "android": {
       "package": "com.whileyousleep.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-1024.png",
         "backgroundColor": "#F5F3FA"

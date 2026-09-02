@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1082518839488",
+    "project_id": "while-you-sleep",
+    "storage_bucket": "while-you-sleep.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1082518839488:android:6c5250d75d94a675938d25",
+        "android_client_info": {
+          "package_name": "com.whileyousleep.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_439QRZmbzWKGzjf9vSI0gYb0YED7Grs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
