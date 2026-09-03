@@ -188,11 +188,15 @@ profiles — `development-simulator` inherits it). Source-map upload
 is deferred until a real Sentry org/project + `SENTRY_AUTH_TOKEN` are
 set up — a later, optional step, not a blocker.
 
-**Blocked on, both external and only the user can do them:**
-- Apple Developer Program enrollment (in progress as of 2026-08-29) —
-  only blocks the `development` (device) and `production`/TestFlight
-  profiles. `development-simulator` and the Android profiles don't
-  need it.
+**Apple Developer Program enrollment cleared 2026-09-02**, unblocking the
+`development` (device) and `production`/TestFlight profiles. No iOS
+`development` build has been made yet: an internal-distribution iOS build is
+UDID-locked, so the test iPhone must be registered with
+`eas device:create` **before** building — a build made first won't carry the
+new device and has to be redone. Expo Go on that iPhone doesn't substitute;
+it runs Expo's own binary and bundle id, so it can't exercise this app's
+credentials, and `expo-notifications` dropped remote push from Expo Go in
+SDK 53 regardless.
 
 First `development-simulator` build succeeded 2026-08-29 (after the
 Sentry fix above) — confirms the whole pipeline (login, project link,
@@ -253,9 +257,43 @@ emulator-specific traps, both hit for real:
 compiled into the Android builds — `io.sentry.*` view managers register at
 startup — but no native crash has been thrown), EAS secret for
 `EXPO_PUBLIC_SENTRY_DSN`, Sentry org/project + `SENTRY_AUTH_TOKEN` for
-source-map upload, Apple bundle ID/provisioning/TestFlight setup once
-enrollment clears, Google Play Console account (only needed for Play
+source-map upload, an iOS `development` build on a registered device,
+TestFlight setup, Google Play Console account (only needed for Play
 Store distribution, not sideloading).
+
+## Push notification credentials (2026-09-02)
+
+Set up ahead of the push feature itself (see the retention plan), so both
+transports are ready before any code calls `getExpoPushTokenAsync()`.
+
+Firebase is **not** a backend here and no data goes to it — Supabase remains
+the entire backend. FCM is simply the only way to wake an Android app;
+Google Play Services owns that socket and there is no alternative. APNs is
+the iOS equivalent. Expo's push service sits in front of both so one token
+row works on either platform, which avoids minting OAuth tokens from a
+service-account JWT inside Postgres on every send.
+
+- **Android/FCM:** Firebase project `while-you-sleep` (Spark/free), one
+  Android app registered as `com.whileyousleep.app`. Its
+  `google-services.json` is **committed** — it is not a secret. The API key
+  in it is package-restricted and already ships inside every APK, so
+  gitignoring it would protect nothing while forcing either an EAS file
+  secret or a conversion of `app.json` to `app.config.js` to read it from an
+  env var. Referenced via `android.googleServicesFile` in `app.json`.
+- **The actual secret** is the FCM V1 service-account key (Firebase console →
+  Project settings → Service accounts → Generate new private key). It was
+  uploaded to EAS via `eas credentials` and lives on Expo's servers only —
+  never in the repo. The local copy was moved to `~/keys/`.
+- **iOS/APNs:** set up through `eas credentials`, which generates the `.p8`
+  key inside the Apple account and uploads it to Expo automatically —
+  nothing to download or store.
+- The repo has no `android/` or `ios/` directory (managed workflow), so the
+  Firebase console's "Add Firebase SDK" gradle steps are inapplicable in
+  either Kotlin DSL or Groovy — Expo's config plugin generates all of it at
+  build time and any hand edit would be wiped.
+- The existing `wys-test` AVD (`android-34/google_apis/arm64-v8a`) is fine
+  for FCM: `google_apis` bundles Google Play Services. Only a plain AOSP
+  (`default`) image would fail.
 
 ## Daily Question feature (video daily question, merged with the clip)
 

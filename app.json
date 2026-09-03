@@ -18,11 +18,13 @@
       "infoPlist": {
         "NSCameraUsageDescription": "While You Sleep needs camera access so you can record your daily clip for your partner.",
         "NSMicrophoneUsageDescription": "While You Sleep needs microphone access so your daily clips can include sound.",
-        "NSPhotoLibraryUsageDescription": "Allow While You Sleep to save your recorded clips."
+        "NSPhotoLibraryUsageDescription": "Allow While You Sleep to save your recorded clips.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.whileyousleep.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-1024.png",
         "backgroundColor": "#F5F3FA"
