@@ -1138,12 +1138,41 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Android dev client): the clip opens and plays with its caption above the
   date. The list also renders the partner's caption, which additionally shows
   reveal-gating passing on a day both people posted
+- **The push arc, end to end on iOS (2026-09-03):** a clip inserted as the
+  partner fires `notify_partner_of_clip()`, pg_net's POST to `exp.host`
+  returns `{"status":"ok"}`, the notification lands on the iPhone, and
+  tapping it opens `RecordScreen` — which also closes the `partner-posted`
+  branch of `routeForNotification`, left unverified when PR #72 merged. The
+  trap string planted in the test clip's `caption_text` was **absent** from
+  the notification, so the reveal gate holds on the lock screen. Note a 200
+  in `net._http_response` is Expo *accepting* the message, not APNs
+  delivering it; those fail separately
+- The iOS push credential chain (2026-09-03): a real iPhone
+  registered with `eas device:create`, an `eas build --profile development
+  --platform ios` carrying the `aps-environment` entitlement, and the first
+  `push_tokens` row written from the device (`platform = ios`). Proves Apple
+  enrollment, the EAS-generated APNs key, the ad-hoc provisioning profile,
+  the device UDID, and `extra.eas.projectId` all resolve. Install has to go
+  through the EAS **build page** on the phone — a raw `.ipa` URL won't
+  install, since iOS ad-hoc distribution needs the `itms-services` manifest
+  that page wraps it in
 - The Android `development` (dev client) build itself: installs over the
   preview build in place, discovers Metro on its own and runs the working
   tree's JS — confirmed by seeing an unreleased change (the "What you said"
   list) render on a build made from a commit that predates it
 
 **Not verified:**
+- The Android half of push: FCM is configured (Firebase project
+  `while-you-sleep`, `googleServicesFile` in `app.json`, FCM V1 key uploaded
+  to EAS) but no Android build has been made since, so no Android push token
+  has ever been issued
+- The real record → upload → trigger path. The trigger is confirmed on a
+  synthetic `insert`, not on a clip recorded through `RecordScreen`
+- That a same-day re-record does **not** re-notify. The trigger is
+  `after insert` and `useUploadClip` upserts, so a repeat is an UPDATE —
+  correct by construction, never exercised
+- Multi-device fan-out: only one token has ever existed, so the
+  `to: [array]` path has never sent to more than one
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
   2026-09-02). Reaching that phase needs a day you haven't posted on, and it
   was not part of the caption pass that confirmed the four surfaces above.

@@ -978,3 +978,97 @@ Two emulator traps hit for real, both worth not repeating:
 Still unverified from this session's commits: the `review` phase's
 `insets.top + 64` close-button fix, which needs a day the account hasn't posted
 on to reach.
+
+2026-09-03: **the iOS push credential chain works end to end** — the first
+`push_tokens` row landed from a real iPhone:
+`platform = ios`, `token = ExponentPushToken[qlfsC2LxByBm…]`.
+
+That single row is the payoff for a chain that had never been exercised
+before, and every link in it was a separate thing that could have silently
+failed: Apple Developer Program enrollment (cleared 2026-09-02), the APNs
+`.p8` key EAS generated inside the Apple account, the ad-hoc provisioning
+profile, the `aps-environment` entitlement, the device UDID being in that
+profile, and `extra.eas.projectId` resolving so `getExpoPushTokenAsync`
+knows which project's credentials to mint against.
+
+Sequence that produced it, in case it needs repeating:
+
+- `eas device:create` → scanned the QR on the iPhone → installed the config
+  profile. The success page is a green check on an otherwise near-blank
+  page; `eas device:list --apple-team-id MNVC2KTN7C` confirmed the UDID
+  registered.
+- `eas build --profile development --platform ios`. The two lines that
+  matter in its output are `✔ Synced capabilities: Enabled: Push
+  Notifications` and `Provisioned devices - iPhone (UDID: …)`. Without the
+  first, the binary silently never receives push.
+- The build wrote `ITSAppUsesNonExemptEncryption: false` into `app.json`
+  itself — an export-compliance declaration, not something to revert.
+- Installed by opening the **build page** on the iPhone, not the `.ipa`
+  URL. A raw `.ipa` won't install; the page wraps it in the
+  `itms-services` manifest iOS requires for ad-hoc distribution.
+- Launched against Metro (`npx expo start --dev-client`), granted the
+  notification prompt, and the row appeared.
+
+Notably this build was made from a commit that predates
+`registerPushToken` entirely — the dev client served it from Metro, the
+same property already recorded for the Android dev client.
+
+Firebase/FCM was set up the same day for the Android half (project
+`while-you-sleep`, Spark plan, app registered as `com.whileyousleep.app`).
+Not yet exercised — no Android build has been made since
+`googleServicesFile` was added, so the Android token path is still
+unproven.
+
+Still unverified in the push arc: notification tap routing on a real tap
+(the logic has unit coverage; nothing sends a `partner-posted` payload
+until the clip trigger is applied), and the trigger itself.
+
+2026-09-03 (follow-up): **the push arc works end to end on iOS.**
+`notify_partner_of_clip()` and its trigger applied to the live project
+(`tgenabled = 'O'`), a clip inserted as the partner, and the notification
+arrived on the iPhone — tapping it opened `RecordScreen`.
+
+That single tap closes three things at once: the trigger fires on INSERT and
+resolves the recipient as the half of the pair that didn't send; pg_net's
+POST to `exp.host` returned `{"data":[{"status":"ok","id":…}]}`; and
+`routeForNotification`'s `partner-posted` branch routes correctly on a real
+payload, which was explicitly left unverified when PR #72 merged.
+
+Tested with a **synthetic insert**, not a recorded clip:
+
+```sql
+insert into clips (pair_id, sender_id, storage_path, recorded_for_date, caption_text)
+values ('<pair>', '<partner>', 'trigger-test',
+        (select coalesce(min(recorded_for_date), current_date) - 1 from clips),
+        'THIS TEXT MUST NOT APPEAR IN THE PUSH');
+```
+
+The date subquery matters: `clips` is unique on
+`(pair_id, sender_id, recorded_for_date)`, and both today and yesterday were
+already taken, so a hardcoded date collides. One day before the oldest clip
+can't. `storage_path` is fake, so deleting the row afterwards orphans
+nothing.
+
+The caption string is a deliberate trap, and **it did not appear in the
+notification** — confirmed on the device, not just by reading the SQL. The
+push body is fixed copy and must never carry `caption_text`, since the
+recipient may not have posted that day and `clips_select_pair_members` would
+be hiding that row from them; a lock-screen preview would walk straight past
+`has_own_clip()`. Anything that later makes this body dynamic has to re-run
+this check.
+
+Worth knowing for future debugging: a `200` in `net._http_response` is
+**Expo accepting** the message, not APNs delivering it. Those are separate
+failures — an `ok` with no notification points at Focus/Do Not Disturb or the
+app's iOS notification settings, not at the trigger.
+
+Two incidental findings:
+
+- The iPad can't run the dev client: its UDID isn't in the provisioning
+  profile, and `app.json` has no `scheme`, so the dev-client deep link has
+  nothing to open. Registering it means another `eas device:create` plus a
+  full rebuild — not worth it for a second test account, since a partner
+  device only needs to insert a `clips` row and never needs push at all.
+- Recording on the iPad (Expo Go) raised "Recording failed", though a row
+  still landed for that day. Not diagnosed — the alert's second line was not
+  captured. Unrelated to the push arc.

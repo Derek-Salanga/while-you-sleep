@@ -4,7 +4,11 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import { usePairing } from '@/lib/PairingContext';
-import { ensureDailyRemindersScheduled } from '@/lib/notifications';
+import {
+  ensureDailyRemindersScheduled,
+  registerPushToken,
+} from '@/lib/notifications';
+import { routeForNotification } from '@/lib/notificationRouting';
 import { navigationRef } from './navigationRef';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme/colors';
@@ -24,29 +28,40 @@ export default function RootNavigator() {
   // yet, so route to Pairing until both sides are set.
   const isPaired = !!pair?.user_b;
 
-  // Reminders reference "your partner", so only schedule them once a
-  // pairing actually exists. Re-running this is cheap — it replaces the
-  // existing scheduled requests by identifier rather than duplicating.
+  // Both of these reference "your partner", so neither runs until a pairing
+  // actually exists. Re-running is cheap: reminders replace by identifier
+  // rather than duplicating, and the token upserts on (user_id, token).
+  //
+  // Sequenced, not parallel — ensureDailyRemindersScheduled is what prompts
+  // for notification permission, and registerPushToken bails without it, so
+  // firing them together would skip token registration on a first launch.
+  const userId = session?.user?.id;
   useEffect(() => {
-    if (isPaired) {
-      ensureDailyRemindersScheduled().catch((err) =>
-        console.error('Failed to schedule daily reminders:', err)
-      );
-    }
-  }, [isPaired]);
+    if (!isPaired || !userId) return;
+    ensureDailyRemindersScheduled()
+      .then(() => registerPushToken(userId))
+      .catch((err) => console.error('Notification setup failed:', err));
+  }, [isPaired, userId]);
 
-  // Tapping the daily reminder should land you on the Home tab, not
-  // wherever the app happened to be left open — otherwise resuming from
-  // a backgrounded Record screen reads as "the app dropped me straight
-  // into recording" rather than a deliberate entry point.
+  // Where a tap lands depends on which notification it was. The daily
+  // reminder opens Home — resuming onto whatever screen the app was left on
+  // reads as "the app dropped me straight into recording" rather than a
+  // deliberate entry point — while a partner-posted push opens Record,
+  // since that's the screen that resolves the reveal.
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      () => {
+      (response) => {
         // No try/catch needed: react-navigation's navigate() doesn't
         // throw for an unmatched route — if the user isn't paired yet
-        // (no "MainTabs" route mounted), it just no-ops, and the normal
-        // Auth -> Pairing -> MainTabs gating already applies regardless.
-        if (navigationRef.isReady()) {
+        // (neither "MainTabs" nor "Record" is mounted), it just no-ops, and
+        // the normal Auth -> Pairing -> MainTabs gating still applies.
+        if (!navigationRef.isReady()) return;
+        if (
+          routeForNotification(response.notification.request.content.data) ===
+          'Record'
+        ) {
+          navigationRef.navigate('Record');
+        } else {
           navigationRef.navigate('MainTabs', { screen: 'Home' });
         }
       }
