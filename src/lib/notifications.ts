@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { utcTimeToLocal } from './date';
 import { NotificationType } from './notificationRouting';
+import { supabase } from './supabase';
 
 // 8:00 PM UTC, not local -- deliberately pinned to the same clock the
 // pair's shared day boundary uses (see "Two day boundaries" in
@@ -108,4 +110,42 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
       })
     )
   );
+}
+
+// Records this device's Expo push token so the server can reach it when the
+// partner posts. Safe to call on every launch: it upserts on
+// (user_id, token), which just refreshes updated_at for a device already
+// known -- and that refresh is what the stale-row prune keys off, so a
+// device that stops launching eventually drops out on its own.
+//
+// A rotated token inserts a second row rather than replacing the old one.
+// That's deliberate: there's no way to tell locally which of your rows the
+// rotation retired, and sending to a dead token is harmless.
+export async function registerPushToken(userId: string): Promise<void> {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return;
+
+  let token: string;
+  try {
+    // projectId is required here -- without it Expo can't tell which
+    // project's credentials to mint against. It comes from `eas init`.
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as
+      string | undefined;
+    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+  } catch (err) {
+    // Expected wherever the app isn't a real build with push credentials:
+    // Expo Go (remote push was removed from it in SDK 53) and the iOS
+    // Simulator, which has no APNs connection at all. Not an error worth
+    // surfacing -- the rest of the app is unaffected.
+    console.warn('Push token unavailable on this build:', err);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('push_tokens')
+    .upsert(
+      { user_id: userId, token, platform: Platform.OS },
+      { onConflict: 'user_id,token' }
+    );
+  if (error) throw error;
 }
