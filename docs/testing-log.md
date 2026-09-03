@@ -1048,10 +1048,13 @@ already taken, so a hardcoded date collides. One day before the oldest clip
 can't. `storage_path` is fake, so deleting the row afterwards orphans
 nothing.
 
-The caption string is a deliberate trap — the push body is fixed copy and
-must never carry `caption_text`, since the recipient may not have posted that
-day and `clips_select_pair_members` would be hiding that row from them. A
-lock-screen preview would walk straight past `has_own_clip()`.
+The caption string is a deliberate trap, and **it did not appear in the
+notification** — confirmed on the device, not just by reading the SQL. The
+push body is fixed copy and must never carry `caption_text`, since the
+recipient may not have posted that day and `clips_select_pair_members` would
+be hiding that row from them; a lock-screen preview would walk straight past
+`has_own_clip()`. Anything that later makes this body dynamic has to re-run
+this check.
 
 Worth knowing for future debugging: a `200` in `net._http_response` is
 **Expo accepting** the message, not APNs delivering it. Those are separate
