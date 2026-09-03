@@ -1100,12 +1100,30 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Android dev client): the clip opens and plays with its caption above the
   date. The list also renders the partner's caption, which additionally shows
   reveal-gating passing on a day both people posted
+- The iOS push credential chain, end to end (2026-09-03): a real iPhone
+  registered with `eas device:create`, an `eas build --profile development
+  --platform ios` carrying the `aps-environment` entitlement, and the first
+  `push_tokens` row written from the device (`platform = ios`). Proves Apple
+  enrollment, the EAS-generated APNs key, the ad-hoc provisioning profile,
+  the device UDID, and `extra.eas.projectId` all resolve. Install has to go
+  through the EAS **build page** on the phone — a raw `.ipa` URL won't
+  install, since iOS ad-hoc distribution needs the `itms-services` manifest
+  that page wraps it in
 - The Android `development` (dev client) build itself: installs over the
   preview build in place, discovers Metro on its own and runs the working
   tree's JS — confirmed by seeing an unreleased change (the "What you said"
   list) render on a build made from a commit that predates it
 
 **Not verified:**
+- The Android half of push: FCM is configured (Firebase project
+  `while-you-sleep`, `googleServicesFile` in `app.json`, FCM V1 key uploaded
+  to EAS) but no Android build has been made since, so no Android push token
+  has ever been issued
+- Notification tap routing on an actual tap. `routeForNotification` has unit
+  coverage under all three timezones, but nothing sends a `partner-posted`
+  payload until the clip trigger is applied to the live project — send one by
+  hand from expo.dev/notifications to close this
+- `notify_partner_of_clip()` — written, not yet applied or fired
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
   2026-09-02). Reaching that phase needs a day you haven't posted on, and it
   was not part of the caption pass that confirmed the four surfaces above.

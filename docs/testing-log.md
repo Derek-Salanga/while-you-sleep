@@ -978,3 +978,47 @@ Two emulator traps hit for real, both worth not repeating:
 Still unverified from this session's commits: the `review` phase's
 `insets.top + 64` close-button fix, which needs a day the account hasn't posted
 on to reach.
+
+2026-09-03: **the iOS push credential chain works end to end** — the first
+`push_tokens` row landed from a real iPhone:
+`platform = ios`, `token = ExponentPushToken[qlfsC2LxByBm…]`.
+
+That single row is the payoff for a chain that had never been exercised
+before, and every link in it was a separate thing that could have silently
+failed: Apple Developer Program enrollment (cleared 2026-09-02), the APNs
+`.p8` key EAS generated inside the Apple account, the ad-hoc provisioning
+profile, the `aps-environment` entitlement, the device UDID being in that
+profile, and `extra.eas.projectId` resolving so `getExpoPushTokenAsync`
+knows which project's credentials to mint against.
+
+Sequence that produced it, in case it needs repeating:
+
+- `eas device:create` → scanned the QR on the iPhone → installed the config
+  profile. The success page is a green check on an otherwise near-blank
+  page; `eas device:list --apple-team-id MNVC2KTN7C` confirmed the UDID
+  registered.
+- `eas build --profile development --platform ios`. The two lines that
+  matter in its output are `✔ Synced capabilities: Enabled: Push
+  Notifications` and `Provisioned devices - iPhone (UDID: …)`. Without the
+  first, the binary silently never receives push.
+- The build wrote `ITSAppUsesNonExemptEncryption: false` into `app.json`
+  itself — an export-compliance declaration, not something to revert.
+- Installed by opening the **build page** on the iPhone, not the `.ipa`
+  URL. A raw `.ipa` won't install; the page wraps it in the
+  `itms-services` manifest iOS requires for ad-hoc distribution.
+- Launched against Metro (`npx expo start --dev-client`), granted the
+  notification prompt, and the row appeared.
+
+Notably this build was made from a commit that predates
+`registerPushToken` entirely — the dev client served it from Metro, the
+same property already recorded for the Android dev client.
+
+Firebase/FCM was set up the same day for the Android half (project
+`while-you-sleep`, Spark plan, app registered as `com.whileyousleep.app`).
+Not yet exercised — no Android build has been made since
+`googleServicesFile` was added, so the Android token path is still
+unproven.
+
+Still unverified in the push arc: notification tap routing on a real tap
+(the logic has unit coverage; nothing sends a `partner-posted` payload
+until the clip trigger is applied), and the trigger itself.

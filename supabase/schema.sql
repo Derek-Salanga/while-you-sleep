@@ -545,6 +545,51 @@ create policy "partner_nicknames_delete_own" on partner_nicknames
 -- If it ever returns 1, a select policy has been added that shouldn't be.
 --   select count(*) from partner_nicknames where owner_id <> auth.uid();
 
+-- Expo push tokens, one row per device. Written by registerPushToken()
+-- on every launch; read only by the server-side trigger that sends a push
+-- when a partner posts.
+--
+-- WHY THIS ISN'T A COLUMN ON `profiles`, same reasoning as
+-- partner_nicknames above: profiles_select_pair_partner makes every column
+-- on that table readable by your partner, and column-level grants can't
+-- express "only on your own row". A push token is a device address --
+-- anyone holding it plus the Expo project id can send arbitrary
+-- notifications to that device. Low stakes inside a pair, but there is no
+-- reason to expose it, and the sending trigger is security definer so it
+-- never needed a partner-read policy in the first place.
+--
+-- Keyed on (user_id, token) rather than user_id alone so one account can
+-- hold several devices; the trigger sends to all of them, and Expo's push
+-- API takes an array. A rotated token simply inserts another row -- see
+-- the stale-row prune in notify_partner_of_clip() for how dead ones leave.
+create table if not exists push_tokens (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  token text not null,
+  platform text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, token)
+);
+
+alter table push_tokens enable row level security;
+
+-- Deliberately no partner-read policy, exactly like partner_nicknames.
+create policy "push_tokens_select_own" on push_tokens
+  for select using (auth.uid() = user_id);
+
+-- insert + update because the client upserts on (user_id, token) every
+-- launch to refresh updated_at; delete so a user can drop their own rows.
+create policy "push_tokens_insert_own" on push_tokens
+  for insert with check (auth.uid() = user_id);
+create policy "push_tokens_update_own" on push_tokens
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+create policy "push_tokens_delete_own" on push_tokens
+  for delete using (auth.uid() = user_id);
+
+-- Verify the privacy claim rather than trusting it, same as
+-- partner_nicknames. Signed in as the partner, this must return 0.
+--   select count(*) from push_tokens where user_id <> auth.uid();
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);
