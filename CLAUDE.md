@@ -1100,7 +1100,16 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Android dev client): the clip opens and plays with its caption above the
   date. The list also renders the partner's caption, which additionally shows
   reveal-gating passing on a day both people posted
-- The iOS push credential chain, end to end (2026-09-03): a real iPhone
+- **The push arc, end to end on iOS (2026-09-03):** a clip inserted as the
+  partner fires `notify_partner_of_clip()`, pg_net's POST to `exp.host`
+  returns `{"status":"ok"}`, the notification lands on the iPhone, and
+  tapping it opens `RecordScreen` — which also closes the `partner-posted`
+  branch of `routeForNotification`, left unverified when PR #72 merged. The
+  trap string planted in the test clip's `caption_text` was **absent** from
+  the notification, so the reveal gate holds on the lock screen. Note a 200
+  in `net._http_response` is Expo *accepting* the message, not APNs
+  delivering it; those fail separately
+- The iOS push credential chain (2026-09-03): a real iPhone
   registered with `eas device:create`, an `eas build --profile development
   --platform ios` carrying the `aps-environment` entitlement, and the first
   `push_tokens` row written from the device (`platform = ios`). Proves Apple
@@ -1119,11 +1128,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `while-you-sleep`, `googleServicesFile` in `app.json`, FCM V1 key uploaded
   to EAS) but no Android build has been made since, so no Android push token
   has ever been issued
-- Notification tap routing on an actual tap. `routeForNotification` has unit
-  coverage under all three timezones, but nothing sends a `partner-posted`
-  payload until the clip trigger is applied to the live project — send one by
-  hand from expo.dev/notifications to close this
-- `notify_partner_of_clip()` — written, not yet applied or fired
+- The real record → upload → trigger path. The trigger is confirmed on a
+  synthetic `insert`, not on a clip recorded through `RecordScreen`
+- That a same-day re-record does **not** re-notify. The trigger is
+  `after insert` and `useUploadClip` upserts, so a repeat is an UPDATE —
+  correct by construction, never exercised
+- Multi-device fan-out: only one token has ever existed, so the
+  `to: [array]` path has never sent to more than one
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
   2026-09-02). Reaching that phase needs a day you haven't posted on, and it
   was not part of the caption pass that confirmed the four surfaces above.
