@@ -978,3 +978,50 @@ Two emulator traps hit for real, both worth not repeating:
 Still unverified from this session's commits: the `review` phase's
 `insets.top + 64` close-button fix, which needs a day the account hasn't posted
 on to reach.
+
+2026-09-03 (follow-up): **the push arc works end to end on iOS.**
+`notify_partner_of_clip()` and its trigger applied to the live project
+(`tgenabled = 'O'`), a clip inserted as the partner, and the notification
+arrived on the iPhone — tapping it opened `RecordScreen`.
+
+That single tap closes three things at once: the trigger fires on INSERT and
+resolves the recipient as the half of the pair that didn't send; pg_net's
+POST to `exp.host` returned `{"data":[{"status":"ok","id":…}]}`; and
+`routeForNotification`'s `partner-posted` branch routes correctly on a real
+payload, which was explicitly left unverified when PR #72 merged.
+
+Tested with a **synthetic insert**, not a recorded clip:
+
+```sql
+insert into clips (pair_id, sender_id, storage_path, recorded_for_date, caption_text)
+values ('<pair>', '<partner>', 'trigger-test',
+        (select coalesce(min(recorded_for_date), current_date) - 1 from clips),
+        'THIS TEXT MUST NOT APPEAR IN THE PUSH');
+```
+
+The date subquery matters: `clips` is unique on
+`(pair_id, sender_id, recorded_for_date)`, and both today and yesterday were
+already taken, so a hardcoded date collides. One day before the oldest clip
+can't. `storage_path` is fake, so deleting the row afterwards orphans
+nothing.
+
+The caption string is a deliberate trap — the push body is fixed copy and
+must never carry `caption_text`, since the recipient may not have posted that
+day and `clips_select_pair_members` would be hiding that row from them. A
+lock-screen preview would walk straight past `has_own_clip()`.
+
+Worth knowing for future debugging: a `200` in `net._http_response` is
+**Expo accepting** the message, not APNs delivering it. Those are separate
+failures — an `ok` with no notification points at Focus/Do Not Disturb or the
+app's iOS notification settings, not at the trigger.
+
+Two incidental findings:
+
+- The iPad can't run the dev client: its UDID isn't in the provisioning
+  profile, and `app.json` has no `scheme`, so the dev-client deep link has
+  nothing to open. Registering it means another `eas device:create` plus a
+  full rebuild — not worth it for a second test account, since a partner
+  device only needs to insert a `clips` row and never needs push at all.
+- Recording on the iPad (Expo Go) raised "Recording failed", though a row
+  still landed for that day. Not diagnosed — the alert's second line was not
+  captured. Unrelated to the push arc.
