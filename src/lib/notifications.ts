@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { utcTimeToLocal } from './date';
+import { NotificationType } from './notificationRouting';
 
 // 8:00 PM UTC, not local -- deliberately pinned to the same clock the
 // pair's shared day boundary uses (see "Two day boundaries" in
@@ -91,7 +92,13 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
     REMINDERS.map((reminder) =>
       Notifications.scheduleNotificationAsync({
         identifier: reminder.identifier,
-        content: { title: reminder.title, body: reminder.body },
+        content: {
+          title: reminder.title,
+          body: reminder.body,
+          // Read back by RootNavigator's response listener to decide where
+          // a tap lands -- see routeForNotification.
+          data: { type: 'daily-reminder' satisfies NotificationType },
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour,
