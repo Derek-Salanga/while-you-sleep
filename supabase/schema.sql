@@ -590,6 +590,118 @@ create policy "push_tokens_delete_own" on push_tokens
 -- partner_nicknames. Signed in as the partner, this must return 0.
 --   select count(*) from push_tokens where user_id <> auth.uid();
 
+-- Sends the partner a push when a clip lands. This is the app's only
+-- re-open trigger: the daily local reminder nudges you to post, but until
+-- now nothing told you your partner had.
+--
+-- WHY A TRIGGER + pg_net RATHER THAN AN EDGE FUNCTION. Same pattern as
+-- cleanup_orphaned_clip_files and delete_own_account -- no extra deploy
+-- surface, no second secrets store, and the payload is one JSON POST.
+-- Move to an Edge Function only when the ticket response actually needs
+-- reading (see the token prune below), not for tidiness.
+--
+-- WHY NOT FROM THE CLIENT. It would have to read the partner's token,
+-- which means a partner-read policy on push_tokens, which is the one thing
+-- that table is shaped to avoid.
+--
+-- pg_net is fire-and-forget, so a dropped push is simply lost -- unlike
+-- cleanup_orphaned_clip_files, this is not self-healing. Accepted: the
+-- failure mode is "you find out when you next open the app", which is
+-- exactly today's behaviour, and the daily local reminder is an
+-- independent backstop. Responses land in net._http_response (pruned
+-- after 6h); nothing reads them.
+--
+-- AFTER INSERT ONLY, deliberately. useUploadClip upserts on
+-- (pair_id, sender_id, recorded_for_date), so a same-day re-record fires
+-- an UPDATE -- which must not re-notify.
+create or replace function notify_partner_of_clip() returns trigger
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  recipient_id uuid;
+  recipient_tokens text[];
+  sender_name text;
+begin
+  -- Whichever half of the pair didn't send it.
+  select case when p.user_a = new.sender_id then p.user_b else p.user_a end
+    into recipient_id
+    from pairs p
+   where p.id = new.pair_id;
+
+  -- Null while an invite is still unclaimed: there's no partner yet.
+  if recipient_id is null then
+    return new;
+  end if;
+
+  select array_agg(t.token) into recipient_tokens
+    from push_tokens t
+   where t.user_id = recipient_id;
+
+  -- No registered device -- e.g. they've only ever run this in Expo Go, or
+  -- declined the notification permission.
+  if recipient_tokens is null then
+    return new;
+  end if;
+
+  -- Same resolution order as usePartnerName() in the client: the
+  -- recipient's own private nickname for the sender wins, then the
+  -- sender's self-set display_name. These must not drift apart -- a push
+  -- that names them differently from the app reads as a different person.
+  select coalesce(
+           (select n.nickname from partner_nicknames n
+             where n.owner_id = recipient_id),
+           (select pr.display_name from profiles pr
+             where pr.id = new.sender_id),
+           'Your partner'
+         )
+    into sender_name;
+
+  perform net.http_post(
+    url := 'https://exp.host/--/api/v2/push/send',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    -- No Authorization header: Expo's push API is unauthenticated unless
+    -- the account turns on Enhanced Security, which would need an access
+    -- token out of Vault the way the service_role key already is.
+    body := jsonb_build_object(
+      'to', to_jsonb(recipient_tokens),
+      'title', sender_name || ' posted',
+      -- DELIBERATELY NOT new.caption_text. The recipient may not have
+      -- posted yet, in which case clips_select_pair_members hides this row
+      -- from them entirely -- putting its text on their lock screen would
+      -- walk straight past has_own_clip() and defeat the reveal.
+      'body', 'Tap to see today''s answer',
+      'data', jsonb_build_object(
+        'type', 'partner-posted',
+        'date', new.recorded_for_date
+      )
+    )
+  );
+
+  -- ponytail: prune dead tokens by age, not by reading Expo's tickets.
+  -- pg_net is fire-and-forget so the DeviceNotRegistered receipt is
+  -- unreachable from here; a live device re-upserts updated_at on every
+  -- launch, so 60 days without one means the install is gone. Read the
+  -- receipts instead -- which means moving this to an Edge Function -- only
+  -- if dead tokens ever actually cost something.
+  delete from push_tokens where updated_at < now() - interval '60 days';
+
+  return new;
+end;
+$$;
+
+-- No revoke needed here, unlike cleanup_orphaned_clip_files: Postgres
+-- refuses to call a trigger function directly ("trigger functions can only
+-- be called as triggers"), so the default grant to public is inert.
+
+-- drop-then-create rather than `if not exists`, which create trigger has
+-- no form of -- this keeps the file re-runnable.
+drop trigger if exists clips_notify_partner on clips;
+create trigger clips_notify_partner
+  after insert on clips
+  for each row execute function notify_partner_of_clip();
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);
