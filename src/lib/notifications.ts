@@ -149,3 +149,40 @@ export async function registerPushToken(userId: string): Promise<void> {
     );
   if (error) throw error;
 }
+
+// Drops this device's token for the signing-out user, so their partner's
+// pushes stop reaching a phone they no longer own the session on.
+//
+// Without this, every account ever signed into a device keeps a live row
+// pointing at it -- sign out, hand the phone over, someone else signs in,
+// and the previous user's partner still notifies that device by name. Found
+// in real data: six rows across five user_ids for two physical devices,
+// every one of them still live.
+//
+// Scoped to (this user, this token) rather than every row for the token:
+// push_tokens_delete_own only permits `auth.uid() = user_id` anyway, and a
+// shared device's *other* accounts are not this session's business.
+//
+// Never throws. Sign-out has to succeed even if this doesn't -- being unable
+// to reach Supabase is not a reason to strand someone in a session they
+// asked to leave. A row left behind is swept by the 60-day prune.
+export async function unregisterPushToken(userId: string): Promise<void> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as
+      string | undefined;
+    const { data: token } = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+
+    await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('user_id', userId)
+      .eq('token', token);
+  } catch (err) {
+    console.warn('Could not drop push token on sign out:', err);
+  }
+}

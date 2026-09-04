@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { unregisterPushToken } from '@/lib/notifications';
 import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { useDeleteAccount } from '@/hooks/mutations';
@@ -20,7 +21,7 @@ import Screen from '@/components/ui/Screen';
 // the app, so it gets one here. Alert rather than a custom modal: the rest
 // of this codebase already confirms with Alert (see handleSaveAnniversary),
 // and Modal has a long crash history in this repo (docs/datepicker-debugging.md).
-function confirmSignOut() {
+function confirmSignOut(userId: string | undefined) {
   Alert.alert('Sign out?', "You'll need your email code to get back in.", [
     { text: 'Cancel', style: 'cancel' },
     {
@@ -29,6 +30,9 @@ function confirmSignOut() {
       // Awaited so a failure surfaces instead of silently leaving the user
       // signed in with a screen that looks like it worked.
       onPress: async () => {
+        // Before signOut, not after: deleting the row needs the session's
+        // JWT, since push_tokens_delete_own is scoped to auth.uid().
+        if (userId) await unregisterPushToken(userId);
         const { error } = await supabase.auth.signOut();
         if (error) Alert.alert("Couldn't sign out", error.message);
       },
@@ -101,7 +105,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
 
       <Pressable
         style={({ pressed }) => [styles.dangerRow, pressed && styles.pressed]}
-        onPress={confirmSignOut}
+        onPress={() => confirmSignOut(session?.user.id)}
       >
         <Text style={styles.dangerText}>Sign out</Text>
       </Pressable>
