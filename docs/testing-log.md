@@ -1072,3 +1072,54 @@ Two incidental findings:
 - Recording on the iPad (Expo Go) raised "Recording failed", though a row
   still landed for that day. Not diagnosed — the alert's second line was not
   captured. Unrelated to the push arc.
+
+2026-09-04: **the Android push token path works** — `push_tokens` now holds a
+row with `platform = 'android'` alongside the iOS one, both under the same
+`user_id`. That closes the FCM half of the push arc and, incidentally,
+creates the first two-device account the trigger's `to: [array]` fan-out has
+ever had to serve.
+
+Getting there cost an hour to **the quick-boot snapshot trap for the second
+time** (first hit 2026-09-02). Worth writing down properly, because it
+disguises itself as an application bug:
+
+The emulator silently restored a 09-01 snapshot, reverting the dev client
+install. Everything downstream was a symptom of running the wrong binary:
+`getExpoPushTokenAsync` threw, `registerPushToken` hit its catch and returned,
+and no row appeared — which reads exactly like a broken FCM configuration.
+
+The give-away in logcat was
+`W FirebaseApp: Default FirebaseApp failed to initialize because no default
+options were found`, which is correct behaviour for an APK built before
+`googleServicesFile` was added, and says nothing at all about whether the
+current config is right.
+
+**The fast diagnostic is the APK, not the logs:**
+
+```bash
+adb shell dumpsys package com.whileyousleep.app | grep lastUpdateTime
+P=$(adb shell pm path com.whileyousleep.app | sed 's/package://' | tr -d '\r')
+adb shell ls -l "$P" | awk '{print $5}'
+```
+
+The dev client is ~221 MB and the old `preview` APK ~118 MB, so the size alone
+settles it in one command. A reverted `lastUpdateTime` confirms it.
+
+Two things that misled the debugging and are worth avoiding next time:
+
+- **`adb logcat` keeps a buffer across boots.** Firebase failures dated 09-01
+  were read as current. Always `adb logcat -c` before reproducing, then
+  relaunch — and check the PID against `adb shell pidof <package>`, since
+  system processes emit `FirebaseApp` warnings of their own.
+- **Verifying the install immediately isn't enough.** `lastUpdateTime` read
+  correctly right after `adb install -r`, then reverted later when the
+  snapshot loaded. Re-check it after any emulator restart, before trusting
+  anything observed on the device.
+
+`adb reverse tcp:8081 tcp:8081` also cleared itself repeatedly — after killing
+Metro, and again after the emulator restarted. If the dev client can't find
+the server, re-check `adb reverse --list` before assuming anything worse.
+
+Starting the emulator as
+`emulator -avd wys-test -no-snapshot-load` avoids the whole class of problem;
+a cold boot reads the real disk image, and the install survived it intact.
