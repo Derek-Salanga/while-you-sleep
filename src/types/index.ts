@@ -52,6 +52,16 @@ export interface PartnerNickname {
   updated_at: string;
 }
 
+// One emoji per person per clip -- with two people in a pair, "the
+// reactions on a clip" is at most one from each side, so there is nothing
+// to count or aggregate. See clip_reactions in supabase/schema.sql.
+export interface ClipReaction {
+  clip_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   AccountSettings: undefined;
