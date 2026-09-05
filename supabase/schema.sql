@@ -590,6 +590,82 @@ create policy "push_tokens_delete_own" on push_tokens
 -- partner_nicknames. Signed in as the partner, this must return 0.
 --   select count(*) from push_tokens where user_id <> auth.uid();
 
+-- Reactions: one emoji per person per clip. Posting was one-directional
+-- until now -- you record, they watch, nothing comes back.
+--
+-- The primary key IS the design. With exactly two people in a pair, a
+-- "reaction" is just the single emoji the other one left, so there are no
+-- counts to aggregate, no lists to paginate and no ordering to decide.
+-- Tapping a different emoji upserts; tapping the same one deletes. If this
+-- ever became a group product the PK is what would have to change first.
+--
+-- VISIBILITY MIRRORS `clips`, NOT JUST PAIR MEMBERSHIP. The obvious policy
+-- -- "you're in the pair, you can read it" -- leaks the reveal: on a day you
+-- haven't posted, clips_select_pair_members already hides your partner's
+-- clip, but a pair-membership-only reactions policy would still let you see
+-- that they reacted to something, and to what. So the predicate below is
+-- clips_select_pair_members' own, applied through the joined clip row.
+--
+-- has_own_clip() is already security definer, which is what makes this
+-- legal to call from a policy at all -- an inline subquery over clips here
+-- would recurse through clips' own select policy. Same reason that function
+-- exists in the first place.
+create table if not exists clip_reactions (
+  clip_id uuid not null references clips (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 8),
+  created_at timestamptz not null default now(),
+  primary key (clip_id, user_id)
+);
+
+alter table clip_reactions enable row level security;
+
+create policy "clip_reactions_select_visible_clips" on clip_reactions
+  for select using (
+    exists (
+      select 1 from clips c
+      join pairs p on p.id = c.pair_id
+      where c.id = clip_reactions.clip_id
+        and is_pair_member(p, auth.uid())
+        and (
+          c.sender_id = auth.uid()
+          or has_own_clip(c.pair_id, c.recorded_for_date)
+        )
+    )
+  );
+
+-- Writes are your own row only, and only against a clip you can actually
+-- see -- otherwise you could react to a clip the reveal is still hiding
+-- from you, and the row would pop into existence the moment you posted.
+create policy "clip_reactions_insert_own" on clip_reactions
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from clips c
+      join pairs p on p.id = c.pair_id
+      where c.id = clip_reactions.clip_id
+        and is_pair_member(p, auth.uid())
+        and (
+          c.sender_id = auth.uid()
+          or has_own_clip(c.pair_id, c.recorded_for_date)
+        )
+    )
+  );
+
+-- update for changing your mind, delete for taking it back (that's what
+-- tapping the same emoji again does). Both own-row-only; no visibility
+-- re-check needed, since a row can only exist if insert already passed one.
+create policy "clip_reactions_update_own" on clip_reactions
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+create policy "clip_reactions_delete_own" on clip_reactions
+  for delete using (auth.uid() = user_id);
+
+-- Verify the reveal actually holds, rather than trusting the policy reads
+-- right. As the partner, on a date you have NOT posted, with a reaction of
+-- theirs in the table, this must return 0:
+--   select count(*) from clip_reactions;
+
 -- Sends the partner a push when a clip lands. This is the app's only
 -- re-open trigger: the daily local reminder nudges you to post, but until
 -- now nothing told you your partner had.
