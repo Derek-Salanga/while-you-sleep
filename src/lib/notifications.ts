@@ -18,6 +18,11 @@ import { supabase } from './supabase';
 const REMINDER_UTC_HOUR = 20;
 const REMINDER_UTC_MINUTE = 0;
 const ANDROID_CHANNEL_ID = 'daily-reminders';
+// Reaction pushes ask for a lower-importance channel by id (see
+// notify_sender_of_reaction in schema.sql). Android drops or de-prioritizes
+// a notification naming a channel that doesn't exist on the device, so it
+// has to be created here even though nothing local ever posts to it.
+const REACTIONS_CHANNEL_ID = 'reactions';
 
 // Fixed identifier so re-scheduling (e.g. on every app launch) replaces
 // the existing request instead of piling up duplicates.
@@ -65,6 +70,13 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: 'Daily reminders',
       importance: Notifications.AndroidImportance.DEFAULT,
+    });
+    // LOW rather than DEFAULT: a reaction is a warm signal, not a call to
+    // action -- it shows in the shade without a sound or heads-up banner.
+    await Notifications.setNotificationChannelAsync(REACTIONS_CHANNEL_ID, {
+      name: 'Reactions',
+      importance: Notifications.AndroidImportance.LOW,
+      sound: null,
     });
   }
 

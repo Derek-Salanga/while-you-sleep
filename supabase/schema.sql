@@ -778,6 +778,100 @@ create trigger clips_notify_partner
   after insert on clips
   for each row execute function notify_partner_of_clip();
 
+-- Tells you when your partner reacts to something you posted. Same shape as
+-- notify_partner_of_clip above; the differences are all guards.
+--
+-- IS THIS NOISY? No, and the arithmetic settles it rather than taste: one
+-- clip per person per day, and clip_reactions' primary key allows one
+-- reaction per person per clip, so the hard ceiling is one reaction push per
+-- person per day.
+--
+-- The ceiling only holds for *recent* clips, which is what the recency
+-- guard below is for. Monthly Summary's caption list makes a month of old
+-- clips reachable in one scroll, and someone catching up could otherwise
+-- fire thirty pushes in a minute.
+--
+-- Notifies the clip's SENDER, not "the other half of the pair". Those are
+-- the same person in practice, but reacting to your own clip is permitted by
+-- RLS, and self-notifying would be absurd -- hence the explicit guard.
+create or replace function notify_sender_of_reaction() returns trigger
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  recipient_id uuid;
+  clip_date date;
+  recipient_tokens text[];
+  reactor_name text;
+begin
+  select c.sender_id, c.recorded_for_date
+    into recipient_id, clip_date
+    from clips c
+   where c.id = new.clip_id;
+
+  if recipient_id is null or recipient_id = new.user_id then
+    return new;  -- clip gone, or you reacted to your own
+  end if;
+
+  -- Recency guard. Reacting to something from last month is a nice thing to
+  -- find in the app, not a reason to buzz a phone.
+  if clip_date < current_date - 2 then
+    return new;
+  end if;
+
+  select array_agg(t.token) into recipient_tokens
+    from push_tokens t
+   where t.user_id = recipient_id;
+
+  if recipient_tokens is null then
+    return new;
+  end if;
+
+  -- Same resolution order as usePartnerName(), matching
+  -- notify_partner_of_clip: the recipient's private nickname for the
+  -- reactor, then the reactor's own display_name.
+  select coalesce(
+           (select n.nickname from partner_nicknames n
+             where n.owner_id = recipient_id),
+           (select pr.display_name from profiles pr
+             where pr.id = new.user_id),
+           'Your partner'
+         )
+    into reactor_name;
+
+  perform net.http_post(
+    url := 'https://exp.host/--/api/v2/push/send',
+    headers := jsonb_build_object('Content-Type', 'application/json'),
+    body := jsonb_build_object(
+      'to', to_jsonb(recipient_tokens),
+      'title', reactor_name || ' reacted ' || new.emoji,
+      'body', 'To your clip from ' || to_char(clip_date, 'Mon FMDD'),
+      -- Lower-importance channel than partner-posted: a reaction is a warm
+      -- signal, not a call to action. Android needs the channel to exist on
+      -- the device (see notifications.ts); iOS ignores this field.
+      'channelId', 'reactions',
+      'sound', null,
+      -- Routes straight to the clip rather than to Record, unlike
+      -- partner-posted. Safe here: you can only be reacted to on a clip you
+      -- sent, and clips_select_pair_members always shows you your own.
+      'data', jsonb_build_object('type', 'reaction', 'clipId', new.clip_id)
+    )
+  );
+
+  return new;
+end;
+$$;
+
+-- INSERT OR UPDATE, unlike the clips trigger. useSetReaction upserts on the
+-- primary key, so changing your mind is an UPDATE -- and that is a real new
+-- reaction worth hearing about, not a duplicate of one already sent.
+-- Clearing a reaction is a DELETE and is deliberately silent.
+drop trigger if exists clip_reactions_notify_sender on clip_reactions;
+create trigger clip_reactions_notify_sender
+  after insert or update on clip_reactions
+  for each row execute function notify_sender_of_reaction();
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);
