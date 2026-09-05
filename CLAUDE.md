@@ -1138,6 +1138,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Android dev client): the clip opens and plays with its caption above the
   date. The list also renders the partner's caption, which additionally shows
   reveal-gating passing on a day both people posted
+- **Multi-device fan-out (2026-09-04):** one account holding both an iOS and
+  an Android token receives a single clip insert on both devices; one pg_net
+  request, one response, two `"status":"ok"` tickets. `array_agg` collects
+  every token for the recipient and Expo fans out server-side. Ticket count
+  tracking token count is also the cheapest stale-row check — more tickets
+  than real devices means `push_tokens` is carrying dead entries
 - **Android push tokens (2026-09-04):** a `platform = 'android'` row is
   written from the Pixel 7 dev client, closing the FCM half. Requires a build
   made *after* `googleServicesFile` landed — an older APK fails with
@@ -1175,8 +1181,6 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - That a same-day re-record does **not** re-notify. The trigger is
   `after insert` and `useUploadClip` upserts, so a repeat is an UPDATE —
   correct by construction, never exercised
-- Multi-device fan-out: only one token has ever existed, so the
-  `to: [array]` path has never sent to more than one
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
   2026-09-02). Reaching that phase needs a day you haven't posted on, and it
   was not part of the caption pass that confirmed the four surfaces above.

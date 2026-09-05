@@ -1123,3 +1123,22 @@ the server, re-check `adb reverse --list` before assuming anything worse.
 Starting the emulator as
 `emulator -avd wys-test -no-snapshot-load` avoids the whole class of problem;
 a cold boot reads the real disk image, and the install survived it intact.
+
+**Multi-device fan-out confirmed in the same pass.** With one account holding
+both an iOS and an Android token, a single clip insert delivered to both
+devices, and `net._http_response` carried one response with two tickets:
+
+```json
+{"data":[{"status":"ok","id":"01a06f51-183c-…"},{"status":"ok","id":"01a06f51-1801-…"}]}
+```
+
+That is the `to: [array]` path in `notify_partner_of_clip()` working as
+designed — `array_agg` collects every token for the recipient and Expo fans
+out server-side, so one pg_net request covers any number of the recipient's
+devices. It also confirms the ticket count tracks the token count, which is
+the cheapest way to spot a stale row: more tickets than the recipient has
+real devices means `push_tokens` is carrying dead entries.
+
+With this, **the whole push arc is verified end to end on both platforms** —
+credential chains, token registration, the insert trigger, payload contents,
+tap routing, and fan-out.
