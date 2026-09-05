@@ -1138,6 +1138,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Android dev client): the clip opens and plays with its caption above the
   date. The list also renders the partner's caption, which additionally shows
   reveal-gating passing on a day both people posted
+- **Multi-device fan-out (2026-09-04):** one account holding both an iOS and
+  an Android token receives a single clip insert on both devices; one pg_net
+  request, one response, two `"status":"ok"` tickets. `array_agg` collects
+  every token for the recipient and Expo fans out server-side. Ticket count
+  tracking token count is also the cheapest stale-row check — more tickets
+  than real devices means `push_tokens` is carrying dead entries
+- **Android push tokens (2026-09-04):** a `platform = 'android'` row is
+  written from the Pixel 7 dev client, closing the FCM half. Requires a build
+  made *after* `googleServicesFile` landed — an older APK fails with
+  `FirebaseApp failed to initialize`, `getExpoPushTokenAsync` throws, and
+  `registerPushToken` swallows it, which looks identical to a config error.
+  **Check the installed APK size first** (~221 MB dev client vs ~118 MB
+  preview); the emulator's quick-boot snapshot silently reverts installs, and
+  this has now cost real time twice. Start it with `-no-snapshot-load`
 - **The push arc, end to end on iOS (2026-09-03):** a clip inserted as the
   partner fires `notify_partner_of_clip()`, pg_net's POST to `exp.host`
   returns `{"status":"ok"}`, the notification lands on the iPhone, and
@@ -1162,17 +1176,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   list) render on a build made from a commit that predates it
 
 **Not verified:**
-- The Android half of push: FCM is configured (Firebase project
-  `while-you-sleep`, `googleServicesFile` in `app.json`, FCM V1 key uploaded
-  to EAS) but no Android build has been made since, so no Android push token
-  has ever been issued
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`
 - That a same-day re-record does **not** re-notify. The trigger is
   `after insert` and `useUploadClip` upserts, so a repeat is an UPDATE —
   correct by construction, never exercised
-- Multi-device fan-out: only one token has ever existed, so the
-  `to: [array]` path has never sent to more than one
 - The `review` phase clearing the close button (`insets.top + 64`, fixed
   2026-09-02). Reaching that phase needs a day you haven't posted on, and it
   was not part of the caption pass that confirmed the four surfaces above.
