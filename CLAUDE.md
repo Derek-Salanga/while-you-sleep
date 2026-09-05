@@ -1175,7 +1175,17 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   tree's JS — confirmed by seeing an unreleased change (the "What you said"
   list) render on a build made from a commit that predates it
 
+- Reactions (2026-09-05): tapping an emoji on `ClipViewScreen` records it,
+  it renders on the Timeline card, changing it replaces rather than
+  accumulating, tapping the current one clears it, and the partner's
+  reaction shows alongside your picker — both platforms
+
 **Not verified:**
+- Reveal gating on reactions: a reaction on a clip you can't see yet should
+  be invisible. Needs a day the partner posted and you didn't, so confirm it
+  in SQL under impersonation rather than waiting for the day
+- Reactions in reel mode (Monthly Summary): the row follows `activeClipId`
+  like the caption already does, but wasn't exercised
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`
 - That a same-day re-record does **not** re-notify. The trigger is

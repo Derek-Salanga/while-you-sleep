@@ -1142,3 +1142,31 @@ real devices means `push_tokens` is carrying dead entries.
 With this, **the whole push arc is verified end to end on both platforms** —
 credential chains, token registration, the insert trigger, payload contents,
 tap routing, and fan-out.
+
+2026-09-05: **reactions work on device.** Tapping an emoji on
+`ClipViewScreen` records it, it renders on the Timeline card, changing it
+replaces rather than accumulating, and tapping the current one clears it.
+The partner's reaction shows alongside your picker. Confirmed by the user
+after PR 2.2 landed on a branch, running the dev client on both the iPhone
+and the Pixel 7 emulator.
+
+Two items from that PR's test plan are **not** separately confirmed, because
+neither is reachable by ordinary use:
+
+- **Reveal gating on reactions.** `clip_reactions_select_visible_clips`
+  reuses `clips_select_pair_members`' predicate through the joined clip row,
+  so a reaction on a clip you can't see yet should be invisible. Reaching
+  that state needs a day where the partner has posted and you have not, plus
+  a reaction from them on their own clip — the same fresh-day requirement
+  that leaves the story-ring gray case unverified. Correct by construction;
+  worth confirming in SQL under impersonation rather than waiting for the
+  day to arrive.
+- **Reel mode.** The row is driven by `activeClipId`, the same value the
+  caption row already follows, so it changes per clip in a Monthly Summary
+  queue. Not exercised in this pass.
+
+Worth noting what the schema buys: because the primary key is
+`(clip_id, user_id)`, "the reactions on a clip" is at most one per person,
+so there is no aggregation anywhere in the client — the Timeline card just
+filters the flat list by `clip_id` and renders what's left. A counts-based
+design would have needed a grouped query per card.
