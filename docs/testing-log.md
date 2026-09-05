@@ -1170,3 +1170,32 @@ Worth noting what the schema buys: because the primary key is
 so there is no aggregation anywhere in the client — the Timeline card just
 filters the flat list by `clip_id` and renders what's left. A counts-based
 design would have needed a grouped query per card.
+
+2026-09-05 (follow-up 2): **reaction pushes work, including every guard.**
+Confirmed on device against the live project after applying
+`notify_sender_of_reaction()`:
+
+- Reacting from the other device delivers one quiet push, and tapping it
+  opens that clip directly
+- Changing the reaction delivers a second push — the trigger is
+  `after insert or update` precisely because `useSetReaction` upserts on the
+  primary key, so a change arrives as an UPDATE and is a real new reaction
+- Clearing a reaction sends **nothing** (DELETE isn't covered by the trigger)
+- Reacting to your own clip sends **nothing** (`recipient_id = new.user_id`)
+- Reacting to a clip older than two days sends **nothing** (recency guard)
+
+Four of those five are the *absence* of a push, which is the half that
+actually matters: a notification arriving is obvious, one that shouldn't
+arrive is only ever noticed as annoyance weeks later.
+
+The recency guard is the one with a concrete motivation rather than a
+theoretical one. Monthly Summary's "What you said" list makes a month of old
+clips reachable in a single scroll, so without it, catching up on a backlog
+would fire a push per reaction — thirty in a minute is easy to reach. With
+it, the ceiling stays at one reaction push per person per day, which follows
+from one clip per person per day and `clip_reactions`' primary key allowing
+one reaction per person per clip.
+
+**Arc 2 is complete.** Reactions exist end to end: schema with reveal-gated
+RLS, the picker and Timeline chips, and the push — verified on both
+platforms.
