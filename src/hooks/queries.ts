@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import {
   Clip,
+  ClipReaction,
   Pair,
   PairAnniversary,
   PairTrip,
@@ -156,6 +157,30 @@ export function usePartnerNickname(userId: string | null | undefined) {
         .maybeSingle();
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+// Every reaction the viewer is allowed to see, in one request.
+//
+// Deliberately unfiltered: clip_reactions' select policy already restricts
+// rows to clips visible to you, which is pair-scoped and reveal-gated, so a
+// `.eq('pair_id', ...)` would be a second copy of a rule the database is
+// already enforcing -- and clip_reactions has no pair_id column to filter on
+// anyway. pairId is here for cache identity, so switching pairs can't serve
+// the previous one's rows.
+//
+// One key for both consumers rather than a per-clip key: ClipViewScreen and
+// TimelineScreen both need this, the volume is one row per person per clip,
+// and a per-clip key would mean a request per Timeline card.
+export function useReactions(pairId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['reactions', pairId],
+    enabled: !!pairId,
+    queryFn: async (): Promise<ClipReaction[]> => {
+      const { data, error } = await supabase.from('clip_reactions').select('*');
+      if (error) throw error;
+      return data ?? [];
     },
   });
 }

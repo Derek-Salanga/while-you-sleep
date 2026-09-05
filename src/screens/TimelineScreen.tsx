@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePairing } from '@/lib/PairingContext';
-import { useClips } from '@/hooks/queries';
+import { useClips, useReactions } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
@@ -59,6 +59,9 @@ export default function TimelineScreen({ navigation }: any) {
   // from ClipView refetches because marking a clip viewed invalidates
   // ['clips'].
   const { data: clips = [], isLoading, refetch, error } = useClips(pair?.id);
+  // One request for the whole list rather than per card. At most one row
+  // per person per clip, so this stays small.
+  const { data: reactions = [] } = useReactions(pair?.id);
 
   // Driven by an explicit pull flag rather than react-query's isRefetching.
   // isRefetching is true for *any* refetch, including the one this screen
@@ -121,7 +124,19 @@ export default function TimelineScreen({ navigation }: any) {
                 ? (myProfile?.display_name ?? 'You')
                 : (partnerName ?? 'Your partner')}
             </Text>
-            {unwatched && <View style={styles.unwatchedDot} />}
+            <View style={styles.cardHeaderRight}>
+              {/* Both sides' reactions, not just the partner's -- on your own
+                  card theirs is the reply you want to see, and on theirs it's
+                  a reminder of what you sent back. At most two. */}
+              {reactions
+                .filter((r) => r.clip_id === item.id)
+                .map((r) => (
+                  <Text key={r.user_id} style={styles.cardReaction}>
+                    {r.emoji}
+                  </Text>
+                ))}
+              {unwatched && <View style={styles.unwatchedDot} />}
+            </View>
           </View>
           <Text style={styles.cardDate}>
             {formatClipDate(item.recorded_for_date)}
@@ -223,6 +238,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.sm,
     color: colors.ink,
+  },
+  // Groups the reactions with the unwatched dot so cardHeader stays a
+  // two-child space-between row rather than needing per-item spacing.
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cardReaction: {
+    fontSize: fontSizes.md,
   },
   unwatchedDot: {
     width: 8,

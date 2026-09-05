@@ -117,3 +117,43 @@ export function useDeleteAccount() {
     },
   });
 }
+
+interface SetReactionInput {
+  clipId: string;
+  userId: string;
+  // null removes the reaction -- that's what tapping your current one again
+  // does. There's no separate "clear" affordance, same as blank-on-save
+  // deletes a partner nickname.
+  emoji: string | null;
+}
+
+export function useSetReaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clipId, userId, emoji }: SetReactionInput) => {
+      if (emoji === null) {
+        const { error } = await supabase
+          .from('clip_reactions')
+          .delete()
+          .eq('clip_id', clipId)
+          .eq('user_id', userId);
+        if (error) throw error;
+        return;
+      }
+      // Upsert on the primary key: one reaction per person per clip, so
+      // changing your mind replaces rather than accumulating.
+      const { error } = await supabase
+        .from('clip_reactions')
+        .upsert(
+          { clip_id: clipId, user_id: userId, emoji },
+          { onConflict: 'clip_id,user_id' }
+        );
+      if (error) throw error;
+    },
+    // Invalidate rather than setQueryData: a delete returns no row to write
+    // back, so both paths would need different handling otherwise.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reactions'] });
+    },
+  });
+}

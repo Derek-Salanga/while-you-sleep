@@ -9,8 +9,9 @@ import {
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePairing } from '@/lib/PairingContext';
-import { useClip } from '@/hooks/queries';
-import { useMarkClipViewed } from '@/hooks/mutations';
+import { useClip, useReactions } from '@/hooks/queries';
+import { useMarkClipViewed, useSetReaction } from '@/hooks/mutations';
+import { REACTION_EMOJI } from '@/data/reactions';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
@@ -19,7 +20,7 @@ export default function ClipViewScreen({ route, navigation }: any) {
     clipId: string;
     queue?: string[];
   };
-  const { session } = usePairing();
+  const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const [queueIndex, setQueueIndex] = useState(0);
 
@@ -56,6 +57,19 @@ export default function ClipViewScreen({ route, navigation }: any) {
     const isRecipient = clip.sender_id !== session.user.id;
     if (isRecipient && !clip.viewed_at) markViewed(clip.id);
   }, [clip, session, markViewed]);
+
+  // Reactions for the clip currently on screen. In reel mode this follows
+  // activeClipId, so the row changes per clip along with the caption.
+  const { data: reactions } = useReactions(pair?.id);
+  const { mutate: setReaction } = useSetReaction();
+  const myReaction =
+    reactions?.find(
+      (r) => r.clip_id === activeClipId && r.user_id === session?.user.id
+    ) ?? null;
+  const theirReaction =
+    reactions?.find(
+      (r) => r.clip_id === activeClipId && r.user_id !== session?.user.id
+    ) ?? null;
 
   const closeButton = (
     <Pressable
@@ -98,6 +112,39 @@ export default function ClipViewScreen({ route, navigation }: any) {
         contentFit="contain"
       />
       {closeButton}
+      <View style={styles.reactionRow}>
+        {/* Their reaction sits to the left, unpressable -- it's information,
+            not a control. Absent entirely rather than a placeholder, so the
+            row doesn't imply a reply that hasn't happened. */}
+        {theirReaction && (
+          <Text style={styles.theirReaction}>{theirReaction.emoji}</Text>
+        )}
+        {REACTION_EMOJI.map((emoji) => {
+          const selected = myReaction?.emoji === emoji;
+          return (
+            <Pressable
+              key={emoji}
+              // Tapping your current reaction clears it; there's no separate
+              // remove affordance, mirroring blank-on-save for nicknames.
+              onPress={() =>
+                session?.user &&
+                setReaction({
+                  clipId: activeClipId,
+                  userId: session.user.id,
+                  emoji: selected ? null : emoji,
+                })
+              }
+              style={({ pressed }) => [
+                styles.reactionButton,
+                selected && styles.reactionButtonSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.reactionEmoji}>{emoji}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
       {clip.caption_text && (
         <Text style={styles.caption}>{clip.caption_text}</Text>
       )}
@@ -129,6 +176,31 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingTop: 16,
     paddingHorizontal: 24,
+  },
+  // Between the video and the caption: close enough to the clip to read as
+  // a response to it, above the caption because the caption is the clip's
+  // own content and this is the reply to it.
+  reactionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+  },
+  reactionButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  reactionButtonSelected: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  reactionEmoji: { fontSize: 22 },
+  theirReaction: {
+    fontSize: 22,
+    opacity: 0.85,
+    marginRight: 8,
   },
   dateLabel: {
     fontFamily: fonts.body,
