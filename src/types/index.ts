@@ -62,6 +62,32 @@ export interface ClipReaction {
   created_at: string;
 }
 
+// Shared pet state. `score` is authoritative and server-computed (see
+// get_pet_state in supabase/schema.sql -- it cannot be derived client-side,
+// because reveal gating would show each partner a different pet). `mood` is
+// derived from it, never stored, so the two can't drift.
+export interface PairPet {
+  pair_id: string;
+  score: number; // 0-100
+  last_scored_date: string | null; // YYYY-MM-DD, last day folded into score
+  paused_until: string | null; // YYYY-MM-DD inclusive, null = not paused
+  updated_at: string;
+}
+
+// Four states, not three and not six. Three reads as a binary with a shrug
+// in the middle; beyond four, adjacent states are indistinguishable at card
+// size. The names avoid "sad"/"sick"/"dying" on purpose -- they should read
+// as waiting, not suffering, which is the difference between "we got busy"
+// and "you failed".
+export type PetMood = 'thriving' | 'content' | 'sleepy' | 'withdrawn';
+
+export function petMood(score: number): PetMood {
+  if (score >= 75) return 'thriving';
+  if (score >= 45) return 'content';
+  if (score >= 20) return 'sleepy';
+  return 'withdrawn';
+}
+
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   AccountSettings: undefined;
