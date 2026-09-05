@@ -1180,12 +1180,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   accumulating, tapping the current one clears it, and the partner's
   reaction shows alongside your picker — both platforms
 
+- Reveal gating on reactions (2026-09-05): a reaction on a clip you can't
+  see yet is invisible — 0 rows while impersonating the other account in a
+  rolled-back transaction, confirming the policy reuses the clips predicate
+  rather than plain pair membership
+- Reactions in reel mode (2026-09-05): the emoji row resets per clip in a
+  Monthly Summary queue rather than carrying the previous selection
+
 **Not verified:**
-- Reveal gating on reactions: a reaction on a clip you can't see yet should
-  be invisible. Needs a day the partner posted and you didn't, so confirm it
-  in SQL under impersonation rather than waiting for the day
-- Reactions in reel mode (Monthly Summary): the row follows `activeClipId`
-  like the caption already does, but wasn't exercised
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`
 - That a same-day re-record does **not** re-notify. The trigger is
