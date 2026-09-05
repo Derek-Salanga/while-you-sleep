@@ -1175,6 +1175,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   tree's JS — confirmed by seeing an unreleased change (the "What you said"
   list) render on a build made from a commit that predates it
 
+- Reaction pushes and every guard (2026-09-05): reacting delivers one quiet
+  push that opens the clip on tap; changing a reaction delivers a second
+  (UPDATE is a real new reaction, which is why the trigger is `after insert
+  or update`); and clearing a reaction, reacting to your own clip, or
+  reacting to a clip older than two days each send **nothing**. The recency
+  guard exists because Monthly Summary's caption list makes a month of clips
+  reachable in one scroll
 - Reactions (2026-09-05): tapping an emoji on `ClipViewScreen` records it,
   it renders on the Timeline card, changing it replaces rather than
   accumulating, tapping the current one clears it, and the partner's

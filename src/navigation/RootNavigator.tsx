@@ -46,8 +46,9 @@ export default function RootNavigator() {
   // Where a tap lands depends on which notification it was. The daily
   // reminder opens Home — resuming onto whatever screen the app was left on
   // reads as "the app dropped me straight into recording" rather than a
-  // deliberate entry point — while a partner-posted push opens Record,
-  // since that's the screen that resolves the reveal.
+  // deliberate entry point. A partner-posted push opens Record, since that's
+  // the screen that resolves the reveal, and a reaction opens the clip it
+  // was left on, which is always one of yours and so always visible.
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
@@ -56,11 +57,13 @@ export default function RootNavigator() {
         // (neither "MainTabs" nor "Record" is mounted), it just no-ops, and
         // the normal Auth -> Pairing -> MainTabs gating still applies.
         if (!navigationRef.isReady()) return;
-        if (
-          routeForNotification(response.notification.request.content.data) ===
-          'Record'
-        ) {
+        const destination = routeForNotification(
+          response.notification.request.content.data
+        );
+        if (destination.screen === 'Record') {
           navigationRef.navigate('Record');
+        } else if (destination.screen === 'ClipView') {
+          navigationRef.navigate('ClipView', { clipId: destination.clipId });
         } else {
           navigationRef.navigate('MainTabs', { screen: 'Home' });
         }
