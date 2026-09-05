@@ -1170,3 +1170,36 @@ Worth noting what the schema buys: because the primary key is
 so there is no aggregation anywhere in the client — the Timeline card just
 filters the flat list by `clip_id` and renders what's left. A counts-based
 design would have needed a grouped query per card.
+
+2026-09-05 (follow-up): the two items left open above are now both confirmed.
+
+**Reveal gating on reactions holds.** Verified in SQL rather than on device,
+since the state it needs — the partner has posted on a date you have not —
+is unreachable through ordinary use. A synthetic clip from the partner on a
+free date, plus a reaction of theirs on it, then read back while
+impersonating the other account in a rolled-back transaction:
+
+```sql
+begin;
+select set_config('request.jwt.claims',
+  '{"sub":"<your-uuid>","role":"authenticated"}', true);
+set local role authenticated;
+select count(*) from clip_reactions;   -- returns 0
+rollback;
+```
+
+0 rows, as designed: `clip_reactions_select_visible_clips` reuses
+`clips_select_pair_members`' predicate through the joined clip row, so a
+reaction is exactly as visible as the clip it sits on. A membership-only
+policy would have returned 1 here and quietly revealed that the partner had
+posted and reacted.
+
+Note the insert fires `notify_partner_of_clip`, so this test also sends a
+real push — expected, not a symptom.
+
+**Reel mode confirmed on device.** In a Monthly Summary queue the emoji row
+resets per clip rather than carrying the previous clip's selection, because
+it keys off `activeClipId` — the same value the caption row already follows.
+
+Arc 2's client half is now fully verified. Remaining in the arc: the
+reaction push (PR 2.3).
