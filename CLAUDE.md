@@ -1205,7 +1205,17 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   manual refresh. `withdrawn` is legible on a white card. Home stays a plain
   `View` — the pet card makes five blocks and they fit without scrolling
 
+- Pause mode (2026-09-06): three presets in Settings, the row reads back the
+  date, Home shows the resting overlay, "Resume now" clears it, and the daily
+  reminder is cancelled while paused and returns on resume
+
 **Not verified:**
+- The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
+  marked with a `ponytail:` comment in `get_pet_state()` and changing them is
+  one SQL statement — but nobody has lived with the pet long enough to know
+  whether the decline reads as a nudge or a nag
+- Score clamping at 0 over a long idle run, and the asymmetric recovery (two
+  both-posted days undoing four idle ones). Both need a seeded date range
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`
 - That a same-day re-record does **not** re-notify. The trigger is

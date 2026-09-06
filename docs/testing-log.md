@@ -1299,3 +1299,35 @@ out too subtle in real use, the fix is in the Home card — pass paler
 blocks and the ScrollView was added defensively; on the devices in use it
 fits with room to spare, so it went back out. The risk it guarded against is
 a smaller screen than anything tested here.
+
+2026-09-06 (follow-up 2): **pause mode works, and with it the whole
+retention arc is built and on `main`.** Settings offers three presets, the
+row reads back the date, Home shows the resting overlay, "Resume now" clears
+it, and the daily reminder is cancelled while paused and returns on resume.
+
+Three arcs, sixteen PRs, verified on both platforms:
+
+- **Push** (#71–#75): the partner-posted notification, which is the app's
+  only re-open trigger. Nothing had ever told you your partner posted.
+- **Reactions** (#78–#81): a reply to a clip, with reveal-gated RLS and four
+  push-suppression guards.
+- **Pet + pause** (#82–#85): shared state that reframes a missed day as
+  "it's hungry" rather than "you failed".
+
+**What is still not verified**, and none of it is code that can be inspected
+into confidence:
+
+- The scoring constants (`+20 / −2 / −10`) are a feel judgement. They carry a
+  `ponytail:` comment naming them as the tuning surface, and changing them is
+  one SQL statement. Nobody has lived with the pet long enough to know
+  whether the decline feels like a nudge or a nag.
+- Clamping at 0 over a long idle run, and the asymmetric recovery (two good
+  days undoing four idle ones). Both need a seeded date range.
+- Whether any of it actually works. The app was abandoned once; that's the
+  problem this arc exists to solve, and the only test is using it again.
+
+**The deferred item stays deferred.** A lower-effort text/photo fallback on
+days video isn't possible was argued both ways and left out on purpose: the
+app was abandoned *while* the bar was high, but there's no evidence the bar
+was why. Lowering it is a guess; the pet had evidence behind it. Revisit with
+real usage data rather than before it.
