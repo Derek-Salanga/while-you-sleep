@@ -1194,6 +1194,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - Reactions in reel mode (2026-09-05): the emoji row resets per clip in a
   Monthly Summary queue rather than carrying the previous selection
 
+- Pet scoring is identical for both partners (2026-09-06), including on a
+  day only one of them posted: both accounts returned 28 where a
+  client-visible-data implementation would have given the non-poster 20.
+  That 28/20 split is the regression signal if scoring ever drifts toward
+  data the reveal gate filters
+
 **Not verified:**
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`

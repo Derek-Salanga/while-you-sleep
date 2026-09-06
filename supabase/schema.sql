@@ -872,6 +872,179 @@ create trigger clip_reactions_notify_sender
   after insert or update on clip_reactions
   for each row execute function notify_sender_of_reaction();
 
+-- The shared pet. Reframes a missed day as "it's hungry" rather than "you
+-- failed" -- a subdued shared creature says "we got busy", where a streak
+-- counter resetting says one of you broke it. That distinction is the whole
+-- point of the feature, so nothing here should ever grow a number that
+-- resets.
+--
+-- WHY THIS CANNOT BE COMPUTED CLIENT-SIDE. The obvious implementation folds
+-- the score out of the clips list useClips already fetches -- no table, no
+-- writes, no job. It doesn't work: clips_select_pair_members hides your
+-- partner's clip on any date you didn't post, permanently for past days. So
+-- each partner would see a *different* pet, and it would read as starving on
+-- exactly the days your partner did post and you didn't -- turning a shared
+-- state into a secret, invisible accusation. get_pet_state() is security
+-- definer so it reads clips unfiltered and both partners see one pet.
+--
+-- `mood` is derived from score in TypeScript, not stored -- one pure
+-- function, no second column to drift out of sync.
+create table if not exists pair_pet (
+  pair_id uuid primary key references pairs (id) on delete cascade,
+  score int not null default 50 check (score between 0 and 100),
+  last_scored_date date,
+  paused_until date,
+  updated_at timestamptz not null default now()
+);
+
+alter table pair_pet enable row level security;
+
+-- SELECT only, mirroring pair_trips' shape. Deliberately no insert/update/
+-- delete policies: every write goes through the two definer functions
+-- below, the same reason mark_clip_viewed() exists -- RLS can't express
+-- "only the score column, only via the scoring rules".
+create policy "pair_pet_select_pair_members" on pair_pet
+  for select using (
+    exists (
+      select 1 from pairs p
+      where p.id = pair_pet.pair_id and is_pair_member(p, auth.uid())
+    )
+  );
+
+-- Folds every unscored day up to *yesterday* into the score and returns the
+-- row. Today is excluded on purpose: it isn't over, and decaying for a day
+-- you might still post on would be exactly the guilt mechanic this avoids.
+--
+-- Takes no arguments -- the pair is derived from auth.uid(), so there is no
+-- parameter that could point at someone else's pet. Same discipline as
+-- delete_own_account().
+--
+-- Computed on read rather than by a pg_cron job: the pet is always fresh
+-- without depending on job timing, and there is nothing to schedule or
+-- monitor. The daily "it's hungry" nudge reuses the existing 20:00 UTC local
+-- reminder rather than adding server-side scheduling.
+create or replace function get_pet_state() returns pair_pet
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  target_pair uuid;
+  pet pair_pet;
+  d date;
+  both_posted boolean;
+  any_posted boolean;
+begin
+  select p.id into target_pair
+    from pairs p
+   where is_pair_member(p, auth.uid())
+   limit 1;
+
+  if target_pair is null then
+    return null;  -- not paired yet; nothing to keep alive
+  end if;
+
+  insert into pair_pet (pair_id)
+    values (target_pair)
+    on conflict (pair_id) do nothing;
+
+  select * into pet from pair_pet where pair_id = target_pair;
+
+  -- First ever call: start scoring from yesterday rather than replaying
+  -- the pair's whole history, which would bury a new pet before it began.
+  if pet.last_scored_date is null then
+    pet.last_scored_date := current_date - 1;
+  end if;
+
+  d := pet.last_scored_date + 1;
+  while d < current_date loop
+    -- Paused days are skipped entirely: no decay, no feed. That is what
+    -- makes pause remove a failure state rather than defer it.
+    if pet.paused_until is null or d > pet.paused_until then
+      select
+        count(distinct c.sender_id) = 2,
+        count(*) > 0
+        into both_posted, any_posted
+        from clips c
+       where c.pair_id = target_pair
+         and c.recorded_for_date = d;
+
+      -- ponytail: these three constants are the whole tuning surface, and
+      -- they are a feel judgement that can only be made on a device. Both
+      -- posting is a real feed; one posting is a decay *brake*, not a feed,
+      -- so a solo poster visibly slows the decline but cannot hold the pet
+      -- steady alone -- otherwise the passive partner never feels any pull
+      -- and "shared" is a lie. Recovery is asymmetric on purpose: two good
+      -- days undo four idle ones, which is the anti-death-spiral lever.
+      if both_posted then
+        pet.score := pet.score + 20;
+      elsif any_posted then
+        pet.score := pet.score - 2;
+      else
+        pet.score := pet.score - 10;
+      end if;
+
+      pet.score := greatest(0, least(100, pet.score));
+    end if;
+
+    d := d + 1;
+  end loop;
+
+  update pair_pet
+     set score = pet.score,
+         last_scored_date = current_date - 1,
+         updated_at = now()
+   where pair_id = target_pair
+   returning * into pet;
+
+  return pet;
+end;
+$$;
+
+grant execute on function get_pet_state() to authenticated;
+
+-- Pause: "we're travelling", not "we gave up". Either partner can set it,
+-- since it's shared state like pair_trips.
+--
+-- A function rather than an UPDATE policy because pair_pet has none -- and
+-- an RLS policy can't express "you may change paused_until but not score",
+-- which is exactly the hole an update policy would open.
+create or replace function set_pet_pause(until date) returns pair_pet
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  target_pair uuid;
+  pet pair_pet;
+begin
+  select p.id into target_pair
+    from pairs p
+   where is_pair_member(p, auth.uid())
+   limit 1;
+
+  if target_pair is null then
+    raise exception 'Not paired';
+  end if;
+
+  insert into pair_pet (pair_id)
+    values (target_pair)
+    on conflict (pair_id) do nothing;
+
+  -- null clears the pause. Scoring resumes from the un-paused day, not from
+  -- before the pause, because last_scored_date advanced throughout.
+  update pair_pet
+     set paused_until = until,
+         updated_at = now()
+   where pair_id = target_pair
+   returning * into pet;
+
+  return pet;
+end;
+$$;
+
+grant execute on function set_pet_pause(date) to authenticated;
+
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:
 -- insert into storage.buckets (id, name, public) values ('clips', 'clips', false);

@@ -1232,3 +1232,40 @@ one reaction per person per clip.
 **Arc 2 is complete.** Reactions exist end to end: schema with reveal-gated
 RLS, the picker and Timeline chips, and the push — verified on both
 platforms.
+
+2026-09-06: **the pet scores identically for both partners**, including on a
+day only one of them posted — the claim the whole server-side design exists
+to make.
+
+Verified against a naturally occurring case rather than a seeded one. Pair
+`1980a65e` had a real partner-only day: on 2026-09-03 one partner posted and
+the other did not, with nothing on 09-04 or 09-05. With
+`last_scored_date` set to 09-02, `get_pet_state()` folds three days:
+
+```
+09-03  one posted   -2
+09-04  nobody       -10
+09-05  nobody       -10
+                    -> 50 - 22 = 28
+```
+
+Both accounts returned **28**, called under impersonation in a rolled-back
+transaction (the `rollback` also resets the score write, so the second call
+starts from the same state as the first — no manual reset between them).
+
+**What makes this a real test rather than a coincidence: the two hypotheses
+predict different numbers.** Had the pet been computed the obvious way — from
+the clips list the client can see — the partner who did *not* post on 09-03
+would have scored that day as nobody-posted (−10 instead of −2) and returned
+**20**. Any future change that moves scoring toward client-visible data will
+show up as exactly that 28/20 split.
+
+Two things worth knowing before re-running this:
+
+- **A first-ever call scores nothing.** `last_scored_date` starts null and is
+  then set to yesterday, so the loop body never runs and the score stays at
+  50. Seeding clips without also setting `last_scored_date` back produces a
+  confident-looking pass that proves nothing.
+- **Pick the pair deliberately.** The account used on both test devices has
+  no clips at all, so testing there would have been three days of pure decay
+  — identical scores either way, and therefore no evidence.
