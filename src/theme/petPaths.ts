@@ -48,12 +48,16 @@ export const PET_BELLY =
 // Eyes and mouth are strokes, not fills -- a few short paths per mood
 // instead of five separate illustrations.
 //
-// Nothing here frowns, and that is a product requirement rather than a
-// style choice. The moods must read as *waiting*, not suffering: a pet that
-// looks hurt turns "we got busy" back into "you failed it", which is the
-// exact dynamic this feature exists to avoid. `withdrawn` is eyes-closed
-// and patient -- "I'm resting here until you're back" -- with a level
-// mouth, no tears and no sad brows.
+// `thriving` through `sleepy` read as waiting rather than suffering, which
+// is the difference between "we got busy" and "you failed it".
+//
+// `withdrawn` frowns, at the user's explicit direction. Worth knowing if
+// you're about to change it back or forward: the pet was chosen over a
+// streak counter precisely because a streak resetting assigns blame, and a
+// downturned mouth is the same message with a face on it -- shown on the
+// days someone was busiest. The level mouth it replaced is one line away:
+//   'M47.2 62.2 Q48.6 63.4 50.0 62.6 Q51.4 63.4 52.8 62.2'
+// Decide it deliberately either way rather than inheriting it.
 export const PET_EYES: Record<string, string> = {
   thriving: 'M39.8 49.4 Q43.2 44.8 46.6 49.4 M53.4 49.4 Q56.8 44.8 60.2 49.4',
   content:
@@ -72,7 +76,7 @@ export const PET_MOUTH: Record<string, string> = {
   thriving: 'M44.2 59.8 Q47.1 65.2 50.0 61.6 Q52.9 65.2 55.8 59.8',
   content: 'M45.6 60.8 Q47.8 63.8 50.0 61.4 Q52.2 63.8 54.4 60.8',
   sleepy: 'M46.6 61.6 Q48.3 63.6 50.0 62.2 Q51.7 63.6 53.4 61.6',
-  withdrawn: 'M47.2 62.2 Q48.6 63.4 50.0 62.6 Q51.4 63.4 52.8 62.2',
+  withdrawn: 'M44.8 63.8 Q50.0 60.2 55.2 63.8',
 };
 
 // Deliberately off-palette: the artwork's own line colour, softer than
