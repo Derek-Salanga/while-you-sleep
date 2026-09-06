@@ -12,10 +12,10 @@ import {
 // How saturated each half is, by mood. The palette's own steps rather than
 // new colours -- see "Design identity" in CLAUDE.md, the scale is locked.
 //
-// `withdrawn` uses Tint, which sits only ~4% off `background` and would
-// otherwise be nearly invisible on a white card. That's on purpose: it
-// switches to an outline instead, so the most subdued state still reads as
-// a pet waiting rather than as an empty space where one used to be.
+// `withdrawn` can safely use Tint -- which sits only ~4% off `background`
+// and would vanish on its own -- because every mood carries an outline. The
+// stroke holds the silhouette while the warmth drains out of the fill, which
+// is exactly the reading we want: still here, still waiting, just faded.
 const LOBE_FILL: Record<PetMood, { left: string; right: string }> = {
   thriving: { left: colors.secondary, right: colors.primary },
   content: { left: colors.secondaryLight, right: colors.primaryLight },
@@ -34,7 +34,6 @@ interface PetProps {
 // identical, so two pets on one screen collide onto the same clip harmlessly.
 export default function Pet({ mood, size = 120, resting = false }: PetProps) {
   const fill = LOBE_FILL[mood];
-  const outlined = mood === 'withdrawn';
   // Closed eyes while resting, whatever the mood underneath -- the pet is
   // asleep, not feeling something new.
   const eyes = resting ? PET_EYES.withdrawn : PET_EYES[mood];
@@ -54,22 +53,25 @@ export default function Pet({ mood, size = 120, resting = false }: PetProps) {
           the convention colors.ts documents. */}
       <Path d={PET_BODY} fill={fill.left} clipPath="url(#petLeft)" />
       <Path d={PET_BODY} fill={fill.right} clipPath="url(#petRight)" />
-      {outlined && (
-        <Path
-          d={PET_BODY}
-          fill="none"
-          stroke={colors.border}
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-      )}
+      {/* Outline on every mood, not just the faded one. It's what holds the
+          silhouette when the fill drains toward Tint, and it's what makes
+          this read as a drawn character rather than a coloured blob. */}
+      <Path
+        d={PET_BODY}
+        fill="none"
+        stroke={colors.ink}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+        opacity={0.8}
+      />
 
       <G
         stroke={colors.ink}
-        strokeWidth={3}
+        strokeWidth={2.3}
         strokeLinecap="round"
+        strokeLinejoin="round"
         fill="none"
-        opacity={outlined ? 0.55 : 0.8}
+        opacity={0.8}
       >
         <Path d={eyes} />
         <Path d={PET_MOUTH[mood]} />
