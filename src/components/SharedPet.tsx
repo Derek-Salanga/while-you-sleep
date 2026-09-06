@@ -4,6 +4,7 @@ import { colors } from '@/theme/colors';
 import { PetMood } from '@/types';
 import {
   PET_BODY,
+  PET_BELLY,
   PET_EYES,
   PET_MOUTH,
   PET_LINE,
@@ -18,10 +19,9 @@ interface SharedPetProps {
   // this component needing to know why.
   leftColor?: string;
   rightColor?: string;
-  // The silhouette holds together without it, so it's a choice rather than
-  // a requirement -- but it's what keeps the pet reading as drawn rather
-  // than as two flat shapes meeting at a seam.
-  outlined?: boolean;
+  // The silhouette holds without it, but the outline is what separates the
+  // ears and paws from the body mass -- without it they melt into a blob.
+  showOutline?: boolean;
   // Pause, drawn over the current mood rather than replacing it.
   resting?: boolean;
 }
@@ -33,7 +33,7 @@ export default function SharedPet({
   size = 120,
   leftColor = colors.secondary,
   rightColor = colors.primary,
-  outlined = true,
+  showOutline = true,
   resting = false,
 }: SharedPetProps) {
   // Closed eyes while resting, whatever the mood underneath -- the pet is
@@ -53,19 +53,28 @@ export default function SharedPet({
 
       <Path d={PET_BODY} fill={leftColor} clipPath="url(#petLeft)" />
       <Path d={PET_BODY} fill={rightColor} clipPath="url(#petRight)" />
-      {outlined && (
+
+      {/* Under the body outline so it reads as fur rather than a sticker. */}
+      <Path
+        d={PET_BELLY}
+        fill={colors.secondaryTint}
+        stroke={showOutline ? PET_LINE : 'none'}
+        strokeWidth={1.8}
+      />
+
+      {showOutline && (
         <Path
           d={PET_BODY}
           fill="none"
           stroke={PET_LINE}
-          strokeWidth={1.6}
+          strokeWidth={2.2}
           strokeLinejoin="round"
         />
       )}
 
       <G
         stroke={PET_LINE}
-        strokeWidth={2.3}
+        strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
