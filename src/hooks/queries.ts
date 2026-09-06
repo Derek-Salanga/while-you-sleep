@@ -4,6 +4,7 @@ import {
   Clip,
   ClipReaction,
   Pair,
+  PairPet,
   PairAnniversary,
   PairTrip,
   PartnerNickname,
@@ -181,6 +182,30 @@ export function useReactions(pairId: string | null | undefined) {
       const { data, error } = await supabase.from('clip_reactions').select('*');
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+// The shared pet's state, computed server-side on every read.
+//
+// An RPC rather than a select because the score has to be *derived* from
+// clips the client can't fully see -- clips_select_pair_members hides your
+// partner's clip on any date you didn't post, so a client-side fold would
+// show each partner a different pet. get_pet_state() is security definer
+// and takes no arguments; the pair comes from auth.uid().
+//
+// It also writes (it upserts the folded score), so this is a query that
+// mutates -- deliberate, and why there's no separate "recompute" mutation.
+// Stock staleTime of 0 means a tab visit remounts and refetches, which is
+// exactly when the pet should catch up on a day that has since ended.
+export function usePetState(pairId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['pet', pairId],
+    enabled: !!pairId,
+    queryFn: async (): Promise<PairPet | null> => {
+      const { data, error } = await supabase.rpc('get_pet_state');
+      if (error) throw error;
+      return (data as PairPet | null) ?? null;
     },
   });
 }

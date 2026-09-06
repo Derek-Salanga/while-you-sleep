@@ -1200,6 +1200,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   That 28/20 split is the regression signal if scoring ever drifts toward
   data the reveal gate filters
 
+- The pet on Home (2026-09-06): renders with the mood matching
+  `pair_pet.score`, and a tab-away-and-back picks up a score change with no
+  manual refresh. `withdrawn` is legible on a white card. Home stays a plain
+  `View` — the pet card makes five blocks and they fit without scrolling
+
 **Not verified:**
 - The real record → upload → trigger path. The trigger is confirmed on a
   synthetic `insert`, not on a clip recorded through `RecordScreen`
