@@ -1269,3 +1269,33 @@ Two things worth knowing before re-running this:
 - **Pick the pair deliberately.** The account used on both test devices has
   no clips at all, so testing there would have been three days of pure decay
   — identical scores either way, and therefore no evidence.
+
+2026-09-06 (follow-up): **the pet renders on Home and tracks its score.**
+Editing `pair_pet.score` directly and switching tabs away and back moves the
+mood as expected — the refetch-on-remount path (`unmountOnBlur` plus the
+stock `staleTime: 0`) is what makes that work, with no manual refresh.
+
+One trap when doing this by hand: `get_pet_state()` recomputes on every
+read, so a manually set score is immediately overwritten by the fold unless
+`last_scored_date` is moved forward too:
+
+```sql
+update pair_pet set score = 85, last_scored_date = current_date - 1;
+```
+
+Clearing the resting state is `update pair_pet set paused_until = null`
+(any past date also works — the check is `paused_until >= today` — but null
+is what the pause UI will write).
+
+`withdrawn` is legible on a white card, confirmed on device. That question
+was live because the earlier art faded the fill toward `*Tint`; the shipped
+version uses fixed `secondary`/`primary` halves at every mood, so the whole
+mood signal is carried by the eyes and mouth instead. **Consequence worth
+remembering: the pet no longer visibly drains.** If "we've gone quiet" turns
+out too subtle in real use, the fix is in the Home card — pass paler
+`leftColor`/`rightColor` as the score drops — not in `SharedPet`.
+
+**Home stays a plain `View`, not a ScrollView.** The pet card made five
+blocks and the ScrollView was added defensively; on the devices in use it
+fits with room to spare, so it went back out. The risk it guarded against is
+a smaller screen than anything tested here.

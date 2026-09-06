@@ -9,7 +9,6 @@ import {
   Modal,
   FlatList,
   Alert,
-  ScrollView,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -177,10 +176,7 @@ export default function HomeScreen({ navigation }: any) {
   }, [countrySearch]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Home</Text>
       {anniversary && (
         <Text style={styles.anniversaryText}>
@@ -353,12 +349,12 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
@@ -370,13 +366,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.muted,
     marginBottom: 16,
-  },
-  // container holds the background; content carries the padding, since a
-  // ScrollView's padding has to live on contentContainerStyle to scroll with
-  // the content rather than clipping it.
-  content: {
-    padding: 20,
-    paddingBottom: 40,
   },
   petCard: {
     flexDirection: 'row',
