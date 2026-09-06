@@ -12,6 +12,7 @@ import {
   sharedYesterdayDateString,
   utcTimeToLocal,
   daysBetween,
+  sharedDatePlusDays,
 } from './date';
 
 // 2026-06-18 20:00 US Pacific == 2026-06-19 03:00 UTC. This is exactly the
@@ -90,5 +91,28 @@ describe('daysBetween', () => {
 
   test('a full non-leap year', () => {
     expect(daysBetween('2026-01-01', '2027-01-01')).toBe(365);
+  });
+});
+
+// The pause window is compared against shared-day stamps inside
+// get_pet_state(), so an off-by-one here pauses the wrong day -- and would
+// only ever show up for a user on the far side of UTC midnight.
+describe('sharedDatePlusDays', () => {
+  it('advances on the UTC boundary regardless of local timezone', () => {
+    // 23:30 UTC: local date is already tomorrow east of UTC and still
+    // yesterday far enough west, but the shared day is the 3rd.
+    const late = new Date('2026-06-03T23:30:00Z');
+    expect(sharedDatePlusDays(0, late)).toBe('2026-06-03');
+    expect(sharedDatePlusDays(3, late)).toBe('2026-06-06');
+    expect(sharedDatePlusDays(7, late)).toBe('2026-06-10');
+  });
+
+  it('crosses month and year boundaries', () => {
+    expect(sharedDatePlusDays(3, new Date('2026-01-30T12:00:00Z'))).toBe(
+      '2026-02-02'
+    );
+    expect(sharedDatePlusDays(7, new Date('2026-12-28T12:00:00Z'))).toBe(
+      '2027-01-04'
+    );
   });
 });

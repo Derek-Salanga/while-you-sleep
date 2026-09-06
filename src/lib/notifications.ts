@@ -77,11 +77,14 @@ Notifications.setNotificationHandler({
 // Schedules the two daily reminders as repeating local notifications —
 // no backend/push infra involved, so this only needs to run once (it's
 // safe to call again; it replaces the existing requests by identifier).
-export async function ensureDailyRemindersScheduled(
-  // Omitted before the pet's state has loaded, or when paused -- see the
-  // caller in RootNavigator.
-  mood?: string | null
-): Promise<void> {
+export async function ensureDailyRemindersScheduled({
+  mood,
+  paused = false,
+}: {
+  // Omitted before the pet's state has loaded.
+  mood?: string | null;
+  paused?: boolean;
+} = {}): Promise<void> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
@@ -128,6 +131,14 @@ export async function ensureDailyRemindersScheduled(
     REMINDER_UTC_HOUR,
     REMINDER_UTC_MINUTE
   );
+
+  // Paused means paused. Nudging someone who has explicitly said "we're
+  // away" is the guilt mechanic wearing a different hat -- and the pet
+  // isn't decaying either, so there is nothing to report.
+  if (paused) {
+    await Notifications.cancelScheduledNotificationAsync(REMINDER_ID);
+    return;
+  }
 
   const reminder = (mood && PET_REMINDERS[mood]) || DEFAULT_REMINDER;
 

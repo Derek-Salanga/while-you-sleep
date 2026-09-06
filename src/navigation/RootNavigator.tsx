@@ -11,6 +11,7 @@ import {
 import { routeForNotification } from '@/lib/notificationRouting';
 import { usePetState } from '@/hooks/queries';
 import { petMood } from '@/types';
+import { sharedTodayDateString } from '@/lib/date';
 import { navigationRef } from './navigationRef';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme/colors';
@@ -43,12 +44,14 @@ export default function RootNavigator() {
   // daily and is already replaced by identifier on every launch.
   const { data: pet } = usePetState(pair?.id);
   const mood = pet ? petMood(pet.score) : null;
+  const paused =
+    !!pet?.paused_until && pet.paused_until >= sharedTodayDateString();
   useEffect(() => {
     if (!isPaired || !userId) return;
-    ensureDailyRemindersScheduled(mood)
+    ensureDailyRemindersScheduled({ mood, paused })
       .then(() => registerPushToken(userId))
       .catch((err) => console.error('Notification setup failed:', err));
-  }, [isPaired, userId, mood]);
+  }, [isPaired, userId, mood, paused]);
 
   // Where a tap lands depends on which notification it was. The daily
   // reminder opens Home — resuming onto whatever screen the app was left on
