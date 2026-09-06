@@ -4,59 +4,78 @@
 // colors.ts documents: day-orange is your partner, night-blue is you.
 //
 // 100x100 viewBox, symmetric about x=50. The symmetry is load-bearing, not
-// tidiness: the body is clipped into halves at exactly x=50, so any
-// asymmetry gives one partner a visibly larger half.
+// tidiness: the body is clipped into halves at exactly that line, so any
+// asymmetry hands one partner a visibly larger half.
 //
-// The silhouette carries an outline in every mood (see Pet.tsx). That's what
-// lets the most subdued state use a near-invisible fill without the pet
-// disappearing -- the shape is held by the stroke, and only the warmth
-// drains out.
+// PET_BODY NEVER CHANGES BETWEEN MOODS. Only the eyes and mouth move. If a
+// future mood needs a different silhouette, it isn't a mood -- it's a second
+// creature, and the split would have to be re-checked.
 
-// Body plus two ears plus two feet, as subpaths in one string. They can
-// share a path because the clip splits by geometry, not by subpath.
 export const PET_BODY =
-  // left ear
-  'M36.5 22.5 C33.5 17.0 34.8 11.5 40.5 10.5 C43.8 10.0 46.8 11.6 48.0 14.8 ' +
-  'C43.9 14.5 40.1 17.8 36.5 22.5 Z ' +
-  // right ear
-  'M63.5 22.5 C66.5 17.0 65.2 11.5 59.5 10.5 C56.2 10.0 53.2 11.6 52.0 14.8 ' +
-  'C56.1 14.5 59.9 17.8 63.5 22.5 Z ' +
-  // body, with a foot flicking out at each side of the base
-  'M50.0 21.5 C59.0 21.5 66.5 24.5 71.0 30.5 C75.0 35.8 77.5 42.8 78.4 50.0 ' +
-  'C79.5 60.0 76.2 69.3 70.3 76.0 C68.8 81.0 69.6 84.7 72.0 87.0 ' +
-  'C68.0 87.0 64.8 84.8 63.5 81.2 C59.9 83.9 55.2 85.5 50.0 85.5 ' +
-  'C44.8 85.5 40.1 83.9 36.5 81.2 C35.2 84.8 32.0 87.0 28.0 87.0 ' +
-  'C30.4 84.7 31.2 81.0 29.7 76.0 C23.8 69.3 20.5 60.0 21.6 50.0 ' +
-  'C22.5 42.8 25.0 35.8 29.0 30.5 C33.5 24.5 41.0 21.5 50.0 21.5 Z';
+  'M34.0 25.0 ' +
+  'C27.7 21.4 21.0 22.2 17.8 27.1 ' +
+  'C14.5 32.1 16.2 39.8 21.6 43.3 ' +
+  'C25.2 45.6 29.4 44.8 32.4 41.8 ' +
+  'C30.2 46.2 29.4 50.2 30.3 54.2 ' +
+  'C26.6 55.3 24.3 57.8 24.5 61.0 ' +
+  'C24.7 64.2 27.1 66.5 30.3 66.8 ' +
+  'C27.2 70.0 26.3 73.9 27.8 77.3 ' +
+  'C29.1 80.3 32.0 82.0 35.2 81.8 ' +
+  'C35.0 85.7 37.5 88.8 41.0 89.2 ' +
+  'C44.4 89.6 47.0 87.9 50.0 85.0 ' +
+  'C53.0 87.9 55.6 89.6 59.0 89.2 ' +
+  'C62.5 88.8 65.0 85.7 64.8 81.8 ' +
+  'C68.0 82.0 70.9 80.3 72.2 77.3 ' +
+  'C73.7 73.9 72.8 70.0 69.7 66.8 ' +
+  'C72.9 66.5 75.3 64.2 75.5 61.0 ' +
+  'C75.7 57.8 73.4 55.3 69.7 54.2 ' +
+  'C70.6 50.2 69.8 46.2 67.6 41.8 ' +
+  'C70.6 44.8 74.8 45.6 78.4 43.3 ' +
+  'C83.8 39.8 85.5 32.1 82.2 27.1 ' +
+  'C79.0 22.2 72.3 21.4 66.0 25.0 ' +
+  'C61.8 20.6 56.1 18.5 50.0 18.5 ' +
+  'C43.9 18.5 38.2 20.6 34.0 25.0 Z';
 
 // Eyes and mouth are strokes, not fills -- a few short paths per mood
-// instead of four separate illustrations. Body geometry is identical across
-// all four; only the face moves.
+// instead of four separate illustrations.
 //
-// Nothing here frowns. The moods read as *waiting*, not suffering: a pet
-// that looks hurt turns "we got busy" back into "you failed it", which is
-// the exact dynamic this feature exists to avoid. Even `withdrawn` keeps a
-// level mouth rather than a downturned one.
+// Nothing here frowns, and that is deliberate rather than a style choice.
+// The moods must read as *waiting*, not suffering: a pet that looks hurt
+// turns "we got busy" back into "you failed it", which is the exact dynamic
+// this feature exists to avoid. Even `withdrawn` keeps a level mouth.
 export const PET_EYES: Record<string, string> = {
-  thriving: 'M38.0 48.0 Q42.0 44.0 46.0 48.0 M54.0 48.0 Q58.0 44.0 62.0 48.0',
+  thriving: 'M37.8 47.0 Q42.0 42.6 46.2 47.0 M53.8 47.0 Q58.0 42.6 62.2 47.0',
   content:
-    'M38.5 47.0 C38.5 44.8 40.2 43.2 42.0 43.2 C43.8 43.2 45.5 44.8 45.5 47.0 ' +
-    'C45.5 49.2 43.8 50.8 42.0 50.8 C40.2 50.8 38.5 49.2 38.5 47.0 Z ' +
-    'M54.5 47.0 C54.5 44.8 56.2 43.2 58.0 43.2 C59.8 43.2 61.5 44.8 61.5 47.0 ' +
-    'C61.5 49.2 59.8 50.8 58.0 50.8 C56.2 50.8 54.5 49.2 54.5 47.0 Z',
-  // heavy lids: an upper line with a smaller one tucked under it
+    'M39.5 46.0 ' +
+    'C39.5 43.3 41.0 41.5 43.0 41.5 ' +
+    'C45.0 41.5 46.5 43.3 46.5 46.0 ' +
+    'C46.5 48.7 45.0 50.5 43.0 50.5 ' +
+    'C41.0 50.5 39.5 48.7 39.5 46.0 Z ' +
+    'M53.5 46.0 ' +
+    'C53.5 43.3 55.0 41.5 57.0 41.5 ' +
+    'C59.0 41.5 60.5 43.3 60.5 46.0 ' +
+    'C60.5 48.7 59.0 50.5 57.0 50.5 ' +
+    'C55.0 50.5 53.5 48.7 53.5 46.0 Z',
+  // heavy lids: an upper line with a smaller one tucked beneath it
   sleepy:
-    'M37.8 45.8 Q42.0 43.8 46.2 45.8 M39.2 48.0 Q42.0 48.8 44.8 48.0 ' +
-    'M53.8 45.8 Q58.0 43.8 62.2 45.8 M55.2 48.0 Q58.0 48.8 60.8 48.0',
-  withdrawn: 'M38.0 47.5 Q42.0 49.0 46.0 47.5 M54.0 47.5 Q58.0 49.0 62.0 47.5',
+    'M37.8 46.0 Q42.0 44.2 46.2 46.0 ' +
+    'M39.4 48.2 Q42.0 49.1 44.6 48.2 ' +
+    'M53.8 46.0 Q58.0 44.2 62.2 46.0 ' +
+    'M55.4 48.2 Q58.0 49.1 60.6 48.2',
+  withdrawn: 'M38.2 47.5 Q42.0 49.5 45.8 47.5 M54.2 47.5 Q58.0 49.5 61.8 47.5',
 };
 
 export const PET_MOUTH: Record<string, string> = {
-  thriving: 'M37.5 59.0 Q50.0 69.5 62.5 59.0',
-  content: 'M41.0 60.0 Q50.0 65.5 59.0 60.0',
-  sleepy: 'M42.5 60.5 Q50.0 64.0 57.5 60.5',
-  withdrawn: 'M44.0 61.2 Q50.0 62.0 56.0 61.2',
+  thriving: 'M41.0 57.5 Q45.0 63.5 50.0 60.0 Q55.0 63.5 59.0 57.5',
+  content: 'M42.0 59.0 Q46.0 62.5 50.0 59.8 Q54.0 62.5 58.0 59.0',
+  sleepy: 'M43.5 60.0 Q46.8 62.0 50.0 60.5 Q53.2 62.0 56.5 60.0',
+  withdrawn: 'M44.5 60.7 Q47.2 61.8 50.0 60.9 Q52.8 61.8 55.5 60.7',
 };
+
+// Deliberately off-palette: this is the artwork's own line colour, a softer
+// grey than colors.ink (#2E2A3D), and the face reads as drawn rather than
+// stamped with UI ink. Noted because CLAUDE.md otherwise locks the palette.
+export const PET_LINE = '#554B66';
 
 // Pause overlay, not a fifth mood. Pause is a status -- "we're travelling"
 // -- so it sits on top of whatever mood is current rather than replacing it,
