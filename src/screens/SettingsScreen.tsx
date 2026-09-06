@@ -12,12 +12,39 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { formatDateString, parseDateString, todayDateString } from '@/lib/date';
+import {
+  formatDateString,
+  parseDateString,
+  todayDateString,
+  sharedTodayDateString,
+  sharedDatePlusDays,
+} from '@/lib/date';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePairAnniversary, usePartnerNickname } from '@/hooks/queries';
+import {
+  usePairAnniversary,
+  usePartnerNickname,
+  usePetState,
+} from '@/hooks/queries';
+import { useSetPetPause } from '@/hooks/mutations';
 import { usePartnerName } from '@/hooks/usePartnerName';
+
+// Presets, not a date picker. A picker buys nothing over three buttons
+// here -- nobody needs to pause until an exact arbitrary date -- and this
+// repo has six documented rounds of real-device crashes from
+// @react-native-community/datetimepicker (docs/datepicker-debugging.md).
+// Smaller diff and the safer one.
+//
+// "Until I turn it back on" is a year out rather than a null sentinel:
+// paused_until null already means "not paused", so an open-ended pause
+// needs a real date, and a year is indistinguishable from forever for a
+// couple deciding to step away.
+const PAUSE_PRESETS: { label: string; days: number }[] = [
+  { label: '3 days', days: 3 },
+  { label: '1 week', days: 7 },
+  { label: 'Until I turn it back on', days: 365 },
+];
 
 export default function SettingsScreen({ navigation }: any) {
   const { session, pair, myProfile, refreshProfiles } = usePairing();
@@ -28,6 +55,13 @@ export default function SettingsScreen({ navigation }: any) {
   // genuinely unset. The cache serves the previous value on remount instead.
   const { data: anniversary } = usePairAnniversary(pair?.id);
   const [editingAnniversary, setEditingAnniversary] = useState(false);
+  const { data: pet } = usePetState(pair?.id);
+  const setPetPause = useSetPetPause();
+  const [editingPause, setEditingPause] = useState(false);
+  const pausedUntil =
+    pet?.paused_until && pet.paused_until >= sharedTodayDateString()
+      ? pet.paused_until
+      : null;
   const [pickerDate, setPickerDate] = useState(new Date());
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
@@ -271,6 +305,75 @@ export default function SettingsScreen({ navigation }: any) {
           </Text>
         </Pressable>
       )}
+      {editingPause ? (
+        <View style={styles.editCard}>
+          <Text style={styles.rowLabel}>Pause the pet</Text>
+          <Text style={styles.pauseHint}>
+            It waits where it is — no decay, no reminders.
+          </Text>
+          {PAUSE_PRESETS.map((preset) => (
+            <Pressable
+              key={preset.label}
+              style={({ pressed }) => [
+                styles.pauseOption,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                setPetPause.mutate(sharedDatePlusDays(preset.days), {
+                  onError: (err: any) =>
+                    Alert.alert("Couldn't pause", err.message),
+                });
+                setEditingPause(false);
+              }}
+            >
+              <Text style={styles.pauseOptionText}>{preset.label}</Text>
+            </Pressable>
+          ))}
+          {pausedUntil && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.pauseOption,
+                pressed && styles.pressed,
+              ]}
+              // null resumes -- clearing the date IS resuming, so there's no
+              // separate endpoint and no separate button state to keep true.
+              onPress={() => {
+                setPetPause.mutate(null, {
+                  onError: (err: any) =>
+                    Alert.alert("Couldn't resume", err.message),
+                });
+                setEditingPause(false);
+              }}
+            >
+              <Text style={styles.pauseResumeText}>Resume now</Text>
+            </Pressable>
+          )}
+          <Pressable
+            style={({ pressed }) => [
+              styles.pickerClose,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => setEditingPause(false)}
+          >
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          onPress={() => setEditingPause(true)}
+        >
+          <Text style={styles.rowLabel}>Pause</Text>
+          <Text style={styles.rowValue}>
+            {pausedUntil
+              ? `Until ${parseDateString(pausedUntil).toLocaleDateString(
+                  'en-US',
+                  { month: 'short', day: 'numeric' }
+                )}`
+              : 'Off'}
+          </Text>
+        </Pressable>
+      )}
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AccountSettings')}
@@ -301,6 +404,28 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 18,
     marginBottom: 16,
+  },
+  pauseHint: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  pauseOption: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  pauseOptionText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.md,
+    color: colors.primary,
+  },
+  pauseResumeText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.md,
+    color: colors.secondaryDark,
   },
   rowLabel: {
     fontFamily: fonts.bodySemiBold,

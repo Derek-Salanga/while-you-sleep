@@ -157,3 +157,27 @@ export function useSetReaction() {
     },
   });
 }
+
+// Pause the pet: "we're travelling", not "we gave up". Either partner can
+// set it, since it's shared state like pair_trips.
+//
+// An RPC rather than a table write because pair_pet has no update policy --
+// and RLS can't express "you may change paused_until but not score", which
+// is exactly the hole an update policy would open. Same reason
+// mark_clip_viewed() exists.
+export function useSetPetPause() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    // null resumes. There is no separate resume endpoint -- clearing the
+    // date IS resuming, the same shape as blank-on-save clearing a nickname.
+    mutationFn: async (until: string | null) => {
+      const { error } = await supabase.rpc('set_pet_pause', { until });
+      if (error) throw error;
+    },
+    // Invalidate rather than write back: the reminder's copy is derived from
+    // this in RootNavigator, so it has to re-run rather than just repaint.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pet'] });
+    },
+  });
+}

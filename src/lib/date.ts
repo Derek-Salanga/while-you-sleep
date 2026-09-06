@@ -61,6 +61,18 @@ export function sharedYesterdayDateString(now: Date = new Date()): string {
 // Returns minutes as well as hours on purpose: not every offset is a
 // whole hour (India is UTC+5:30, Nepal UTC+5:45), so assuming the minute
 // carries through unchanged would misfire by 30-45 minutes there.
+// N days forward on the shared (UTC) boundary. Used for the pet's pause
+// window, which the scoring loop in get_pet_state() compares against dates
+// that are themselves shared-day stamps -- so this must not go through
+// formatDateString(), whose LOCAL components would shift the date by one
+// either side of UTC midnight and pause the wrong day.
+export function sharedDatePlusDays(
+  days: number,
+  now: Date = new Date()
+): string {
+  return new Date(now.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 export function utcTimeToLocal(
   utcHour: number,
   utcMinute = 0,
