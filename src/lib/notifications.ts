@@ -26,13 +26,36 @@ const REACTIONS_CHANNEL_ID = 'reactions';
 
 // Fixed identifier so re-scheduling (e.g. on every app launch) replaces
 // the existing request instead of piling up duplicates.
-const REMINDERS = [
-  {
-    identifier: 'daily-question-reminder',
-    title: "Today's question is up",
-    body: 'Record your video answer before your partner does.',
+const REMINDER_ID = 'daily-question-reminder';
+
+const DEFAULT_REMINDER = {
+  title: "Today's question is up",
+  body: 'Record your video answer before your partner does.',
+};
+
+// The pet's daily voice, and the reason arc 3 needs no server-side
+// scheduling: this reminder already fires at 20:00 UTC and is already
+// re-scheduled by identifier on every launch, so varying its copy by mood
+// costs nothing beyond the strings.
+//
+// Every line describes the pet, never the reader. "It's been quiet" rather
+// than "you haven't posted" -- a notification that assigns blame is the
+// streak counter this feature exists to replace, just with a face on it.
+const PET_REMINDERS: Record<string, { title: string; body: string }> = {
+  thriving: {
+    title: 'Your pet is thriving',
+    body: "Today's question is up — keep it going.",
   },
-];
+  content: DEFAULT_REMINDER,
+  sleepy: {
+    title: 'Your pet is getting sleepy',
+    body: "Today's question is up. Two answers would perk it up.",
+  },
+  withdrawn: {
+    title: 'Your pet is waiting',
+    body: "It's been quiet. Today's question is up.",
+  },
+};
 
 // Answering the daily question used to be a separate, text-only step from
 // recording the daily clip -- now the clip IS the answer (see "Video daily
@@ -54,7 +77,11 @@ Notifications.setNotificationHandler({
 // Schedules the two daily reminders as repeating local notifications —
 // no backend/push infra involved, so this only needs to run once (it's
 // safe to call again; it replaces the existing requests by identifier).
-export async function ensureDailyRemindersScheduled(): Promise<void> {
+export async function ensureDailyRemindersScheduled(
+  // Omitted before the pet's state has loaded, or when paused -- see the
+  // caller in RootNavigator.
+  mood?: string | null
+): Promise<void> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
@@ -102,26 +129,24 @@ export async function ensureDailyRemindersScheduled(): Promise<void> {
     REMINDER_UTC_MINUTE
   );
 
-  await Promise.all(
-    REMINDERS.map((reminder) =>
-      Notifications.scheduleNotificationAsync({
-        identifier: reminder.identifier,
-        content: {
-          title: reminder.title,
-          body: reminder.body,
-          // Read back by RootNavigator's response listener to decide where
-          // a tap lands -- see routeForNotification.
-          data: { type: 'daily-reminder' satisfies NotificationType },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour,
-          minute,
-          channelId: ANDROID_CHANNEL_ID,
-        },
-      })
-    )
-  );
+  const reminder = (mood && PET_REMINDERS[mood]) || DEFAULT_REMINDER;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: REMINDER_ID,
+    content: {
+      title: reminder.title,
+      body: reminder.body,
+      // Read back by RootNavigator's response listener to decide where a tap
+      // lands -- see routeForNotification.
+      data: { type: 'daily-reminder' satisfies NotificationType },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+      channelId: ANDROID_CHANNEL_ID,
+    },
+  });
 }
 
 // Records this device's Expo push token so the server can reach it when the

@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  ScrollView,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +24,14 @@ import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { useQueryClient } from '@tanstack/react-query';
-import { useClips, usePairTrip, usePairAnniversary } from '@/hooks/queries';
+import {
+  useClips,
+  usePairTrip,
+  usePairAnniversary,
+  usePetState,
+} from '@/hooks/queries';
+import SharedPet from '@/components/SharedPet';
+import { petMood, PetMood } from '@/types';
 import {
   todayDateString,
   sharedTodayDateString,
@@ -34,6 +42,23 @@ import {
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 import { countries, flagEmoji, countryName } from '@/data/countries';
+
+// What the pet card says. Every line is phrased as a state of the pair, not
+// an instruction to the reader -- "it's been quiet" rather than "you haven't
+// posted". A shared pet that nags is just a streak counter with a face, and
+// the guilt dynamic is the thing this feature exists to avoid.
+const PET_COPY: Record<PetMood, { title: string; body: string }> = {
+  thriving: { title: 'Thriving', body: "You've both been showing up." },
+  content: { title: 'Doing well', body: 'Keep it going.' },
+  sleepy: {
+    title: 'Getting sleepy',
+    body: "It's been a quiet couple of days.",
+  },
+  withdrawn: {
+    title: 'Waiting for you both',
+    body: 'A day from each of you brings it back.',
+  },
+};
 
 function tripCountdownLabel(targetDate: string): string {
   const diffDays = daysBetween(todayDateString(), targetDate);
@@ -84,6 +109,13 @@ export default function HomeScreen({ navigation }: any) {
   );
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+
+  const { data: pet } = usePetState(pair?.id);
+  // Paused is a status laid over the current mood, not a mood of its own --
+  // "we're travelling" must not read as a worse state of wellbeing.
+  const petResting =
+    !!pet?.paused_until && pet.paused_until >= sharedTodayDateString();
+  const mood = pet ? petMood(pet.score) : null;
 
   const recordCtaScale = useSharedValue(1);
   const recordCtaAnimatedStyle = useAnimatedStyle(() => ({
@@ -145,7 +177,10 @@ export default function HomeScreen({ navigation }: any) {
   }, [countrySearch]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+    >
       <Text style={styles.title}>Home</Text>
       {anniversary && (
         <Text style={styles.anniversaryText}>
@@ -153,6 +188,21 @@ export default function HomeScreen({ navigation }: any) {
           together
           {partnerName ? ` with ${partnerName}` : ''}
         </Text>
+      )}
+      {/* Above the record CTA on purpose: the pet's state is the reason to
+          tap it, so it should be read first. */}
+      {mood && (
+        <View style={styles.petCard}>
+          <SharedPet mood={mood} size={72} resting={petResting} />
+          <View style={styles.petCopy}>
+            <Text style={styles.petTitle}>
+              {petResting ? 'Resting' : PET_COPY[mood].title}
+            </Text>
+            <Text style={styles.petBody}>
+              {petResting ? "Paused while you're away." : PET_COPY[mood].body}
+            </Text>
+          </View>
+        </View>
       )}
       {/* The daily clip IS the daily question's answer now -- RecordScreen
           shows the question, records the (video) answer, and reveals both
@@ -303,12 +353,12 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
+  container: { flex: 1, backgroundColor: colors.background },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xl,
@@ -320,6 +370,36 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     color: colors.muted,
     marginBottom: 16,
+  },
+  // container holds the background; content carries the padding, since a
+  // ScrollView's padding has to live on contentContainerStyle to scroll with
+  // the content rather than clipping it.
+  content: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  petCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  petCopy: { flex: 1 },
+  petTitle: {
+    fontFamily: fonts.display,
+    fontSize: fontSizes.md,
+    color: colors.ink,
+  },
+  petBody: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    marginTop: 2,
   },
   entryCard: {
     flexDirection: 'row',

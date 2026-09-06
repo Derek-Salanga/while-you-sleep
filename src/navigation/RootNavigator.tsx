@@ -9,6 +9,8 @@ import {
   registerPushToken,
 } from '@/lib/notifications';
 import { routeForNotification } from '@/lib/notificationRouting';
+import { usePetState } from '@/hooks/queries';
+import { petMood } from '@/types';
 import { navigationRef } from './navigationRef';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme/colors';
@@ -36,12 +38,17 @@ export default function RootNavigator() {
   // for notification permission, and registerPushToken bails without it, so
   // firing them together would skip token registration on a first launch.
   const userId = session?.user?.id;
+  // The reminder's copy follows the pet's mood, which is the whole reason
+  // arc 3 needs no server-side scheduling -- this notification already fires
+  // daily and is already replaced by identifier on every launch.
+  const { data: pet } = usePetState(pair?.id);
+  const mood = pet ? petMood(pet.score) : null;
   useEffect(() => {
     if (!isPaired || !userId) return;
-    ensureDailyRemindersScheduled()
+    ensureDailyRemindersScheduled(mood)
       .then(() => registerPushToken(userId))
       .catch((err) => console.error('Notification setup failed:', err));
-  }, [isPaired, userId]);
+  }, [isPaired, userId, mood]);
 
   // Where a tap lands depends on which notification it was. The daily
   // reminder opens Home — resuming onto whatever screen the app was left on
