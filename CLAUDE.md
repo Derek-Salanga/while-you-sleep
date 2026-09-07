@@ -102,6 +102,13 @@ supabase/
   `{{ .Token }}` — required for the 6-digit OTP code to actually appear
   in the email (Supabase's default template only sends a magic link,
   and template editing is locked without custom SMTP configured).
+- **Email OTP expiry is 900s (15 min)**, set 2026-09-07 in the Supabase
+  dashboard (Authentication → Sign In / Providers → Email → "Email OTP
+  Expiration"), down from the 3600s default. Nothing in the repo controls
+  this — `AuthScreen` passes no `expiresIn`, so the project setting is the
+  only thing deciding it. Recorded here because it is otherwise invisible
+  from the code. An hour of validity is an hour in which a code sitting in
+  an inbox, a screenshot, or a synced notification still works.
 - GitHub repo: `github.com/Derek-Salanga/while-you-sleep` (public, for
   portfolio purposes). CI runs lint + type-check on every push to `main`.
 - `.env` is gitignored and not in the repo — the user has it locally
