@@ -1331,3 +1331,35 @@ days video isn't possible was argued both ways and left out on purpose: the
 app was abandoned *while* the bar was high, but there's no evidence the bar
 was why. Lowering it is a guess; the pet had evidence behind it. Revisit with
 real usage data rather than before it.
+
+2026-09-07: **the redrawn pet is confirmed on device** — it reads as a
+sitting floppy-eared companion rather than the cloud-like blob it replaced,
+and the `withdrawn` frown is clearly visible at the 72pt Home card size.
+
+What actually fixed the silhouette was structural rather than a matter of
+nicer curves, and is the thing to remember if this is ever redrawn again:
+the previous body encoded the ears as **bumps in a single outline**, so they
+rendered as side lumps no matter how they were shaped. Ears and paws are now
+separate closed subpaths overlapping the body mass, so each carries its own
+stroke. A belly patch sits under the body outline so it reads as fur rather
+than a sticker.
+
+Four iterations got there, each rasterised from the real path data through
+headless Chrome (`--headless --screenshot` against a generated HTML page).
+The first two looked reasonable as coordinates and terrible as pictures —
+worth doing again rather than reasoning about bezier control points.
+
+Symmetry is generated, not hand-matched: only the right half is authored and
+the left is its reflection, with the curve chain walked backwards so control
+points swap. `src/theme/petPaths.test.ts` enforces it — all 83 body points
+mirror about x=50, and the path is absolute-commands-only, since a relative
+command would silently break the reflection (a mirrored delta is not the
+mirror of the point it lands on).
+
+**The `withdrawn` frown is a deliberate reversal**, made by the user after
+seeing three mouth options rendered side by side. Worth recording the
+tension rather than burying it: the pet was chosen over a streak counter
+because a streak resetting assigns blame, and a downturned mouth carries
+that same message with a face on it, on the days someone was busiest. The
+level mouth it replaced is kept in a comment beside it so this stays a
+decision rather than something inherited.
