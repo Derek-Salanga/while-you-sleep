@@ -15,8 +15,14 @@ create table if not exists pairs (
   user_a uuid not null references auth.users (id) on delete cascade,
   user_b uuid references auth.users (id) on delete cascade,
   invite_code text not null unique,
+  -- Null means "never expires", which is what pre-existing rows carry.
+  -- Set by the client on insert and by regenerate_invite(); enforced only
+  -- in join_pair_by_code, so a claimed pair keeps working regardless.
+  invite_expires_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table pairs add column if not exists invite_expires_at timestamptz;
 
 -- The daily clip IS the daily question's answer (see "Video daily
 -- question" in CLAUDE.md) -- caption_text is an optional short text
@@ -109,6 +115,24 @@ create policy "pairs_insert_self_as_a" on pairs
 -- pair) and claim it atomically without needing a broad SELECT/UPDATE
 -- policy exposed to the client -- see the comment on pairs' policies
 -- above for why that would be a vulnerability.
+-- Rate-limit ledger for join attempts. Written only by join_pair_by_code
+-- (security definer), so RLS is enabled with NO policies at all: the client
+-- can neither read nor write it, and doesn't need to.
+--
+-- Rows are pruned inside join_pair_by_code rather than by a cron job,
+-- because they only accumulate when someone is actually attempting joins --
+-- no attempts, nothing to clean. That keeps this out of the nightly storage
+-- job, which is about a different thing entirely.
+create table if not exists invite_attempts (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  attempted_at timestamptz not null default now()
+);
+
+alter table invite_attempts enable row level security;
+
+create index if not exists invite_attempts_user_time_idx
+  on invite_attempts (user_id, attempted_at);
+
 create or replace function join_pair_by_code(code text)
 returns pairs
 language plpgsql
@@ -117,20 +141,113 @@ set search_path = public
 as $$
 declare
   joined_pair pairs;
+  recent_attempts int;
 begin
+  -- Guard an unauthenticated call explicitly. Without it the update below
+  -- would set user_b = null, leave the pair unclaimed, and still return a
+  -- row -- reporting success for a join that didn't happen.
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  -- Log first so the current attempt counts against the limit, then prune,
+  -- then measure.
+  insert into invite_attempts (user_id) values (auth.uid());
+  delete from invite_attempts where attempted_at < now() - interval '1 hour';
+
+  select count(*) into recent_attempts
+    from invite_attempts
+   where user_id = auth.uid()
+     and attempted_at > now() - interval '1 hour';
+
+  -- The code space is large enough that a human never hits this; it exists
+  -- because this function is the one place an invite code can be tested,
+  -- and without a ceiling it is an oracle you can run in a loop.
+  if recent_attempts > 10 then
+    raise exception 'Too many attempts. Try again later.';
+  end if;
+
   update pairs
   set user_b = auth.uid()
   where invite_code = code
     and user_b is null
+    -- Null means "no expiry", which is what every pair created before this
+    -- column existed has. Treating it as valid avoids a migration for rows
+    -- whose owners are already paired anyway.
+    and (invite_expires_at is null or invite_expires_at > now())
   returning * into joined_pair;
 
   if joined_pair is null then
-    raise exception 'Invite code not found or already claimed';
+    -- Deliberately one message for not-found, already-claimed and expired.
+    -- Distinguishing them would confirm that a code exists, which is the
+    -- one bit an enumerator actually wants.
+    raise exception 'Invite code not found, already used, or expired';
   end if;
 
   return joined_pair;
 end;
 $$;
+
+-- Replace your own unclaimed invite with a fresh code. The client supplies
+-- the code because generation lives there (it needs to retry on the unique
+-- constraint); this function's job is only to ensure you can rewrite nothing
+-- but your own unclaimed row.
+--
+-- A function rather than an UPDATE policy on `pairs` for the reason the
+-- policies above already record: `using` alone does not constrain what a row
+-- can be changed *to*, and a policy permissive enough to allow this would
+-- also allow rewriting user_b, which is exactly the hole that was closed in
+-- the 2026-08-28 audit.
+create or replace function regenerate_invite(new_code text, ttl_hours int default 72)
+returns pairs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_pair pairs;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  update pairs
+     set invite_code = new_code,
+         invite_expires_at = now() + make_interval(hours => ttl_hours)
+   where user_a = auth.uid()
+     and user_b is null
+  returning * into updated_pair;
+
+  if updated_pair is null then
+    raise exception 'No pending invite to regenerate';
+  end if;
+
+  return updated_pair;
+end;
+$$;
+
+-- Withdraw your own unclaimed invite entirely, returning you to the
+-- create-or-join screen. Safe to delete outright: an unclaimed pair has no
+-- partner and therefore no clips, trips, anniversary or pet hanging off it,
+-- so the cascade has nothing to take.
+create or replace function cancel_invite() returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  delete from pairs
+   where user_a = auth.uid()
+     and user_b is null;
+end;
+$$;
+
+grant execute on function regenerate_invite(text, int) to authenticated;
+grant execute on function cancel_invite() to authenticated;
 
 -- Helper: does the current user already have their own clip for this
 -- pair/date? Same security definer reasoning as has_own_daily_answer
