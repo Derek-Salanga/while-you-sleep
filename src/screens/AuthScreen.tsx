@@ -44,6 +44,35 @@ export default function AuthScreen() {
     }
   }
 
+  // Supabase collapses several distinct failures into verifyOtp's error, and
+  // the raw string ("Token has expired or is invalid") makes an expired code
+  // look like a mistyped one -- so people re-read a code that was never
+  // wrong instead of tapping Resend.
+  //
+  // Matched on the message rather than a code because Supabase does not give
+  // these distinct error codes on this endpoint. If a future version does,
+  // switch to it; until then an unrecognised message falls through to the
+  // generic branch rather than being guessed at.
+  function describeVerifyError(message: string): {
+    title: string;
+    body: string;
+  } {
+    const m = message.toLowerCase();
+    if (m.includes('expired')) {
+      return {
+        title: 'That code has expired',
+        body: 'Codes are only good for a few minutes. Tap Resend code for a fresh one.',
+      };
+    }
+    if (m.includes('rate limit') || m.includes('too many')) {
+      return {
+        title: 'Too many attempts',
+        body: 'Wait a minute before trying again.',
+      };
+    }
+    return { title: 'Invalid code', body: message };
+  }
+
   async function handleVerifyCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !code.trim()) return;
@@ -56,7 +85,8 @@ export default function AuthScreen() {
       });
       if (error) throw error;
     } catch (err: any) {
-      Alert.alert('Invalid code', err.message);
+      const { title, body } = describeVerifyError(err.message ?? '');
+      Alert.alert(title, body);
     } finally {
       setBusy(false);
     }
