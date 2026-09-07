@@ -10,14 +10,12 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import CrossoverHeart from '@/components/CrossoverHeart';
-
-// Generates a short, human-friendly invite code, e.g. "SUNSET-42"
-function generateInviteCode(): string {
-  const words = ['SUNSET', 'HORIZON', 'MOONLIT', 'DAYBREAK', 'DUSK', 'DAWN'];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const num = Math.floor(10 + Math.random() * 89);
-  return `${word}-${num}`;
-}
+import {
+  generateInviteCode,
+  inviteExpiryISO,
+  formatExpiry,
+  INVITE_TTL_HOURS,
+} from '@/lib/inviteCode';
 
 export default function PairingScreen() {
   const { session, pair, refreshPair } = usePairing();
@@ -27,10 +25,10 @@ export default function PairingScreen() {
   // If a pending invite already exists for this user (e.g. we created one,
   // then closed and reopened the app before our partner joined), show it
   // from persisted state rather than losing it on remount.
-  const myCode =
-    pair && !pair.user_b && pair.user_a === session?.user.id
-      ? pair.invite_code
-      : null;
+  const myPendingInvite =
+    pair && !pair.user_b && pair.user_a === session?.user.id ? pair : null;
+  const myCode = myPendingInvite?.invite_code ?? null;
+  const expiryLabel = formatExpiry(myPendingInvite?.invite_expires_at ?? null);
 
   // Pick up a partner joining while we're sitting on the waiting screen.
   useFocusEffect(
@@ -39,23 +37,88 @@ export default function PairingScreen() {
     }, [refreshPair])
   );
 
+  // Retries on the unique-constraint violation rather than surfacing raw
+  // Postgres text. Collisions are vanishingly unlikely at 31^6, but the old
+  // generator had no retry at all and a duplicate there was a dead end the
+  // user could do nothing about.
   async function handleCreateInvite() {
     if (!session?.user) return;
     setBusy(true);
     try {
-      const code = generateInviteCode();
-      const { error } = await supabase.from('pairs').insert({
-        user_a: session.user.id,
-        user_b: null,
-        invite_code: code,
-      });
-      if (error) throw error;
-      await refreshPair();
+      let lastError: any = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { error } = await supabase.from('pairs').insert({
+          user_a: session.user.id,
+          user_b: null,
+          invite_code: generateInviteCode(),
+          invite_expires_at: inviteExpiryISO(),
+        });
+        if (!error) {
+          await refreshPair();
+          return;
+        }
+        // 23505 = unique_violation. Anything else is a real failure.
+        if (error.code !== '23505') throw error;
+        lastError = error;
+      }
+      throw lastError;
     } catch (err: any) {
       Alert.alert('Could not create invite', err.message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRegenerate() {
+    setBusy(true);
+    try {
+      let lastError: any = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const { error } = await supabase.rpc('regenerate_invite', {
+          new_code: generateInviteCode(),
+          ttl_hours: INVITE_TTL_HOURS,
+        });
+        if (!error) {
+          await refreshPair();
+          return;
+        }
+        if (error.code !== '23505') throw error;
+        lastError = error;
+      }
+      throw lastError;
+    } catch (err: any) {
+      Alert.alert('Could not regenerate', err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Confirmed because the old code stops working the moment this runs, and
+  // anyone already holding it just sees "not found".
+  function confirmCancel() {
+    Alert.alert(
+      'Cancel this invite?',
+      'The code stops working straight away. You can create a new one after.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Cancel invite',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              const { error } = await supabase.rpc('cancel_invite');
+              if (error) throw error;
+              await refreshPair();
+            } catch (err: any) {
+              Alert.alert('Could not cancel', err.message);
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   async function handleJoin() {
@@ -93,10 +156,31 @@ export default function PairingScreen() {
           </Text>
           <Text style={styles.cardLabel}>Your invite code</Text>
           <Text style={styles.code}>{myCode}</Text>
+          {expiryLabel && <Text style={styles.expiry}>{expiryLabel}</Text>}
           <Text style={styles.helper}>
             Share this code with your partner. Once they join, you can both
             start sending daily clips.
           </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.inviteAction,
+              pressed && styles.pressed,
+            ]}
+            onPress={handleRegenerate}
+            disabled={busy}
+          >
+            <Text style={styles.inviteActionText}>Get a new code</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.inviteAction,
+              pressed && styles.pressed,
+            ]}
+            onPress={confirmCancel}
+            disabled={busy}
+          >
+            <Text style={styles.inviteCancelText}>Cancel invite</Text>
+          </Pressable>
         </Card>
       ) : (
         <Button
@@ -138,6 +222,25 @@ export default function PairingScreen() {
 }
 
 const styles = StyleSheet.create({
+  expiry: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: colors.muted,
+    marginBottom: 4,
+  },
+  inviteAction: {
+    paddingVertical: 10,
+  },
+  inviteActionText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.sm,
+    color: colors.primary,
+  },
+  inviteCancelText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: fontSizes.sm,
+    color: colors.error,
+  },
   title: {
     fontFamily: fonts.display,
     fontSize: fontSizes.xxl,

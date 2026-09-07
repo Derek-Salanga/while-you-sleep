@@ -12,6 +12,9 @@ export interface Pair {
   user_a: string;
   user_b: string | null;
   invite_code: string;
+  // Null on rows created before invite expiry existed; join_pair_by_code
+  // treats null as "never expires" so those keep working.
+  invite_expires_at: string | null;
   created_at: string;
 }
 
