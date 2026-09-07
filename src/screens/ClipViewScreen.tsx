@@ -66,10 +66,6 @@ export default function ClipViewScreen({ route, navigation }: any) {
     reactions?.find(
       (r) => r.clip_id === activeClipId && r.user_id === session?.user.id
     ) ?? null;
-  const theirReaction =
-    reactions?.find(
-      (r) => r.clip_id === activeClipId && r.user_id !== session?.user.id
-    ) ?? null;
 
   const closeButton = (
     <Pressable
@@ -112,13 +108,16 @@ export default function ClipViewScreen({ route, navigation }: any) {
         contentFit="contain"
       />
       {closeButton}
+      {/* Only your own reaction lives here. The partner's is deliberately
+          absent: seeing their response before or during playback colours how
+          you experience your own clip, and this screen should be the video
+          and nothing else.
+          Their reaction is still visible on the Timeline card, so this does
+          not fully remove the disclosure -- the Timeline is where you tap in
+          from. Closing that gap means a neutral "they responded" indicator
+          there with the emoji revealed on playToEnd; a deliberate follow-up,
+          not an oversight. */}
       <View style={styles.reactionRow}>
-        {/* Their reaction sits to the left, unpressable -- it's information,
-            not a control. Absent entirely rather than a placeholder, so the
-            row doesn't imply a reply that hasn't happened. */}
-        {theirReaction && (
-          <Text style={styles.theirReaction}>{theirReaction.emoji}</Text>
-        )}
         {REACTION_EMOJI.map((emoji) => {
           const selected = myReaction?.emoji === emoji;
           return (
@@ -197,11 +196,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
   reactionEmoji: { fontSize: 22 },
-  theirReaction: {
-    fontSize: 22,
-    opacity: 0.85,
-    marginRight: 8,
-  },
   dateLabel: {
     fontFamily: fonts.body,
     color: colors.surface,
