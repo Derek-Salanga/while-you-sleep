@@ -1209,6 +1209,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   date, Home shows the resting overlay, "Resume now" clears it, and the daily
   reminder is cancelled while paused and returns on resume
 
+- The redrawn pet (2026-09-07): reads as a sitting floppy-eared companion
+  at the 72pt Home card size, with the `withdrawn` frown clearly visible.
+  Ears and paws are separate closed subpaths overlapping the body — as
+  outline bumps they rendered as side lumps, which is what made the previous
+  version read as a cloud
+
 **Not verified:**
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
