@@ -1363,3 +1363,38 @@ because a streak resetting assigns blame, and a downturned mouth carries
 that same message with a face on it, on the days someone was busiest. The
 level mouth it replaced is kept in a comment beside it so this stays a
 decision rather than something inherited.
+
+2026-09-07: **the invite-code attempt ceiling works.** Verified in SQL under
+impersonation, against the live project.
+
+Two calls to `join_pair_by_code('AAA-AAA')` as the same user, differing only
+in how many rows sat in `invite_attempts`:
+
+- 11 seeded attempts in the last hour → raises from **line 19**,
+  `Too many attempts. Try again later.`
+- a cleared ledger → raises from **line 30**,
+  `Invite code not found, already used, or expired`
+
+The two different raise sites are the actual assertion. A single failing call
+proves nothing — a bad code fails either way — so the control matters more
+than the positive case here.
+
+This is the change that closes the enumeration hole. The old generator gave
+534 possible codes (6 words x 89 numbers), never expiring, and
+`join_pair_by_code` was the unthrottled oracle you would test them against.
+Widening the space to ~887 million is what makes guessing expensive; the
+ceiling is what stops someone paying that cost anyway.
+
+Two notes for whoever repeats this:
+
+- **The Supabase SQL editor reports a raised exception as a failed query.**
+  Both results above look like errors in the UI and are the expected
+  outcome. Read the message and the line number, not the red banner.
+- **Don't reach for a temp table to collect loop output.** The editor runs
+  over a pooled connection, so a temp table created in one statement is not
+  reliably visible to the next, and `authenticated`'s role-level
+  `search_path` does not include `pg_temp` either. Seeding the ledger
+  directly and making one call needs neither.
+
+Still unverified on device: the invite UI itself (create / regenerate /
+cancel, code format, expiry line), and the expired-OTP copy.
