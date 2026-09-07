@@ -78,13 +78,26 @@ export function useClips(pairId: string | null | undefined) {
   });
 }
 
+const SIGNED_URL_TTL_SECONDS = 60 * 10;
+
 // Deliberately bundles the signed playback URL with the row: ClipViewScreen
 // can never use one without the other, so splitting them would just mean two
 // loading states to reconcile. The URL is good for 10 minutes, comfortably
 // longer than a 30s clip.
+//
+// THE URL IS INSIDE THE CACHED VALUE, which is why gcTime matters here and
+// nowhere else. On the stock 5-minute gcTime, re-entering a Monthly Summary
+// reel can serve a cached entry whose URL was minted up to 10 minutes
+// earlier -- i.e. already expired -- synchronously, before react-query
+// revalidates. expo-video gets a dead URL and the clip just fails to play.
+//
+// A minute keeps a cached URL far younger than its own signature. Raising
+// the TTL instead would fix the symptom by widening the window a leaked URL
+// stays usable, which is the wrong direction.
 export function useClip(clipId: string) {
   return useQuery({
     queryKey: ['clip', clipId],
+    gcTime: 60_000,
     queryFn: async (): Promise<{ clip: Clip; videoUrl: string }> => {
       const { data: clip, error } = await supabase
         .from('clips')
@@ -95,7 +108,7 @@ export function useClip(clipId: string) {
 
       const { data: signed, error: urlError } = await supabase.storage
         .from('clips')
-        .createSignedUrl(clip.storage_path, 60 * 10);
+        .createSignedUrl(clip.storage_path, SIGNED_URL_TTL_SECONDS);
       if (urlError) throw urlError;
 
       return { clip: clip as Clip, videoUrl: signed.signedUrl };
