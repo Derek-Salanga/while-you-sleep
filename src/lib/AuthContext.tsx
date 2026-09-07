@@ -65,6 +65,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       if (error) throw error;
     },
+    // Mutations do NOT inherit the retry-with-backoff that queries get:
+    // TanStack Query v5 defaults queries to retry 3, mutations to retry 0.
+    // CLAUDE.md claimed the library's default covered this path when
+    // withClockSkewRetry was removed -- it never did, so this call has been
+    // one-shot ever since.
+    //
+    // That matters here specifically because this fires the instant a
+    // session is established, which is exactly the cold-start window where
+    // PostgREST rejects a valid JWT with "JWT issued at future" while the
+    // project's clock settles. Seen for real on 2026-09-07 during sign-in.
+    //
+    // Safe to retry because the upsert is idempotent (onConflict: 'id',
+    // ignoreDuplicates). Deliberately not set as a global mutation default:
+    // useDeleteAccount runs an RPC and then signs out, so a retry there
+    // would re-run a delete against an account that no longer exists.
+    retry: 3,
     onError: (err) => console.error('Failed to ensure profile:', err.message),
   });
 

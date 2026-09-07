@@ -990,10 +990,21 @@ clock drift before it NTP-syncs. It self-corrects within a couple
 seconds, so it's retried rather than "fixed" client-side.
 
 `PairingContext.tsx` used to hand-roll this as a `withClockSkewRetry`
-wrapper (2 retries, 1500ms apart). That's gone — since those calls are
-now react-query queries/mutations, the library's default retry (3
-attempts, exponential backoff) covers it, and covers strictly more than
-the old wrapper did. Nothing special is configured for it.
+wrapper (2 retries, 1500ms apart). That's gone. **The claim that
+react-query's defaults replaced it was only half true, and was corrected
+2026-09-07:** TanStack Query v5 defaults *queries* to `retry: 3` but
+*mutations* to `retry: 0`. The pair/profile **queries** have been covered
+all along; the `ensureProfile` **mutation** in `AuthContext.tsx` has been
+one-shot since the wrapper was deleted, and was seen failing for real
+during a sign-in — the app reached PairingScreen with no `profiles` row
+written, and in a production build that failure is silent, since LogBox is
+dev-only.
+
+`ensureProfile` now sets `retry: 3` explicitly. Safe to retry because the
+upsert is idempotent (`onConflict: 'id'`, `ignoreDuplicates`), and
+deliberately *not* a global mutation default: `useDeleteAccount` runs an
+RPC and then signs out, so a retry there would re-run a delete against an
+account that no longer exists.
 
 ## Testing status
 
