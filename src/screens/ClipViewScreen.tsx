@@ -12,6 +12,7 @@ import { usePairing } from '@/lib/PairingContext';
 import { useClip, useReactions } from '@/hooks/queries';
 import { useMarkClipViewed, useSetReaction } from '@/hooks/mutations';
 import { REACTION_EMOJI } from '@/data/reactions';
+import ReactionBurst from '@/components/ReactionBurst';
 import { colors } from '@/theme/colors';
 import { fonts, fontSizes } from '@/theme/typography';
 
@@ -62,6 +63,12 @@ export default function ClipViewScreen({ route, navigation }: any) {
   // activeClipId, so the row changes per clip along with the caption.
   const { data: reactions } = useReactions(pair?.id);
   const { mutate: setReaction } = useSetReaction();
+  // The counter, not the emoji, is what replays the burst -- re-picking the
+  // same one has to animate again, and the emoji alone wouldn't change.
+  const [burst, setBurst] = useState<{ token: number; emoji: string | null }>({
+    token: 0,
+    emoji: null,
+  });
   const myReaction =
     reactions?.find(
       (r) => r.clip_id === activeClipId && r.user_id === session?.user.id
@@ -118,6 +125,11 @@ export default function ClipViewScreen({ route, navigation }: any) {
           there with the emoji revealed on playToEnd; a deliberate follow-up,
           not an oversight. */}
       <View style={styles.reactionRow}>
+        <ReactionBurst
+          token={burst.token}
+          emoji={burst.emoji}
+          onDone={() => setBurst((b) => ({ ...b, emoji: null }))}
+        />
         {REACTION_EMOJI.map((emoji) => {
           const selected = myReaction?.emoji === emoji;
           return (
@@ -125,14 +137,22 @@ export default function ClipViewScreen({ route, navigation }: any) {
               key={emoji}
               // Tapping your current reaction clears it; there's no separate
               // remove affordance, mirroring blank-on-save for nicknames.
-              onPress={() =>
-                session?.user &&
+              onPress={() => {
+                if (!session?.user) return;
+                const next = selected ? null : emoji;
                 setReaction({
                   clipId: activeClipId,
                   userId: session.user.id,
-                  emoji: selected ? null : emoji,
-                })
-              }
+                  emoji: next,
+                });
+                // Fires on the optimistic tap rather than on the mutation
+                // settling: the round-trip plus an invalidate is far longer
+                // than the animation, and a burst that lands after the
+                // emoji has already changed reads as a glitch. Nothing on
+                // clear -- taking a reaction back shouldn't be celebrated.
+                if (next)
+                  setBurst((b) => ({ token: b.token + 1, emoji: next }));
+              }}
               style={({ pressed }) => [
                 styles.reactionButton,
                 selected && styles.reactionButtonSelected,
