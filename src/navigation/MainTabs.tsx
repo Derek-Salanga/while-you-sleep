@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import NavIcon from '@/components/NavIcon';
 import { NavIconKey } from '@/theme/navIcons';
 import { MainTabParamList, SettingsStackParamList } from '@/types';
-import { colors } from '@/theme/colors';
+import { useTheme } from '@/theme/ThemeContext';
 
 import HomeScreen from '@/screens/HomeScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
@@ -45,6 +45,7 @@ const TAB_CONFIG: Record<
 };
 
 export default function MainTabs() {
+  const t = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {
@@ -59,11 +60,11 @@ export default function MainTabs() {
           unmountOnBlur: true,
           tabBarShowLabel: false,
           tabBarAccessibilityLabel: config.accessibilityLabel,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.muted,
+          tabBarActiveTintColor: t.accentYou,
+          tabBarInactiveTintColor: t.textMuted,
           tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
+            backgroundColor: t.surface,
+            borderTopColor: t.border,
           },
           tabBarIcon: ({ color }) => (
             <NavIcon name={config.icon} color={color} size={26} />

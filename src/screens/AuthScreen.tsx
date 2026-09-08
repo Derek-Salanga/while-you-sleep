@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Text,
   Pressable,
@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import Button from '@/components/ui/Button';
@@ -17,6 +18,8 @@ import Input from '@/components/ui/Input';
 type Stage = 'enterEmail' | 'enterCode';
 
 export default function AuthScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const [stage, setStage] = useState<Stage>('enterEmail');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -174,31 +177,34 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xxl,
-    color: colors.ink,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  linkButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  linkButtonText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.primary,
-    fontSize: fontSizes.sm,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xxl,
+      color: t.textPrimary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginBottom: 32,
+    },
+    linkButton: {
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    linkButtonText: {
+      fontFamily: fonts.bodyMedium,
+      color: t.accentYou,
+      fontSize: fontSizes.sm,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+  });
