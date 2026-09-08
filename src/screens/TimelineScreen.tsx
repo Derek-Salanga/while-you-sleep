@@ -25,7 +25,6 @@ import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
 import HeroCard from '@/components/HeroCard';
-import StoryRings from '@/components/StoryRings';
 import CrossoverHeart from '@/components/CrossoverHeart';
 
 // Budget: the last staggered card must finish inside 300ms, so the stagger
@@ -162,7 +161,6 @@ export default function TimelineScreen({ navigation }: any) {
     <Screen padding={20} topInset>
       <Text style={styles.title}>Timeline</Text>
       <HeroCard />
-      <StoryRings navigation={navigation} />
       {isLoading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={t.accent} size="large" />
