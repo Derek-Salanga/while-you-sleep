@@ -1259,12 +1259,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   stands off its ground; the you/partner hues do **not** move, and stay on
   the Timeline edges, HeroCard, the heart and the pet
 
+- `ClipViewScreen` and the camera stay dark in both themes (2026-09-07),
+  which is the guarantee the `media` split exists for — before the migration
+  they built their dark surface from `colors.ink` as background and
+  `colors.surface` as text, and a theme would have inverted them to
+  white-on-white
+
 **Not verified:**
-- That `ClipViewScreen` and the camera stay dark in both themes. Correct by
-  construction — they're pinned to `media` and read no theme tokens — but not
-  looked at since the flip
 - That the Appearance choice survives a force-quit, and that System mode
-  follows the OS
+  tracks the OS setting
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
   one SQL statement — but nobody has lived with the pet long enough to know
