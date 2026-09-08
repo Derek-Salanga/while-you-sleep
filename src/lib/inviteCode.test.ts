@@ -1,7 +1,8 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   generateInviteCode,
   formatExpiry,
-  inviteExpiryISO,
   CODE_ALPHABET,
   INVITE_TTL_HOURS,
 } from './inviteCode';
@@ -60,10 +61,35 @@ describe('formatExpiry', () => {
   });
 });
 
-describe('inviteExpiryISO', () => {
-  it('is the configured TTL ahead of now', () => {
-    const now = new Date('2026-06-01T12:00:00Z');
-    expect(inviteExpiryISO(now)).toBe('2026-06-04T12:00:00.000Z');
-    expect(INVITE_TTL_HOURS).toBe(72);
+// The generator that actually runs is generate_invite_code() in
+// supabase/schema.sql -- it moved server-side so that a unique violation is
+// never visible to a client, since a visible one answers "is this code live?"
+// The version in this file is now the executable spec, and these assert the
+// two have not drifted apart. A silent divergence would mean codes that read
+// differently depending on which path created them, and an alphabet that
+// quietly reintroduces the ambiguous glyphs.
+describe('the schema generator matches this one', () => {
+  const schema = readFileSync(
+    join(__dirname, '../../supabase/schema.sql'),
+    'utf8'
+  );
+
+  it('uses the same alphabet', () => {
+    const match = schema.match(/alphabet constant text := '([^']+)'/);
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe(CODE_ALPHABET);
+  });
+
+  it('uses the same TTL default', () => {
+    const match = schema.match(/create_invite\(ttl_hours int default (\d+)\)/);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBe(INVITE_TTL_HOURS);
+  });
+
+  it('still generates six characters in two groups of three', () => {
+    expect(schema).toMatch(/for i in 1\.\.6 loop/);
+    expect(schema).toMatch(
+      /substr\(out, 1, 3\) \|\| '-' \|\| substr\(out, 4, 3\)/
+    );
   });
 });

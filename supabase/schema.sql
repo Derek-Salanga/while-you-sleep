@@ -96,8 +96,21 @@ create policy "pairs_select_own" on pairs
   for select using (
     auth.uid() = user_a or auth.uid() = user_b
   );
-create policy "pairs_insert_self_as_a" on pairs
-  for insert with check (auth.uid() = user_a);
+-- No client INSERT policy either, as of 2026-09-08. It used to be
+-- `with check (auth.uid() = user_a)`, which constrained who you could
+-- create a pair for but not what invite_code you could give it -- so a
+-- client could submit any code it liked and read the unique-constraint
+-- violation as an answer: 23505 means that code is live right now.
+--
+-- That is an unthrottled enumeration oracle, and it defeated the attempt
+-- ceiling on join_pair_by_code below. The ceiling assumes guessing is
+-- blind; with an oracle you probe for free, build a list of codes you know
+-- exist, and spend your ten attempts on certainties. You do not even need
+-- a target -- you are fishing for any live invite, so the cost scales with
+-- how many are outstanding rather than with the size of the code space.
+--
+-- create_invite() below generates the code server-side instead, which
+-- removes the oracle rather than slowing it down.
 
 -- Deliberately no client-side UPDATE policy on pairs. The app never
 -- updates a pairs row directly -- creating one is an insert
@@ -188,17 +201,94 @@ begin
 end;
 $$;
 
--- Replace your own unclaimed invite with a fresh code. The client supplies
--- the code because generation lives there (it needs to retry on the unique
--- constraint); this function's job is only to ensure you can rewrite nothing
--- but your own unclaimed row.
+-- Generates an invite code server-side.
+--
+-- The alphabet drops O/0 and I/1/L: these codes get read aloud and typed
+-- from a screenshot, and "was that an O or a zero" is the failure that makes
+-- someone give up on pairing. 31^6 is ~887 million. Kept in sync with
+-- src/lib/inviteCode.ts, which still generates codes for nothing but its own
+-- tests now.
+create or replace function generate_invite_code() returns text
+language plpgsql
+volatile
+as $$
+declare
+  alphabet constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  out text := '';
+  i int;
+begin
+  for i in 1..6 loop
+    out := out || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+  end loop;
+  return substr(out, 1, 3) || '-' || substr(out, 4, 3);
+end;
+$$;
+
+-- Creates your invite. The caller does not choose the code and never sees a
+-- collision: the retry loop is here rather than in the client precisely so
+-- that a unique violation is never surfaced as an answer.
+--
+-- Rate-limited against the same ledger as joining. Creating and cancelling
+-- in a loop is not itself harmful -- a cancelled row is deleted, so nothing
+-- accumulates -- but an unbounded cycle is the shape any future oracle would
+-- ride on, and a human pairing with one person does not need more than a
+-- handful.
+create or replace function create_invite(ttl_hours int default 72)
+returns pairs
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_pair pairs;
+  attempts int;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  insert into invite_attempts (user_id) values (auth.uid());
+  delete from invite_attempts where attempted_at < now() - interval '1 hour';
+  select count(*) into attempts
+    from invite_attempts
+   where user_id = auth.uid()
+     and attempted_at > now() - interval '1 hour';
+  if attempts > 10 then
+    raise exception 'Too many attempts. Try again later.';
+  end if;
+
+  for i in 1..10 loop
+    begin
+      insert into pairs (user_a, user_b, invite_code, invite_expires_at)
+      values (
+        auth.uid(),
+        null,
+        generate_invite_code(),
+        now() + make_interval(hours => ttl_hours)
+      )
+      returning * into new_pair;
+      return new_pair;
+    exception when unique_violation then
+      -- Swallowed on purpose: the collision is ours to resolve, and
+      -- reporting it would hand back the one bit this function exists to
+      -- withhold.
+      null;
+    end;
+  end loop;
+
+  raise exception 'Could not create an invite. Try again.';
+end;
+$$;
+
+-- Replace your own unclaimed invite with a fresh code. Same reasoning as
+-- create_invite: the code is generated here, not passed in.
 --
 -- A function rather than an UPDATE policy on `pairs` for the reason the
--- policies above already record: `using` alone does not constrain what a row
+-- policy comments above record: `using` alone does not constrain what a row
 -- can be changed *to*, and a policy permissive enough to allow this would
--- also allow rewriting user_b, which is exactly the hole that was closed in
--- the 2026-08-28 audit.
-create or replace function regenerate_invite(new_code text, ttl_hours int default 72)
+-- also allow rewriting user_b -- the exact hole closed in the 2026-08-28
+-- audit.
+create or replace function regenerate_invite(ttl_hours int default 72)
 returns pairs
 language plpgsql
 security definer
@@ -206,47 +296,49 @@ set search_path = public
 as $$
 declare
   updated_pair pairs;
+  attempts int;
 begin
   if auth.uid() is null then
     raise exception 'Not signed in';
   end if;
 
-  update pairs
-     set invite_code = new_code,
-         invite_expires_at = now() + make_interval(hours => ttl_hours)
-   where user_a = auth.uid()
-     and user_b is null
-  returning * into updated_pair;
-
-  if updated_pair is null then
-    raise exception 'No pending invite to regenerate';
+  insert into invite_attempts (user_id) values (auth.uid());
+  delete from invite_attempts where attempted_at < now() - interval '1 hour';
+  select count(*) into attempts
+    from invite_attempts
+   where user_id = auth.uid()
+     and attempted_at > now() - interval '1 hour';
+  if attempts > 10 then
+    raise exception 'Too many attempts. Try again later.';
   end if;
 
-  return updated_pair;
+  for i in 1..10 loop
+    begin
+      update pairs
+         set invite_code = generate_invite_code(),
+             invite_expires_at = now() + make_interval(hours => ttl_hours)
+       where user_a = auth.uid()
+         and user_b is null
+      returning * into updated_pair;
+
+      if updated_pair is null then
+        raise exception 'No pending invite to regenerate';
+      end if;
+      return updated_pair;
+    exception when unique_violation then
+      null;
+    end;
+  end loop;
+
+  raise exception 'Could not regenerate. Try again.';
 end;
 $$;
 
--- Withdraw your own unclaimed invite entirely, returning you to the
--- create-or-join screen. Safe to delete outright: an unclaimed pair has no
--- partner and therefore no clips, trips, anniversary or pet hanging off it,
--- so the cascade has nothing to take.
-create or replace function cancel_invite() returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if auth.uid() is null then
-    raise exception 'Not signed in';
-  end if;
-
-  delete from pairs
-   where user_a = auth.uid()
-     and user_b is null;
-end;
-$$;
-
-grant execute on function regenerate_invite(text, int) to authenticated;
+grant execute on function create_invite(int) to authenticated;
+grant execute on function regenerate_invite(int) to authenticated;
+-- The old two-argument form let the caller supply the code. Dropped rather
+-- than left alongside, or the oracle simply stays reachable.
+drop function if exists regenerate_invite(text, int);
 grant execute on function cancel_invite() to authenticated;
 
 -- Helper: does the current user already have their own clip for this

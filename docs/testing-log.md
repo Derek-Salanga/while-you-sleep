@@ -1586,3 +1586,42 @@ Two things this says about the class of bug:
 - It is a complete dead end rather than an annoyance, on the first screen of
   the app. Someone hitting it force-quits, and there is no reason to assume
   they come back.
+
+2026-09-08: **the invite-code enumeration oracle is closed**, and the rate
+limit on the create path is confirmed on device — the eleventh create in an
+hour is refused.
+
+The hole: both paths that produced a code let the client choose it. The
+insert policy on `pairs` constrained *who* a pair was for but not *what code*
+it carried, and `regenerate_invite` took the code as an argument. Either one
+answers "is this code live right now?", because the unique violation comes
+straight back to the caller.
+
+That defeated the attempt ceiling on `join_pair_by_code`. The ceiling assumes
+guessing is blind; with an oracle you probe for free, build a list of codes
+you know exist, and spend your ten attempts on certainties. And there is no
+target to pick — you are fishing for any live invite, so the cost scales with
+how many are outstanding rather than with the 887 million codes. Two users
+and one invite: nothing to find. A few thousand users with a hundred live:
+roughly 9M requests, which is days for a bot.
+
+Generation moved into the database (`generate_invite_code`, `create_invite`,
+and a single-argument `regenerate_invite`), which retry their own collisions
+and never report one. The insert policy is dropped, so a pairs row can only
+come from `create_invite`. The old two-argument `regenerate_invite` was
+dropped rather than left alongside — leaving it would have kept the oracle
+reachable by an older client or a direct RPC call.
+
+**Half of this predates the invite work.** The client has always chosen the
+code on insert; widening the space from 534 to ~887 million helped and did not
+close it. Worth remembering as a shape: the size of a secret space does not
+matter if something will tell you whether a guess was right.
+
+`generateInviteCode` stays in `src/lib/inviteCode.ts` as the executable spec,
+with tests that read `schema.sql` and assert the alphabet, the TTL default and
+the six-character shape have not drifted from it. Two generators that are
+allowed to disagree eventually will.
+
+Verified: the three functions exist with the expected signatures, the old
+two-argument form is gone, creating an invite works end to end with a
+server-generated code, and the eleventh create in an hour is refused.

@@ -1273,6 +1273,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   strands the input connection entirely, which is a worse bug than the one it
   was smoothing over
 
+- Invite codes are generated server-side (2026-09-08), closing an
+  enumeration oracle: the client used to choose the code on both the insert
+  and regenerate paths, and a unique violation coming back answers "is this
+  code live?" — which defeated the ten-attempt ceiling on joining, since
+  guessing was no longer blind. `pairs` now has no client INSERT policy at
+  all. Rate limiting on the create path confirmed on device
+
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting

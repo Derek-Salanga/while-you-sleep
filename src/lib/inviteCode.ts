@@ -1,9 +1,13 @@
-// Invite code generation and lifetime.
+// Invite code lifetime, and the reference generator.
 //
-// Lives outside PairingScreen because it's pure and worth testing: the
-// previous generator picked one of 6 words plus a 2-digit number -- 534
-// possible codes in total, never expiring -- which is small enough to
-// enumerate, with join_pair_by_code as the oracle you'd enumerate against.
+// GENERATION MOVED SERVER-SIDE on 2026-09-08 (generate_invite_code in
+// supabase/schema.sql). generateInviteCode below is no longer called by the
+// app: it is kept as the executable spec of the alphabet and shape, and its
+// tests are what stop the two drifting. If you change one, change both.
+//
+// It moved because whoever generates the code also sees the collision, and a
+// visible unique violation answers "is this code live right now?" -- an
+// enumeration oracle that defeated the attempt ceiling on joining.
 
 // How long a fresh invite stays claimable. Long enough to send it and have
 // your partner get round to it; short enough that a code you shared and
@@ -26,10 +30,6 @@ export function generateInviteCode(): string {
     out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
   }
   return `${out.slice(0, 3)}-${out.slice(3)}`;
-}
-
-export function inviteExpiryISO(now: Date = new Date()): string {
-  return new Date(now.getTime() + INVITE_TTL_HOURS * 3600_000).toISOString();
 }
 
 // Deliberately coarse. An invite is not a countdown timer -- "expires in 2
