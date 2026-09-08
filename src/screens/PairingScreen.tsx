@@ -32,6 +32,10 @@ export default function PairingScreen() {
     pair && !pair.user_b && pair.user_a === session?.user.id ? pair : null;
   const myCode = myPendingInvite?.invite_code ?? null;
   const expiryLabel = formatExpiry(myPendingInvite?.invite_expires_at ?? null);
+  // Regenerating is Cancel + Create in one tap, so it earns a control only
+  // where those two would read as giving up and starting over rather than
+  // retrying -- which is exactly an expired code.
+  const isExpired = expiryLabel === 'Expired';
 
   // Pick up a partner joining while we're sitting on the waiting screen.
   useFocusEffect(
@@ -170,23 +174,26 @@ export default function PairingScreen() {
               sending daily clips." -- restated the headline and then
               described the thing you had just done. */}
           <Text style={styles.expiry}>
-            Share this code
-            {expiryLabel ? ` · ${expiryLabel.toLowerCase()}` : ''}
+            {isExpired
+              ? 'This code has expired'
+              : `Share this code${expiryLabel ? ` · ${expiryLabel.toLowerCase()}` : ''}`}
           </Text>
           {/* Side by side rather than stacked: they are a pair of choices
               about the same code, and two full-width rows made them read as
               two separate sections. */}
           <View style={styles.inviteActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.inviteAction,
-                pressed && styles.pressed,
-              ]}
-              onPress={handleRegenerate}
-              disabled={busy}
-            >
-              <Text style={styles.inviteActionText}>New code</Text>
-            </Pressable>
+            {isExpired && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.inviteAction,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleRegenerate}
+                disabled={busy}
+              >
+                <Text style={styles.inviteActionText}>Get a new code</Text>
+              </Pressable>
+            )}
             <Pressable
               style={({ pressed }) => [
                 styles.inviteAction,
@@ -283,7 +290,9 @@ const makeStyles = (t: Theme) =>
     card: {
       padding: 24,
       alignItems: 'center',
-      marginBottom: 24,
+      // No marginBottom: the divider below owns the gap on both sides. With
+      // both set, there was 40px above "or" and 16 below it, which read as
+      // the divider belonging to the input rather than separating the two.
     },
     waitingHeadline: {
       fontFamily: fonts.display,
@@ -304,7 +313,7 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.body,
       color: t.textMuted,
       textAlign: 'center',
-      marginVertical: 16,
+      marginVertical: 20,
     },
     signOutLink: {
       paddingVertical: 12,
