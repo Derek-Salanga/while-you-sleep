@@ -347,11 +347,16 @@ const makeStyles = (t: Theme) =>
       height: 6,
       borderRadius: 3,
     },
+    // edgeYou/edgePartner, not the accent tokens. These pips mean "you" and
+    // "your partner", which is the same job the Timeline card edges do -- and
+    // `accent` deliberately flips hue with the theme, so using it here made
+    // both pips orange in dark mode and destroyed the distinction the grid
+    // exists to show.
     dotMine: {
-      backgroundColor: t.accent,
+      backgroundColor: t.edgeYou,
     },
     dotPartner: {
-      backgroundColor: t.accentPartner,
+      backgroundColor: t.edgePartner,
     },
     watchButton: {
       backgroundColor: t.accent,
