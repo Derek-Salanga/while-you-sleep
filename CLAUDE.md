@@ -1265,6 +1265,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   `colors.surface` as text, and a theme would have inverted them to
   white-on-white
 
+- Auth stage switching (2026-09-08): going back from the code stage gives an
+  alphabetic keyboard on an editable email field. Previously the number pad
+  persisted and the field could not be typed in or dismissed — a force-quit.
+  The two stages are keyed on `stage` so React cannot reconcile their inputs
+  as one element; note that calling `Keyboard.dismiss()` during that unmount
+  strands the input connection entirely, which is a worse bug than the one it
+  was smoothing over
+
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting

@@ -1553,3 +1553,36 @@ misleading one here.
 
 Still not confirmed, both cheap: that the Appearance choice survives a
 force-quit, and that System mode tracks the OS setting.
+
+2026-09-08: **a dead end on the very first screen, fixed.** Going back from
+the code stage via "Use a different email" left the numeric keyboard over
+the email field. A number pad has no return key, so it could not be
+dismissed, and an address cannot be typed on it — the only way out was
+force-quitting the app.
+
+Cause: both stages render an `<Input>` as the first child of a fragment in
+the same position, so React reconciled them as one element and reused the
+underlying native `TextInput`. `keyboardType` is read when that input
+mounts; changing it on an already-mounted, focused one does not take.
+
+Fixed with distinct keys, and the key then moved up to a wrapper on `stage`
+so the whole subtree is rebuilt — structural rather than something a later
+edit could undo by reordering children.
+
+**The first attempt made it worse**, which is the part worth recording. It
+also called `Keyboard.dismiss()` on the stage change, purely to stop the old
+keyboard visibly changing type through the transition. That left the email
+field completely uneditable — no typing, no backspace. Dismissing the
+keyboard in the same tick the focused `TextInput` is being unmounted can
+strand the input connection: the view remounts but never reacquires one, so
+it renders normally and accepts nothing. Removing it fixed it; the keys were
+always the whole fix.
+
+Two things this says about the class of bug:
+
+- It had been there since AuthScreen was written, and no theming or
+  accessibility work touched it. It needed someone to walk the flow
+  *backwards*, which nothing had.
+- It is a complete dead end rather than an annoyance, on the first screen of
+  the app. Someone hitting it force-quits, and there is no reason to assume
+  they come back.
