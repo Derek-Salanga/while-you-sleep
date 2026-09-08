@@ -79,10 +79,12 @@ export const PET_MOUTH: Record<string, string> = {
   withdrawn: 'M44.8 63.8 Q50.0 60.2 55.2 63.8',
 };
 
-// Deliberately off-palette: the artwork's own line colour, softer than
-// colors.ink (#2E2A3D), so the face reads as drawn rather than stamped with
-// UI ink. Flagged because CLAUDE.md otherwise locks the palette.
-export const PET_LINE = '#554B66';
+// Was #554B66, an off-palette grey chosen for softness. It reached only
+// 2.41:1 against the pet's own blue half, so half the face was failing --
+// and CLAUDE.md locks the palette anyway. colors.ink gets 4.12 on blue and
+// 8.95 on orange. Imported lazily by the component rather than referenced
+// here, so this file stays pure path data.
+export const PET_LINE = '#2E2A3D';
 
 // Pause overlay, not a fifth mood. Pause is a status -- "we're travelling"
 // -- so it sits on top of whatever mood is current rather than replacing

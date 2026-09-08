@@ -71,21 +71,6 @@ export const palette = {
 // This also removes a real trap: ClipViewScreen currently builds its dark
 // surface out of `colors.ink` as background and `colors.surface` as text.
 // Under a theme those two invert and the screen becomes white-on-white.
-// A scrim laid behind text that sits on a brand fill -- HeroCard's halves.
-//
-// 45% is not a taste value: white on the day-orange is 1.55:1, the worst
-// combination in the app, and nothing short of this alpha brings it over
-// 4.5. It costs some of the orange's vividness where it falls, which is why
-// it belongs behind the text rather than across the whole half.
-export const brandScrim = 'rgba(0,0,0,0.45)';
-
-// The same scrim already composited over each brand hue, for the contrast
-// test -- which cannot evaluate an rgba() layer on its own.
-export const brandScrimOver = {
-  you: '#3A4985',
-  partner: '#8C6D3E',
-} as const;
-
 export const media = {
   bg: '#17141F',
   text: '#FFFFFF',

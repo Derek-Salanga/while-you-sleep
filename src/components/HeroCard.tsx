@@ -95,8 +95,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  // Deepened from `primary`. The text here is white, and white on the base
+  // blue is 3.37:1 -- fine for the 28pt count, which is WCAG large, but not
+  // for the 16pt caption beside it. On primaryDark both get 5.20.
   leftHalf: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     alignItems: 'flex-start',
   },
   rightHalf: {
@@ -117,7 +120,12 @@ const styles = StyleSheet.create({
   detail: {
     fontFamily: fonts.bodyMedium,
     fontSize: fontSizes.sm,
-    color: colors.surface,
+    // Ink, not white. White on the day-orange is 1.55:1 -- the worst pairing
+    // in the app -- and no lightening of the text or darkening of the orange
+    // closes a gap that size. Ink gets 8.95. This works because the small
+    // text is confined to this half; if either half ever has to carry the
+    // other's text colour, a scrim behind the text is the way out.
+    color: colors.ink,
     textAlign: 'right',
   },
   heart: {

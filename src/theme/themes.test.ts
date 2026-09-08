@@ -1,11 +1,4 @@
-import {
-  Theme,
-  lightTheme,
-  darkTheme,
-  brand,
-  brandScrimOver,
-  media,
-} from './themes';
+import { Theme, lightTheme, darkTheme, brand, media } from './themes';
 
 // WCAG 2.x relative luminance. Written here rather than imported because
 // this is the only thing that needs it, and a colour library would be a
@@ -86,24 +79,24 @@ describe('fixed media surfaces', () => {
 });
 
 // HeroCard fills its halves with the brand hues in both themes, so its text
-// colours are fixed too. White on the day-orange is 1.55:1 -- the worst
-// combination in the app -- so text there sits over `brandScrim`, and these
-// assert the composited result rather than the raw hue.
+// colours are fixed too. This is the pairing with no single answer: white
+// clears 4.5 on the deepened blue and manages 1.55 on the orange; ink is the
+// reverse. Each half therefore carries its own, which works only because the
+// text is already segregated by half.
 describe('brand fills', () => {
-  it('white clears body contrast over the scrim on both halves', () => {
+  it('each half carries text that clears body contrast', () => {
     expect(
-      contrast(lightTheme.textOnBrand, brandScrimOver.you)
+      contrast(lightTheme.textOnYou, brand.youDeep)
     ).toBeGreaterThanOrEqual(BODY);
     expect(
-      contrast(lightTheme.textOnBrand, brandScrimOver.partner)
+      contrast(lightTheme.textOnPartner, brand.partner)
     ).toBeGreaterThanOrEqual(BODY);
   });
 
-  // Guards the reason the scrim exists: without it white fails on the orange
-  // by a margin no tuning closes. If this ever starts passing, the palette
-  // has drifted and the scrim may no longer be needed.
-  it('white on the bare orange is still the failure the scrim exists for', () => {
-    expect(contrast(lightTheme.textOnBrand, brand.partner)).toBeLessThan(LARGE);
+  // Guards why the halves differ at all. If this ever starts passing, the
+  // palette has drifted and HeroCard could go back to one text colour.
+  it('white on the bare day-orange is still the failure that forces this', () => {
+    expect(contrast(lightTheme.textOnYou, brand.partner)).toBeLessThan(LARGE);
   });
 
   // The record button's gradient runs between the two brand hues, so its

@@ -16,9 +16,12 @@ export interface Theme {
 
   textPrimary: string;
   textMuted: string;
-  // Text placed ON a brand fill, over `brandScrim`. The brand hues do not
-  // change between themes, so neither does this -- see `brand` below.
-  textOnBrand: string;
+  // Text placed ON a brand fill. Two tokens rather than one because no
+  // single colour clears 4.5:1 on both hues: white gets 5.20 on the deepened
+  // blue and 1.55 on the orange, ink is the reverse. The brand hues don't
+  // change between themes, so neither do these.
+  textOnYou: string;
+  textOnPartner: string;
 
   border: string;
 
@@ -47,13 +50,11 @@ export interface Theme {
 export const brand = {
   you: palette.blue,
   partner: palette.orange,
-  // A deepened blue, kept for anywhere a solid brand fill needs to carry
-  // white text without a scrim (white reaches 5.20 here against 3.37 on the
-  // base hue).
+  // HeroCard's left half. White text needs 4.5:1 and gets 3.37 on the base
+  // blue -- enough for the 28pt count, which is WCAG large, but not the 16pt
+  // caption beside it. On this it gets 5.20.
   youDeep: palette.blueDark,
 } as const;
-
-export { brandScrim, brandScrimOver } from './palette';
 
 export const lightTheme: Theme = {
   name: 'light',
@@ -61,7 +62,8 @@ export const lightTheme: Theme = {
   surface: palette.white,
   textPrimary: palette.ink,
   textMuted: palette.inkMuted,
-  textOnBrand: palette.white,
+  textOnYou: palette.white,
+  textOnPartner: palette.ink,
   border: palette.slate,
   accentYou: palette.blueOnLight,
   accentPartner: palette.orangeOnLight,
@@ -78,7 +80,8 @@ export const darkTheme: Theme = {
   surface: palette.nightRaised,
   textPrimary: palette.paper,
   textMuted: palette.paperMuted,
-  textOnBrand: palette.white,
+  textOnYou: palette.white,
+  textOnPartner: palette.ink,
   border: palette.nightBorder,
   // On a dark ground the brand hues are legible as text, so the accents go
   // back to being the brand colours rather than darkened stand-ins.
