@@ -125,11 +125,6 @@ export default function ClipViewScreen({ route, navigation }: any) {
           there with the emoji revealed on playToEnd; a deliberate follow-up,
           not an oversight. */}
       <View style={styles.reactionRow}>
-        <ReactionBurst
-          token={burst.token}
-          emoji={burst.emoji}
-          onDone={() => setBurst((b) => ({ ...b, emoji: null }))}
-        />
         {REACTION_EMOJI.map((emoji) => {
           const selected = myReaction?.emoji === emoji;
           return (
@@ -171,6 +166,14 @@ export default function ClipViewScreen({ route, navigation }: any) {
         {clip.recorded_for_date}
         {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
       </Text>
+      {/* Last child and a sibling of the whole layout, not of the reaction
+          row: it draws over the video, and Android clips absolutely
+          positioned children that extend past their parent. */}
+      <ReactionBurst
+        token={burst.token}
+        emoji={burst.emoji}
+        onDone={() => setBurst((b) => ({ ...b, emoji: null }))}
+      />
     </View>
   );
 }

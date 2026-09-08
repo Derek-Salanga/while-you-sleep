@@ -1,26 +1,88 @@
-import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withTiming,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 
-// A single emoji rising off the chip you just tapped, then gone.
+// A handful of emoji drifting up over the video, then gone.
 //
-// Sized to the motion already in this app rather than to what an emoji
-// burst usually looks like elsewhere: press-scale is 100ms and the Timeline
-// entrance is 180ms with at most 100ms of stagger, so anything past ~300ms
-// would read as a different app. One copy, not a shower -- a shower is a
-// celebration, and this is closer to a nod.
-const RISE_MS = 260;
-const RISE_DISTANCE = 40;
+// This is deliberately louder than the rest of the app's motion, which is
+// otherwise all sub-300ms (press-scale 100ms, Timeline entrance 180ms + up
+// to 100ms stagger). Rising half a screen inside that budget would be a
+// blur rather than a rise, so the duration is set by the distance. If this
+// ever starts feeling like too much, the four constants below are the whole
+// dial -- reduce COUNT first, it's the loudest of them.
+const COUNT = 6;
+const RISE_FRACTION = 0.5; // of screen height
+const DURATION_MS = 900;
+const STAGGER_MS = 60;
+const SPREAD = 110; // horizontal wander, px
+
+const { height: SCREEN_H } = Dimensions.get('window');
+const RISE = SCREEN_H * RISE_FRACTION;
+
+interface Seed {
+  dx: number;
+  delay: number;
+  scale: number;
+  drift: number;
+}
+
+function Particle({
+  emoji,
+  seed,
+  onDone,
+}: {
+  emoji: string;
+  seed: Seed;
+  onDone?: () => void;
+}) {
+  const t = useSharedValue(0);
+
+  React.useEffect(() => {
+    t.value = 0;
+    t.value = withDelay(
+      seed.delay,
+      withTiming(
+        1,
+        // Decelerating: they leave quickly and settle out, rather than
+        // travelling at a constant speed, which reads mechanical.
+        { duration: DURATION_MS, easing: Easing.out(Easing.quad) },
+        (finished) => {
+          if (finished && onDone) runOnJS(onDone)();
+        }
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const style = useAnimatedStyle(() => {
+    const p = t.value;
+    return {
+      // Holds full opacity for the first third, then fades -- fading from
+      // the very start makes them look like they were never really there.
+      opacity: p < 0.35 ? 1 : 1 - (p - 0.35) / 0.65,
+      transform: [
+        { translateY: -RISE * p },
+        // A sine wander rather than a straight line, so six of them don't
+        // read as one thick column.
+        { translateX: seed.dx + Math.sin(p * Math.PI * seed.drift) * 14 },
+        { scale: seed.scale * (0.7 + 0.3 * Math.min(p * 4, 1)) },
+      ],
+    };
+  });
+
+  return <Animated.Text style={[styles.emoji, style]}>{emoji}</Animated.Text>;
+}
 
 interface ReactionBurstProps {
-  // Changing this re-runs the animation; null means nothing to play. The
-  // parent bumps a counter alongside the emoji so tapping the same one
-  // twice still fires.
+  // Changing this replays the burst; null means nothing to play. The parent
+  // bumps a counter alongside the emoji so re-picking the same one fires.
   token: number;
   emoji: string | null;
   onDone: () => void;
@@ -31,47 +93,57 @@ export default function ReactionBurst({
   emoji,
   onDone,
 }: ReactionBurstProps) {
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    if (!emoji) return;
-    progress.value = 0;
-    progress.value = withTiming(1, { duration: RISE_MS }, (finished) => {
-      // Clearing the emoji is the parent's job, so the component unmounts
-      // its own work rather than leaving a spent copy on screen. runOnJS
-      // because the callback runs on the UI thread.
-      if (finished) runOnJS(onDone)();
-    });
-    // token is the dependency that matters: re-tapping the same emoji has
-    // to replay, and emoji alone wouldn't change.
+  // Re-rolled per burst so two taps never look identical, but stable within
+  // one so particles don't jump on re-render.
+  const seeds = useMemo<Seed[]>(
+    () =>
+      Array.from({ length: COUNT }, (_, i) => ({
+        dx: (Math.random() - 0.5) * SPREAD,
+        delay: i * STAGGER_MS,
+        scale: 0.75 + Math.random() * 0.5,
+        drift: 1 + Math.random(),
+      })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    transform: [{ translateY: -RISE_DISTANCE * progress.value }],
-  }));
+    [token]
+  );
 
   if (!emoji) return null;
 
   return (
-    <Animated.Text
-      style={[styles.burst, style]}
+    <Animated.View
+      style={styles.layer}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {emoji}
-    </Animated.Text>
+      {seeds.map((seed, i) => (
+        // Keyed by token so a replay remounts every particle and restarts
+        // its animation from zero.
+        <Particle
+          key={`${token}-${i}`}
+          emoji={emoji}
+          seed={seed}
+          // Only the last particle to finish reports back, so the parent
+          // clears once rather than COUNT times.
+          onDone={i === COUNT - 1 ? onDone : undefined}
+        />
+      ))}
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Absolute so it can't reflow the row it rises out of -- the picker must
-  // not shift under a finger that's still on it.
-  burst: {
+  // A full-screen sibling rather than a child of the reaction row: Android
+  // clips absolutely-positioned children that extend past their parent, and
+  // these are meant to travel half a screen out of it.
+  layer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 90,
+  },
+  emoji: {
     position: 'absolute',
-    alignSelf: 'center',
-    fontSize: 28,
+    fontSize: 30,
   },
 });
