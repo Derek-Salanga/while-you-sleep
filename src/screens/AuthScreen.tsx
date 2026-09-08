@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Text,
-  Pressable,
-  StyleSheet,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  StyleSheet,
+  Text,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Theme } from '@/theme/themes';
@@ -39,6 +40,7 @@ export default function AuthScreen() {
         },
       });
       if (error) throw error;
+      Keyboard.dismiss();
       setStage('enterCode');
     } catch (err: any) {
       Alert.alert('Could not send code', err.message);
@@ -116,6 +118,16 @@ export default function AuthScreen() {
         {stage === 'enterEmail' ? (
           <>
             <Input
+              // Keyed so React unmounts this and mounts the code field
+              // rather than reconciling them as one element. Both stages
+              // render an <Input> as the first child of a fragment in the
+              // same position, so without distinct keys React reuses the
+              // underlying native TextInput -- and a keyboardType change on
+              // an already-mounted, focused input does not take. The result
+              // was a number pad on the email field, with no return key to
+              // dismiss it and no way to type an address: a dead end that
+              // needed a force-quit.
+              key="email"
               placeholder="you@example.com"
               autoCapitalize="none"
               autoCorrect={false}
@@ -134,6 +146,7 @@ export default function AuthScreen() {
         ) : (
           <>
             <Input
+              key="code"
               centered
               placeholder="123456"
               keyboardType="number-pad"
@@ -163,6 +176,10 @@ export default function AuthScreen() {
                 pressed && styles.pressed,
               ]}
               onPress={() => {
+                // Dismissed explicitly: remounting the field swaps the
+                // keyboard, but leaving the old one up through the
+                // transition makes it visibly change type under your thumb.
+                Keyboard.dismiss();
                 setStage('enterEmail');
                 setCode('');
               }}
