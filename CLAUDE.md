@@ -1253,7 +1253,18 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   orange end is 1.55:1, and keeping it would mean amber-ing the brand hue or
   adding a pill inside the button
 
+- Dark mode (2026-09-07): every themed screen flips via Settings →
+  Appearance, on a fresh dev-client build. The action colour flips hue with
+  the theme — deep blue on light, day-orange on dark — so the CTA always
+  stands off its ground; the you/partner hues do **not** move, and stay on
+  the Timeline edges, HeroCard, the heart and the pet
+
 **Not verified:**
+- That `ClipViewScreen` and the camera stay dark in both themes. Correct by
+  construction — they're pinned to `media` and read no theme tokens — but not
+  looked at since the flip
+- That the Appearance choice survives a force-quit, and that System mode
+  follows the OS
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
   one SQL statement — but nobody has lived with the pet long enough to know

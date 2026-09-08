@@ -1491,3 +1491,44 @@ Method note: both decisions were settled by rendering the candidates through
 headless Chrome and looking at them. The contrast numbers narrowed the field
 to things that pass; they could not say which of those looked right, and in
 both cases the shipped answer was not the one chosen from numbers alone.
+
+2026-09-07 (follow-up 3): **dark mode works on device.** Confirmed after a
+fresh EAS dev-client build — `app.json` is native config, so unpinning
+`userInterfaceStyle` was the one rebuild in the whole plan.
+
+The record CTA took three passes, and the sequence is the useful part:
+
+1. Ink label on the blue→orange gradient. Cleared contrast comfortably
+   (4.12 / 8.95) and looked wrong on device.
+2. The diagnosis was not the label. Against the cream ground the gradient's
+   orange end sits at 1.44:1, so the **button** dissolved into the page and
+   lost its right edge; the dark label merely made that obvious. Deepening
+   the end to `#CB7A00` fixed the edge and let the label go back to white.
+   The first value tried, `#D47F00`, looked right and measured 2.89 against
+   the background — under the 3:1 a UI boundary needs. The test caught it;
+   the eye did not.
+3. Still too dark. Replaced with a **solid fill whose hue flips with the
+   theme** — deep blue on the day-lit theme, day-orange on the night one —
+   so the thing you are meant to tap always stands off its ground. A blue
+   button on a blue-black page is something you would have to hunt for.
+
+That flip is applied throughout: primary buttons, the active tab icon,
+links, the Appearance selector. Scoping it to the CTA alone would have left
+an orange button above blue-tinted ones, which is the inconsistency it
+exists to fix.
+
+`accentYou` was renamed to `accent` as part of it, because the flip made the
+old name a lie: in dark mode it is orange, which reads as "partner" if taken
+literally. **The you/partner meaning did not move** — it lives on the
+Timeline card edges, HeroCard's halves, the crossover heart and the pet, none
+of which change with the theme. The rename separates the action colour from
+the identity colours, which had been quietly conflated.
+
+Not separately confirmed on this pass, all correct by construction: that
+`ClipViewScreen` and the camera stay dark in both themes (they are pinned to
+`media` and read no theme tokens at all), that the preference survives a
+force-quit, and that System mode follows the OS. Worth a minute each.
+
+The dark "partner" card fill (`#4E412C`) reads brown rather than warm. It
+clears contrast and its 4pt edge carries the meaning, so it is left alone —
+noted in case it grates in use.
