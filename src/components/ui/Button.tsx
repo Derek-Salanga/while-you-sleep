@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
 interface ButtonProps {
@@ -18,7 +19,9 @@ export default function Button({
   loading = false,
   disabled = false,
 }: ButtonProps) {
-  const spinnerColor = variant === 'primary' ? colors.surface : colors.ink;
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
+  const spinnerColor = variant === 'primary' ? t.textOnAccent : t.textPrimary;
 
   return (
     <Pressable
@@ -47,31 +50,35 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  primaryButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
-  },
-  secondaryButton: {
-    backgroundColor: colors.secondaryTint,
-    borderWidth: 1,
-    borderColor: colors.secondaryDark,
-  },
-  secondaryButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.ink,
-    fontSize: fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes. useMemo at the call site
+// keeps that to once per theme rather than once per render.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    button: {
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    primaryButton: {
+      backgroundColor: t.accentYou,
+    },
+    primaryButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      color: t.textOnAccent,
+      fontSize: fontSizes.md,
+    },
+    secondaryButton: {
+      backgroundColor: t.fillPartner,
+      borderWidth: 1,
+      borderColor: t.edgePartner,
+    },
+    secondaryButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      color: t.textPrimary,
+      fontSize: fontSizes.md,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+  });

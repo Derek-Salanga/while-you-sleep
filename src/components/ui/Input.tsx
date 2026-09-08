@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, TextInput, TextInputProps } from 'react-native';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
 interface InputProps extends TextInputProps {
@@ -8,30 +9,36 @@ interface InputProps extends TextInputProps {
 }
 
 export default function Input({ centered, style, ...props }: InputProps) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   return (
     <TextInput
       style={[styles.input, centered && styles.centered, style]}
-      placeholderTextColor={colors.muted}
+      placeholderTextColor={t.textMuted}
       {...props}
     />
   );
 }
 
-const styles = StyleSheet.create({
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 16,
-  },
-  centered: {
-    textAlign: 'center',
-    letterSpacing: 4,
-    fontSize: fontSizes.lg,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes. useMemo at the call site
+// keeps that to once per theme rather than once per render.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    input: {
+      backgroundColor: t.surface,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 16,
+      padding: 16,
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+      marginBottom: 16,
+    },
+    centered: {
+      textAlign: 'center',
+      letterSpacing: 4,
+      fontSize: fontSizes.lg,
+    },
+  });

@@ -15,6 +15,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PairingProvider } from '@/lib/PairingContext';
+import { ThemeProvider } from '@/theme/ThemeContext';
 import RootNavigator from '@/navigation/RootNavigator';
 
 // EXPO_PUBLIC_-prefixed vars are inlined at build time by Expo's Metro
@@ -55,12 +56,17 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <PairingProvider>
-          <StatusBar style="dark" />
-          <RootNavigator />
-        </PairingProvider>
-      </QueryClientProvider>
+      {/* Outside QueryClientProvider: the theme is device state, not server
+          state, and nothing under it should have to wait on a query to know
+          what colour to be. */}
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <PairingProvider>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </PairingProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

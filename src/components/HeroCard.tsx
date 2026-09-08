@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { usePairing } from '@/lib/PairingContext';
 import { usePairTrip, usePairAnniversary } from '@/hooks/queries';
 import { todayDateString, daysBetween } from '@/lib/date';
 import { flagEmoji, countryName } from '@/data/countries';
-import { colors } from '@/theme/colors';
+import { Theme, brand } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import CrossoverHeart from '@/components/CrossoverHeart';
 
@@ -28,6 +29,8 @@ function formatLongDate(dateString: string): string {
 // else no text at all. An empty split card with the heart is honest; invented
 // numbers are not.
 export default function HeroCard() {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { pair } = usePairing();
   const { data: trip } = usePairTrip(pair?.id);
   const { data: anniversary } = usePairAnniversary(pair?.id);
@@ -82,57 +85,62 @@ export default function HeroCard() {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    height: 120,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  half: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  // Deepened from `primary`. The text here is white, and white on the base
-  // blue is 3.37:1 -- fine for the 28pt count, which is WCAG large, but not
-  // for the 16pt caption beside it. On primaryDark both get 5.20.
-  leftHalf: {
-    backgroundColor: colors.primaryDark,
-    alignItems: 'flex-start',
-  },
-  rightHalf: {
-    backgroundColor: colors.secondary,
-    alignItems: 'flex-end',
-  },
-  count: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.surface,
-  },
-  caption: {
-    fontFamily: fonts.displayItalic,
-    fontSize: fontSizes.md,
-    color: colors.surface,
-    marginTop: 2,
-  },
-  detail: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    // Ink, not white. White on the day-orange is 1.55:1 -- the worst pairing
-    // in the app -- and no lightening of the text or darkening of the orange
-    // closes a gap that size. Ink gets 8.95. This works because the small
-    // text is confined to this half; if either half ever has to carry the
-    // other's text colour, a scrim behind the text is the way out.
-    color: colors.ink,
-    textAlign: 'right',
-  },
-  heart: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -HEART_SIZE / 2,
-    marginTop: -HEART_SIZE / 2,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object has
+// to be rebuilt when the theme changes. The two half fills come from
+// `brand`, not the theme -- they encode you/partner and are identical in
+// both -- but the text colours on them are tokens.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      height: 120,
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 20,
+    },
+    half: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    // Deepened from `primary`. The text here is white, and white on the base
+    // blue is 3.37:1 -- fine for the 28pt count, which is WCAG large, but not
+    // for the 16pt caption beside it. On primaryDark both get 5.20.
+    leftHalf: {
+      backgroundColor: brand.youDeep,
+      alignItems: 'flex-start',
+    },
+    rightHalf: {
+      backgroundColor: brand.partner,
+      alignItems: 'flex-end',
+    },
+    count: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textOnYou,
+    },
+    caption: {
+      fontFamily: fonts.displayItalic,
+      fontSize: fontSizes.md,
+      color: t.textOnYou,
+      marginTop: 2,
+    },
+    detail: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.sm,
+      // Ink, not white. White on the day-orange is 1.55:1 -- the worst pairing
+      // in the app -- and no lightening of the text or darkening of the orange
+      // closes a gap that size. Ink gets 8.95. This works because the small
+      // text is confined to this half; if either half ever has to carry the
+      // other's text colour, a scrim behind the text is the way out.
+      color: t.textOnPartner,
+      textAlign: 'right',
+    },
+    heart: {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      marginLeft: -HEART_SIZE / 2,
+      marginTop: -HEART_SIZE / 2,
+    },
+  });
