@@ -21,7 +21,6 @@ import {
 } from '@/lib/date';
 import { Theme } from '@/theme/themes';
 import { useTheme, useThemePreference } from '@/theme/ThemeContext';
-import type { ThemePreference } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -48,19 +47,11 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
   { label: 'Until I turn it back on', days: 365 },
 ];
 
-// Three options rather than a switch. A two-state toggle cannot express
-// "follow the device", which is what most people want and what the app
-// defaults to -- and once it's a list, saying so plainly beats a control
-// whose off position secretly means something.
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
-
 export default function SettingsScreen({ navigation }: any) {
   const t = useTheme();
-  const { preference, setPreference } = useThemePreference();
+  // Only the current value is needed here -- setting it moved to the
+  // Appearance screen this row pushes to.
+  const { preference } = useThemePreference();
   const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
@@ -393,34 +384,20 @@ export default function SettingsScreen({ navigation }: any) {
           </Text>
         </Pressable>
       )}
-      <View style={styles.themeRow}>
+      <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() => navigation.navigate('AppearanceSettings')}
+      >
         <Text style={styles.rowLabel}>Appearance</Text>
-        <View style={styles.themeOptions}>
-          {THEME_OPTIONS.map((option) => {
-            const active = preference === option.value;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => setPreference(option.value)}
-                style={({ pressed }) => [
-                  styles.themeOption,
-                  active && styles.themeOptionActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.themeOptionText,
-                    active && styles.themeOptionTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+        <Text style={styles.rowValue}>
+          {preference === 'system'
+            ? 'System'
+            : preference === 'dark'
+              ? 'Dark'
+              : 'Light'}
+          {'  ›'}
+        </Text>
+      </Pressable>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AccountSettings')}
@@ -476,40 +453,6 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodyMedium,
       fontSize: fontSizes.md,
       color: t.accentPartner,
-    },
-    themeRow: {
-      backgroundColor: t.surface,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: t.border,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      marginBottom: 12,
-    },
-    themeOptions: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 12,
-    },
-    themeOption: {
-      flex: 1,
-      paddingVertical: 10,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: t.border,
-      alignItems: 'center',
-    },
-    themeOptionActive: {
-      backgroundColor: t.accent,
-      borderColor: t.accent,
-    },
-    themeOptionText: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-    },
-    themeOptionTextActive: {
-      color: t.textOnAccent,
     },
     rowLabel: {
       fontFamily: fonts.bodySemiBold,

@@ -11,6 +11,7 @@ import TimelineScreen from '@/screens/TimelineScreen';
 import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import AccountSettingsScreen from '@/screens/AccountSettingsScreen';
+import AppearanceSettingsScreen from '@/screens/AppearanceSettingsScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
@@ -26,6 +27,10 @@ function SettingsNavigator() {
       <SettingsStack.Screen
         name="AccountSettings"
         component={AccountSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="AppearanceSettings"
+        component={AppearanceSettingsScreen}
       />
     </SettingsStack.Navigator>
   );
