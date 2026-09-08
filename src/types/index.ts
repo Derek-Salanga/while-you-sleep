@@ -94,6 +94,7 @@ export function petMood(score: number): PetMood {
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   AccountSettings: undefined;
+  AppearanceSettings: undefined;
 };
 
 export type MainTabParamList = {
