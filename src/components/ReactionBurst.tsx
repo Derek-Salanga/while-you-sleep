@@ -19,9 +19,9 @@ import Animated, {
 // dial -- reduce COUNT first, it's the loudest of them.
 const COUNT = 6;
 const RISE_FRACTION = 0.5; // of screen height
-const DURATION_MS = 900;
-const STAGGER_MS = 60;
-const SPREAD = 110; // horizontal wander, px
+const DURATION_MS = 1400;
+const STAGGER_MS = 90;
+const SPREAD = 210; // horizontal wander, px
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const RISE = SCREEN_H * RISE_FRACTION;
@@ -71,7 +71,7 @@ function Particle({
         { translateY: -RISE * p },
         // A sine wander rather than a straight line, so six of them don't
         // read as one thick column.
-        { translateX: seed.dx + Math.sin(p * Math.PI * seed.drift) * 14 },
+        { translateX: seed.dx + Math.sin(p * Math.PI * seed.drift) * 26 },
         { scale: seed.scale * (0.7 + 0.3 * Math.min(p * 4, 1)) },
       ],
     };
