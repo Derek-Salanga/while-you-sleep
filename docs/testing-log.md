@@ -1398,3 +1398,38 @@ Two notes for whoever repeats this:
 
 Still unverified on device: the invite UI itself (create / regenerate /
 cancel, code format, expiry line), and the expired-OTP copy.
+
+2026-09-07: **reaction burst confirmed on device**, after three rounds of
+adjustment that only a device could settle.
+
+Shipped as six emoji rising over half the screen in 1400ms, staggered 90ms,
+spread 210px with a per-particle sine wander. That is a **deliberate reversal
+of the original brief**, which asked to match the app's sub-300ms motion
+(press-scale 100ms, Timeline entrance 180ms + up to 100ms stagger). The first
+version honoured that — a single emoji, 260ms — and the user asked for
+more once they'd seen it. Rising half a screen inside 300ms is a blur rather
+than a rise, so the distance now sets the duration.
+
+One real bug surfaced only because of the slower timing: **`withDelay` holds
+the animation, not the view.** A staggered particle was already mounted at
+`t = 0` — full opacity, zero offset — so it sat visibly parked at the bottom
+of the screen until its delay elapsed. It was present at the original 60ms
+stagger too, just brief enough to read as a flicker; at 90ms it was obvious.
+
+Fixed with a second shared value that flips on when the delay ends and gates
+opacity. Kept separate rather than folding the delay into the main timing by
+animating from a negative lead, because that would stretch the out-quad
+easing across the wait as well, easing the particles into their own delay.
+
+Two placement notes worth keeping:
+
+- The burst layer is a **full-screen sibling at the screen root**, not a
+  child of the reaction row. Android clips absolutely positioned children
+  that extend past their parent, and these travel half a screen out of it.
+- Particles are keyed on the burst token so a replay remounts and restarts
+  from zero, and only the last one reports completion, so the parent clears
+  once rather than six times.
+
+Not verified: how this reads on a physical iPhone. The emulator renders in
+software, so six simultaneously animated views look choppier there than on
+real hardware.
