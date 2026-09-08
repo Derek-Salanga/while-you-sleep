@@ -240,7 +240,7 @@ const makeStyles = (t: Theme) =>
     inviteActionText: {
       fontFamily: fonts.bodyMedium,
       fontSize: fontSizes.sm,
-      color: t.accentYou,
+      color: t.accent,
     },
     inviteCancelText: {
       fontFamily: fonts.bodyMedium,
@@ -282,7 +282,7 @@ const makeStyles = (t: Theme) =>
     code: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
-      color: t.accentYou,
+      color: t.accent,
       marginVertical: 8,
       letterSpacing: 1,
     },

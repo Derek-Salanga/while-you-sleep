@@ -4,7 +4,7 @@ import { palette } from './palette';
 // makes a component able to read `theme.textMuted` without knowing or
 // caring which theme is active.
 //
-// Names describe the ROLE, never the colour. `accentYou` rather than
+// Names describe the ROLE, never the colour. `accent` rather than
 // `blue`, because in a future theme it might not be blue -- and because a
 // component asking for "blue" is a component that will be wrong the moment
 // anything changes.
@@ -25,17 +25,24 @@ export interface Theme {
 
   border: string;
 
-  // The you/partner pair as *accents* -- small coloured elements and text.
-  // These differ per theme because the brand hues themselves fail as text
-  // on a light ground (blue 3.37:1, orange 1.41:1) but read comfortably on
-  // a dark one.
-  accentYou: string;
+  // The app's action colour: the record CTA, primary buttons, the active tab
+  // icon, links. NOT a you/partner colour -- it deliberately takes the hue
+  // *opposite* the ambient theme, so the thing you're meant to tap always
+  // stands off the ground. Blue on the day-lit theme, orange on the night
+  // one.
+  //
+  // It was called accentYou until the flip made that a lie. The you/partner
+  // meaning lives on the Timeline card edges, HeroCard's halves, the heart
+  // and the pet -- none of which move with the theme.
+  accent: string;
+  // The partner hue as *text* on a light ground, where the base orange
+  // manages 1.41:1. Used where something must read as the partner's rather
+  // than as an action.
   accentPartner: string;
-  // Text on a solid `accentYou` fill -- a primary button. Flips between the
-  // themes because accentYou itself does: the light accent is dark enough
-  // to carry white (5.20), the dark accent is light enough to need ink
-  // (6.08). One token, opposite values, which is the whole reason it exists
-  // rather than being hardcoded at the call site.
+  // Text on a solid `accent` fill. Flips with it: the light accent is a deep
+  // blue that carries white (5.20), the dark accent is the day-orange, which
+  // carries only ink (8.95). One token, opposite values -- the whole reason
+  // it exists rather than a hardcoded white at the call site.
   textOnAccent: string;
 
   // Card washes, and the edges that carry the actual meaning. The fills are
@@ -71,7 +78,7 @@ export const lightTheme: Theme = {
   textOnYou: palette.white,
   textOnPartner: palette.ink,
   border: palette.slate,
-  accentYou: palette.blueOnLight,
+  accent: palette.blueOnLight,
   accentPartner: palette.orangeOnLight,
   textOnAccent: palette.white,
   fillYou: palette.blueSoft,
@@ -90,9 +97,10 @@ export const darkTheme: Theme = {
   textOnYou: palette.white,
   textOnPartner: palette.ink,
   border: palette.nightBorder,
-  // On a dark ground the brand hues are legible as text, so the accents go
-  // back to being the brand colours rather than darkened stand-ins.
-  accentYou: palette.blueLight,
+  // The day-orange, on the night-blue ground. Reads at 10.95:1 against it,
+  // which is why the action colour flips rather than staying blue: a blue
+  // button on a blue-black page is the thing you'd have to hunt for.
+  accent: palette.orange,
   accentPartner: palette.orange,
   textOnAccent: palette.ink,
   fillYou: palette.nightFillYou,

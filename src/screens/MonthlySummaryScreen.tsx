@@ -153,7 +153,7 @@ export default function MonthlySummaryScreen({ navigation }: any) {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={t.accentYou} size="large" />
+          <ActivityIndicator color={t.accent} size="large" />
         </View>
       ) : (
         <>
@@ -348,13 +348,13 @@ const makeStyles = (t: Theme) =>
       borderRadius: 3,
     },
     dotMine: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
     },
     dotPartner: {
       backgroundColor: t.accentPartner,
     },
     watchButton: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
       borderRadius: 16,
       paddingVertical: 16,
       alignItems: 'center',

@@ -56,7 +56,7 @@ const makeStyles = (t: Theme) =>
     elevated: {
       backgroundColor: t.surface,
       borderColor: t.border,
-      shadowColor: t.accentYou,
+      shadowColor: t.accent,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.12,
       shadowRadius: 12,

@@ -13,7 +13,6 @@ import {
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -214,12 +213,6 @@ export default function HomeScreen({ navigation }: any) {
         onPressOut={handleRecordCtaPressOut}
       >
         <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
-          <LinearGradient
-            colors={[t.accentYou, t.accentPartner]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
           <Text style={styles.recordCtaLabel}>Today's question</Text>
           {answeredToday === false && <View style={styles.unwatchedDot} />}
         </Animated.View>
@@ -252,6 +245,10 @@ export default function HomeScreen({ navigation }: any) {
               there's nothing to validate on save here. */}
           <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
             <DateTimePicker
+              // Follows the OS appearance by default, not the app's -- so a
+              // user on System=dark with the app forced Light would get a
+              // dark picker on a light sheet.
+              themeVariant={t.name}
               value={pickerDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -414,6 +411,12 @@ const makeStyles = (t: Theme) =>
       color: t.textPrimary,
     },
     recordCta: {
+      // Solid, not a gradient. The gradient ran to the day-orange, which
+      // dissolves into the light ground (1.44:1) so the button lost its edge --
+      // and could not carry white. A solid `accent` also flips with the theme,
+      // so the thing you're meant to tap always stands off the page: deep blue
+      // on the day-lit theme, day-orange on the night one.
+      backgroundColor: t.accent,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -426,11 +429,7 @@ const makeStyles = (t: Theme) =>
     recordCtaLabel: {
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
-      // Was t.surface. White on the gradient's orange end is 1.55:1 --
-      // the worst combination in the app, on its primary call to action. Ink
-      // gets 4.12 at the blue end and 8.95 at the orange; at 16pt semibold
-      // this is WCAG large text, so 3:1 applies and it clears both.
-      color: t.textPrimary,
+      color: t.textOnAccent,
     },
     tripCardTitle: {
       fontFamily: fonts.bodySemiBold,
@@ -504,7 +503,7 @@ const makeStyles = (t: Theme) =>
       height: 216,
     },
     pickerSave: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
       borderRadius: 16,
       paddingVertical: 14,
       alignItems: 'center',

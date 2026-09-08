@@ -62,7 +62,9 @@ function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <PairingProvider>
-            <StatusBar style="dark" />
+            {/* auto rather than a fixed "dark": the bar has to invert with the
+              theme, and it was already wrong on the two dark screens. */}
+            <StatusBar style="auto" />
             <RootNavigator />
           </PairingProvider>
         </QueryClientProvider>
