@@ -60,7 +60,7 @@ export default function MainTabs() {
           unmountOnBlur: true,
           tabBarShowLabel: false,
           tabBarAccessibilityLabel: config.accessibilityLabel,
-          tabBarActiveTintColor: t.accentYou,
+          tabBarActiveTintColor: t.accent,
           tabBarInactiveTintColor: t.textMuted,
           tabBarStyle: {
             backgroundColor: t.surface,

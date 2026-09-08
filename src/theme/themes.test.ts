@@ -35,12 +35,12 @@ function combinations(t: Theme): [string, string, number, string][] {
     [t.textPrimary, t.fillPartner, BODY, 'Timeline "partner" card text'],
     [t.textMuted, t.fillYou, BODY, 'Timeline "you" card date'],
     [t.textMuted, t.fillPartner, BODY, 'Timeline "partner" card date'],
-    [t.accentYou, t.surface, BODY, 'accent text on a card'],
+    [t.accent, t.surface, BODY, 'accent text on a card'],
     [t.accentPartner, t.surface, BODY, 'partner accent text on a card'],
-    [t.accentYou, t.background, BODY, 'accent text on the background'],
+    [t.accent, t.background, BODY, 'accent text on the background'],
     [t.accentPartner, t.background, BODY, 'partner accent on the background'],
     [t.danger, t.surface, BODY, 'destructive text'],
-    [t.textOnAccent, t.accentYou, BODY, 'primary button label'],
+    [t.textOnAccent, t.accent, BODY, 'primary button label'],
     [t.textPrimary, t.fillPartner, BODY, 'secondary button label'],
     // 3:1 because a border is a UI boundary, not text -- and on an Input it
     // is the only thing saying where the field is.
@@ -101,24 +101,16 @@ describe('brand fills', () => {
     expect(contrast(lightTheme.textOnYou, brand.partner)).toBeLessThan(LARGE);
   });
 
-  // The record CTA's gradient runs blue -> partnerDeep, and its white label
-  // sits on every colour in between, so both ends have to clear large text
-  // (the label is 16pt semibold). partnerDeep exists precisely because the
-  // base orange clears neither this nor the cream background.
-  it('a white gradient label clears large-text contrast at both ends', () => {
-    expect(contrast(lightTheme.textOnYou, brand.you)).toBeGreaterThanOrEqual(
-      LARGE
-    );
+  // The CTA is a solid `accent` fill in both themes, and `accent` flips hue
+  // so the button always stands off its ground. Both directions are covered
+  // by the token table above (textOnAccent / accent); this asserts the other
+  // half of the job -- that the fill itself separates from the background.
+  it('the CTA fill separates from its background in both themes', () => {
     expect(
-      contrast(lightTheme.textOnYou, brand.partnerDeep)
+      contrast(lightTheme.accent, lightTheme.background)
     ).toBeGreaterThanOrEqual(LARGE);
-  });
-
-  // The reason partnerDeep exists at all: the base hue neither carries white
-  // nor separates from the light ground.
-  it('the CTA gradient end separates from the light background', () => {
     expect(
-      contrast(brand.partnerDeep, lightTheme.background)
+      contrast(darkTheme.accent, darkTheme.background)
     ).toBeGreaterThanOrEqual(LARGE);
   });
 });

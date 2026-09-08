@@ -61,7 +61,7 @@ const makeStyles = (t: Theme) =>
       alignItems: 'center',
     },
     primaryButton: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
     },
     primaryButtonText: {
       fontFamily: fonts.bodySemiBold,

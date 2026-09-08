@@ -13,7 +13,6 @@ import {
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -38,7 +37,7 @@ import {
   parseDateString,
   daysBetween,
 } from '@/lib/date';
-import { Theme, brand } from '@/theme/themes';
+import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import { countries, flagEmoji, countryName } from '@/data/countries';
@@ -214,12 +213,6 @@ export default function HomeScreen({ navigation }: any) {
         onPressOut={handleRecordCtaPressOut}
       >
         <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
-          <LinearGradient
-            colors={[brand.you, brand.partnerDeep]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
           <Text style={styles.recordCtaLabel}>Today's question</Text>
           {answeredToday === false && <View style={styles.unwatchedDot} />}
         </Animated.View>
@@ -418,6 +411,12 @@ const makeStyles = (t: Theme) =>
       color: t.textPrimary,
     },
     recordCta: {
+      // Solid, not a gradient. The gradient ran to the day-orange, which
+      // dissolves into the light ground (1.44:1) so the button lost its edge --
+      // and could not carry white. A solid `accent` also flips with the theme,
+      // so the thing you're meant to tap always stands off the page: deep blue
+      // on the day-lit theme, day-orange on the night one.
+      backgroundColor: t.accent,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -430,13 +429,7 @@ const makeStyles = (t: Theme) =>
     recordCtaLabel: {
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
-      // White, over a gradient whose far end is deepened to
-      // brand.partnerDeep. Ink was tried first and cleared contrast
-      // comfortably, but against the cream ground the base orange end
-      // dissolved into the page and the button stopped reading as a button.
-      // Deepening the gradient fixes the edge and lets the label stay white
-      // (3.07 -- large text, which a 16pt semibold label is).
-      color: t.textOnYou,
+      color: t.textOnAccent,
     },
     tripCardTitle: {
       fontFamily: fonts.bodySemiBold,
@@ -510,7 +503,7 @@ const makeStyles = (t: Theme) =>
       height: 216,
     },
     pickerSave: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
       borderRadius: 16,
       paddingVertical: 14,
       alignItems: 'center',

@@ -159,7 +159,7 @@ const makeStyles = (t: Theme) =>
     backText: {
       fontFamily: fonts.body,
       fontSize: fontSizes.md,
-      color: t.accentYou,
+      color: t.accent,
     },
     title: {
       fontFamily: fonts.display,

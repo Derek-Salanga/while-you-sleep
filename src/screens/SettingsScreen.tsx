@@ -470,7 +470,7 @@ const makeStyles = (t: Theme) =>
     pauseOptionText: {
       fontFamily: fonts.bodyMedium,
       fontSize: fontSizes.md,
-      color: t.accentYou,
+      color: t.accent,
     },
     pauseResumeText: {
       fontFamily: fonts.bodyMedium,
@@ -500,8 +500,8 @@ const makeStyles = (t: Theme) =>
       alignItems: 'center',
     },
     themeOptionActive: {
-      backgroundColor: t.accentYou,
-      borderColor: t.accentYou,
+      backgroundColor: t.accent,
+      borderColor: t.accent,
     },
     themeOptionText: {
       fontFamily: fonts.bodyMedium,
@@ -553,7 +553,7 @@ const makeStyles = (t: Theme) =>
       height: 216,
     },
     pickerSave: {
-      backgroundColor: t.accentYou,
+      backgroundColor: t.accent,
       borderRadius: 16,
       paddingVertical: 14,
       alignItems: 'center',

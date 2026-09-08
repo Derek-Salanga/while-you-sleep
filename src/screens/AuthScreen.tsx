@@ -201,7 +201,7 @@ const makeStyles = (t: Theme) =>
     },
     linkButtonText: {
       fontFamily: fonts.bodyMedium,
-      color: t.accentYou,
+      color: t.accent,
       fontSize: fontSizes.sm,
     },
     pressed: {

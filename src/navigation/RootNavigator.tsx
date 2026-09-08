@@ -104,7 +104,7 @@ export default function RootNavigator() {
           backgroundColor: t.background,
         }}
       >
-        <ActivityIndicator color={t.accentYou} size="large" />
+        <ActivityIndicator color={t.accent} size="large" />
       </View>
     );
   }
@@ -123,7 +123,7 @@ export default function RootNavigator() {
           card: t.surface,
           text: t.textPrimary,
           border: t.border,
-          primary: t.accentYou,
+          primary: t.accent,
         },
       }}
     >

@@ -165,7 +165,7 @@ export default function TimelineScreen({ navigation }: any) {
       <StoryRings navigation={navigation} />
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={t.accentYou} size="large" />
+          <ActivityIndicator color={t.accent} size="large" />
         </View>
       ) : (
         <FlatList
