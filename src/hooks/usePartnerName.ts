@@ -7,7 +7,7 @@ import { usePartnerNickname } from './queries';
 // from queries.ts -- putting it there would be a cycle.
 //
 // Returns null rather than a built-in fallback so callers keep the wording
-// they already had: Timeline says "Your partner", StoryRings says
+// they already had: Timeline says "Your partner", HomeScreen says
 // "Partner", and Home drops its clause entirely rather than naming an
 // unknown person. Those three had drifted apart precisely because each
 // site hand-rolled its own ?? ladder.
