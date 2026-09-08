@@ -11,12 +11,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import CrossoverHeart from '@/components/CrossoverHeart';
-import {
-  generateInviteCode,
-  inviteExpiryISO,
-  formatExpiry,
-  INVITE_TTL_HOURS,
-} from '@/lib/inviteCode';
+import { formatExpiry, INVITE_TTL_HOURS } from '@/lib/inviteCode';
 
 export default function PairingScreen() {
   const t = useTheme();
@@ -44,31 +39,20 @@ export default function PairingScreen() {
     }, [refreshPair])
   );
 
-  // Retries on the unique-constraint violation rather than surfacing raw
-  // Postgres text. Collisions are vanishingly unlikely at 31^6, but the old
-  // generator had no retry at all and a duplicate there was a dead end the
-  // user could do nothing about.
+  // Both of these hand the whole job to the server: it generates the code,
+  // retries its own collisions, and never reports one back. The client used
+  // to generate and retry, which meant a unique violation was visible to it
+  // -- and a visible violation is an answer to "is this code live?", i.e. an
+  // enumeration oracle. See the comments on pairs' policies in schema.sql.
   async function handleCreateInvite() {
     if (!session?.user) return;
     setBusy(true);
     try {
-      let lastError: any = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const { error } = await supabase.from('pairs').insert({
-          user_a: session.user.id,
-          user_b: null,
-          invite_code: generateInviteCode(),
-          invite_expires_at: inviteExpiryISO(),
-        });
-        if (!error) {
-          await refreshPair();
-          return;
-        }
-        // 23505 = unique_violation. Anything else is a real failure.
-        if (error.code !== '23505') throw error;
-        lastError = error;
-      }
-      throw lastError;
+      const { error } = await supabase.rpc('create_invite', {
+        ttl_hours: INVITE_TTL_HOURS,
+      });
+      if (error) throw error;
+      await refreshPair();
     } catch (err: any) {
       Alert.alert('Could not create invite', err.message);
     } finally {
@@ -79,20 +63,11 @@ export default function PairingScreen() {
   async function handleRegenerate() {
     setBusy(true);
     try {
-      let lastError: any = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const { error } = await supabase.rpc('regenerate_invite', {
-          new_code: generateInviteCode(),
-          ttl_hours: INVITE_TTL_HOURS,
-        });
-        if (!error) {
-          await refreshPair();
-          return;
-        }
-        if (error.code !== '23505') throw error;
-        lastError = error;
-      }
-      throw lastError;
+      const { error } = await supabase.rpc('regenerate_invite', {
+        ttl_hours: INVITE_TTL_HOURS,
+      });
+      if (error) throw error;
+      await refreshPair();
     } catch (err: any) {
       Alert.alert('Could not regenerate', err.message);
     } finally {
