@@ -1532,3 +1532,24 @@ force-quit, and that System mode follows the OS. Worth a minute each.
 The dark "partner" card fill (`#4E412C`) reads brown rather than warm. It
 clears contrast and its 4pt edge carries the meaning, so it is left alone —
 noted in case it grates in use.
+
+2026-09-07 (follow-up 4): the two items left open after the dark-mode pass
+are confirmed, and one flagged concern is withdrawn.
+
+**`ClipViewScreen` and the camera stay dark in both themes.** They are pinned
+to `media` and read no theme tokens at all, so this was correct by
+construction — but it is the specific thing the whole `media` split exists to
+guarantee, and it is worth having actually looked at. Before the migration
+these screens built their dark surface from `colors.ink` as background and
+`colors.surface` as text, which under a theme would have inverted them to
+white-on-white.
+
+**The dark "partner" card fill (`#4E412C`) is fine.** It was flagged as
+reading brown rather than warm, from a render at roughly a third of the size
+it appears on a phone. On a real screen it reads as intended. Recorded
+because the flag was wrong, not the colour — a swatch in a comparison grid
+and a card in a running app are different things, and the render was the
+misleading one here.
+
+Still not confirmed, both cheap: that the Appearance choice survives a
+force-quit, and that System mode tracks the OS setting.
