@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -13,7 +19,8 @@ import { useClips, useReactions } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { Clip } from '@/types';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import Card from '@/components/ui/Card';
@@ -52,6 +59,8 @@ function formatClipDate(dateStr: string): string {
 }
 
 export default function TimelineScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, myProfile } = usePairing();
   const partnerName = usePartnerName();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
@@ -156,7 +165,7 @@ export default function TimelineScreen({ navigation }: any) {
       <StoryRings navigation={navigation} />
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={t.accentYou} size="large" />
         </View>
       ) : (
         <FlatList
@@ -189,111 +198,119 @@ export default function TimelineScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 16,
-  },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { paddingBottom: 20 },
-  card: {
-    padding: 18,
-    marginBottom: 12,
-  },
-  // Whose card it is has three signals, deliberately: the fill, a 4pt edge
-  // in the full-strength colour, and which side it hangs off. The tints
-  // these used to be filled with sat ~4% off `background`, so at a glance
-  // the whole feed read as one column of white cards.
-  //
-  // The edge is what actually carries at a glance; the fill stays soft
-  // rather than saturated so it doesn't compete with HeroCard, which sits
-  // directly above the list already in full-strength primary/secondary.
-  //
-  // borderLeftWidth/Color override the 1pt border Card sets, since this
-  // style is merged last (see ui/Card.tsx).
-  cardMine: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primaryLight,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    alignSelf: 'flex-end',
-    width: '80%',
-  },
-  cardPartner: {
-    backgroundColor: colors.secondarySoft,
-    borderColor: colors.secondaryLight,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.secondaryDark,
-    alignSelf: 'flex-start',
-    width: '80%',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardSender: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-  },
-  // Groups the reactions with the unwatched dot so cardHeader stays a
-  // two-child space-between row rather than needing per-item spacing.
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cardReaction: {
-    fontSize: fontSizes.md,
-  },
-  unwatchedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.error,
-  },
-  cardDate: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  // Not truncated: captions are short by design, and ClipViewScreen shows the
-  // same text in full, so the two surfaces stay consistent.
-  cardCaption: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  empty: {
-    fontFamily: fonts.body,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 60,
-  },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 60,
-    paddingHorizontal: 24,
-  },
-  emptyHeadline: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.lg,
-    color: colors.ink,
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  emptyBody: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object has
+// to be rebuilt when the theme changes.
+//
+// The 4pt left edges take edgeYou/edgePartner rather than the accent
+// tokens: the soft fills sit at low contrast against the background by
+// design, so the edge is the only thing actually saying whose clip a card
+// is, and it has to clear 3:1 to do that job.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 16,
+    },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    list: { paddingBottom: 20 },
+    card: {
+      padding: 18,
+      marginBottom: 12,
+    },
+    // Whose card it is has three signals, deliberately: the fill, a 4pt edge
+    // in the full-strength colour, and which side it hangs off. The tints
+    // these used to be filled with sat ~4% off `background`, so at a glance
+    // the whole feed read as one column of white cards.
+    //
+    // The edge is what actually carries at a glance; the fill stays soft
+    // rather than saturated so it doesn't compete with HeroCard, which sits
+    // directly above the list already in full-strength primary/secondary.
+    //
+    // borderLeftWidth/Color override the 1pt border Card sets, since this
+    // style is merged last (see ui/Card.tsx).
+    cardMine: {
+      backgroundColor: t.fillYou,
+      borderColor: t.fillYou,
+      borderLeftWidth: 4,
+      borderLeftColor: t.edgeYou,
+      alignSelf: 'flex-end',
+      width: '80%',
+    },
+    cardPartner: {
+      backgroundColor: t.fillPartner,
+      borderColor: t.fillPartner,
+      borderLeftWidth: 4,
+      borderLeftColor: t.edgePartner,
+      alignSelf: 'flex-start',
+      width: '80%',
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    cardSender: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+    },
+    // Groups the reactions with the unwatched dot so cardHeader stays a
+    // two-child space-between row rather than needing per-item spacing.
+    cardHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    cardReaction: {
+      fontSize: fontSizes.md,
+    },
+    unwatchedDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: t.danger,
+    },
+    cardDate: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginTop: 4,
+    },
+    // Not truncated: captions are short by design, and ClipViewScreen shows the
+    // same text in full, so the two surfaces stay consistent.
+    cardCaption: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+      lineHeight: 20,
+      marginTop: 8,
+    },
+    empty: {
+      fontFamily: fonts.body,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginTop: 60,
+    },
+    emptyState: {
+      alignItems: 'center',
+      marginTop: 60,
+      paddingHorizontal: 24,
+    },
+    emptyHeadline: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.lg,
+      color: t.textPrimary,
+      textAlign: 'center',
+      marginTop: 20,
+    },
+    emptyBody: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginTop: 8,
+      lineHeight: 20,
+    },
+  });

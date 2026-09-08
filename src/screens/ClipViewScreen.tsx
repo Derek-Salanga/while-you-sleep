@@ -13,7 +13,7 @@ import { useClip, useReactions } from '@/hooks/queries';
 import { useMarkClipViewed, useSetReaction } from '@/hooks/mutations';
 import { REACTION_EMOJI } from '@/data/reactions';
 import ReactionBurst from '@/components/ReactionBurst';
-import { colors } from '@/theme/colors';
+import { media } from '@/theme/themes';
 import { fonts, fontSizes } from '@/theme/typography';
 
 export default function ClipViewScreen({ route, navigation }: any) {
@@ -90,7 +90,7 @@ export default function ClipViewScreen({ route, navigation }: any) {
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={media.text} size="large" />
         {closeButton}
       </View>
     );
@@ -178,11 +178,19 @@ export default function ClipViewScreen({ route, navigation }: any) {
   );
 }
 
+// Pinned to `media`, deliberately not themed. This screen is dark because
+// it frames a video, not because the app is in dark mode -- a light-mode
+// player wrapping a dark clip is worse, and the controls have to stay
+// legible over whatever the frame happens to contain.
+//
+// It also used to be the inversion trap: `colors.ink` as background and
+// `colors.surface` as text meant that under a dark theme both flipped and
+// the screen became white-on-white.
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.ink },
+  container: { flex: 1, backgroundColor: media.bg },
   centered: {
     flex: 1,
-    backgroundColor: colors.ink,
+    backgroundColor: media.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -193,7 +201,7 @@ const styles = StyleSheet.create({
   caption: {
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
-    color: colors.surface,
+    color: media.text,
     textAlign: 'center',
     lineHeight: 22,
     paddingTop: 16,
@@ -216,18 +224,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   reactionButtonSelected: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: media.selected,
   },
   reactionEmoji: { fontSize: 22 },
   dateLabel: {
     fontFamily: fonts.body,
-    color: colors.surface,
+    color: media.text,
     textAlign: 'center',
     padding: 16,
   },
   errorText: {
     fontFamily: fonts.body,
-    color: colors.surface,
+    color: media.text,
   },
   closeButton: {
     position: 'absolute',
@@ -235,12 +243,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: media.scrim,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    color: colors.surface,
+    color: media.text,
     fontSize: fontSizes.md,
     fontFamily: fonts.bodySemiBold,
   },

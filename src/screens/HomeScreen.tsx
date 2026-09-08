@@ -38,7 +38,8 @@ import {
   parseDateString,
   daysBetween,
 } from '@/lib/date';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import { countries, flagEmoji, countryName } from '@/data/countries';
 
@@ -75,6 +76,8 @@ function formatLongDate(dateString: string): string {
 }
 
 export default function HomeScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair } = usePairing();
   const partnerName = usePartnerName();
   const insets = useSafeAreaInsets();
@@ -212,7 +215,7 @@ export default function HomeScreen({ navigation }: any) {
       >
         <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
           <LinearGradient
-            colors={[colors.primary, colors.secondary]}
+            colors={[t.accentYou, t.accentPartner]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -308,7 +311,7 @@ export default function HomeScreen({ navigation }: any) {
           <TextInput
             style={styles.pickerInput}
             placeholder="Search countries"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={t.textMuted}
             value={countrySearch}
             onChangeText={setCountrySearch}
             autoFocus
@@ -353,184 +356,187 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 8,
-  },
-  anniversaryText: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginBottom: 16,
-  },
-  petCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
-  },
-  petCopy: { flex: 1 },
-  petTitle: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  petBody: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  entryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginBottom: 16,
-  },
-  entryCardLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  recordCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  recordCtaLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    // Was colors.surface. White on the gradient's orange end is 1.55:1 --
-    // the worst combination in the app, on its primary call to action. Ink
-    // gets 4.12 at the blue end and 8.95 at the orange; at 16pt semibold
-    // this is WCAG large text, so 3:1 applies and it clears both.
-    color: colors.ink,
-  },
-  tripCardTitle: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  tripCountdown: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  tripDate: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginBottom: 2,
-  },
-  // White, not colors.error: this dot sits on the record CTA's blue-to-orange
-  // gradient, and salmon on the amber end was effectively invisible, so the
-  // "you haven't answered today" signal was lost. White reads against both
-  // ends. (TimelineScreen's same-named dot is on a pale card and stays red.)
-  unwatchedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.surface,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  editCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    marginBottom: 16,
-  },
-  pickerLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 8,
-  },
-  pickerInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 12,
-  },
-  pickerInputText: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  pickerInputPlaceholder: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.muted,
-  },
-  // Fixed height so the native spinner never lays out with a zero-size
-  // frame mid-transition -- iOS's UIDatePicker can reset its displayed
-  // value to the Unix epoch if that happens.
-  spinnerBox: {
-    height: 216,
-  },
-  pickerSave: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  pickerSaveText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.surface,
-  },
-  pickerClose: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  pickerCloseText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.muted,
-  },
-  countryModal: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 20,
-  },
-  countryRow: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  countryRowText: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background, padding: 20 },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 8,
+    },
+    anniversaryText: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginBottom: 16,
+    },
+    petCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: t.surface,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 16,
+    },
+    petCopy: { flex: 1 },
+    petTitle: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    petBody: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginTop: 2,
+    },
+    entryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      marginBottom: 16,
+    },
+    entryCardLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    recordCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    recordCtaLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      // Was t.surface. White on the gradient's orange end is 1.55:1 --
+      // the worst combination in the app, on its primary call to action. Ink
+      // gets 4.12 at the blue end and 8.95 at the orange; at 16pt semibold
+      // this is WCAG large text, so 3:1 applies and it clears both.
+      color: t.textPrimary,
+    },
+    tripCardTitle: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginTop: 4,
+    },
+    tripCountdown: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    tripDate: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginBottom: 2,
+    },
+    // White, not t.danger: this dot sits on the record CTA's blue-to-orange
+    // gradient, and salmon on the amber end was effectively invisible, so the
+    // "you haven't answered today" signal was lost. White reads against both
+    // ends. (TimelineScreen's same-named dot is on a pale card and stays red.)
+    unwatchedDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: t.surface,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    editCard: {
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      padding: 18,
+      marginBottom: 16,
+    },
+    pickerLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+      marginBottom: 8,
+    },
+    pickerInput: {
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+      marginBottom: 12,
+    },
+    pickerInputText: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    pickerInputPlaceholder: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textMuted,
+    },
+    // Fixed height so the native spinner never lays out with a zero-size
+    // frame mid-transition -- iOS's UIDatePicker can reset its displayed
+    // value to the Unix epoch if that happens.
+    spinnerBox: {
+      height: 216,
+    },
+    pickerSave: {
+      backgroundColor: t.accentYou,
+      borderRadius: 16,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    pickerSaveText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.surface,
+    },
+    pickerClose: {
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    pickerCloseText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textMuted,
+    },
+    countryModal: {
+      flex: 1,
+      backgroundColor: t.background,
+      paddingHorizontal: 20,
+    },
+    countryRow: {
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+    },
+    countryRowText: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+  });

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { formatDateString } from '@/lib/date';
 import { Clip } from '@/types';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
 function isSameMonth(a: Date, b: Date): boolean {
@@ -21,6 +22,8 @@ function isSameMonth(a: Date, b: Date): boolean {
 }
 
 export default function MonthlySummaryScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, myProfile } = usePairing();
   const partnerName = usePartnerName();
   const insets = useSafeAreaInsets();
@@ -150,7 +153,7 @@ export default function MonthlySummaryScreen({ navigation }: any) {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={t.accentYou} size="large" />
         </View>
       ) : (
         <>
@@ -244,148 +247,151 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 20,
-  },
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  monthNavButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  monthNavButtonDisabled: {
-    opacity: 0.3,
-  },
-  monthNavButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.lg,
-    color: colors.ink,
-  },
-  monthLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  centered: { paddingVertical: 60, alignItems: 'center' },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statTile: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-  },
-  statLabel: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 24,
-  },
-  dayCell: {
-    width: '14.28%',
-    aspectRatio: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dayNumber: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-  },
-  dayDots: {
-    flexDirection: 'row',
-    gap: 3,
-    marginTop: 3,
-    height: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  dotMine: {
-    backgroundColor: colors.primary,
-  },
-  dotPartner: {
-    backgroundColor: colors.secondary,
-  },
-  watchButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  watchButtonDisabled: {
-    opacity: 0.5,
-  },
-  watchButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  captions: {
-    marginTop: 28,
-  },
-  captionsHeading: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-    marginBottom: 12,
-  },
-  captionRow: {
-    marginBottom: 16,
-  },
-  captionMeta: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    marginBottom: 2,
-  },
-  captionText: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-    lineHeight: 20,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: t.background,
+    },
+    content: {
+      paddingHorizontal: 24,
+      paddingBottom: 40,
+    },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 20,
+    },
+    monthNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    monthNavButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: t.surface,
+      borderWidth: 1,
+      borderColor: t.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    monthNavButtonDisabled: {
+      opacity: 0.3,
+    },
+    monthNavButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.lg,
+      color: t.textPrimary,
+    },
+    monthLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    centered: { paddingVertical: 60, alignItems: 'center' },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 24,
+    },
+    statTile: {
+      flex: 1,
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+    },
+    statLabel: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginTop: 4,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 24,
+    },
+    dayCell: {
+      width: '14.28%',
+      aspectRatio: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dayNumber: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+    },
+    dayDots: {
+      flexDirection: 'row',
+      gap: 3,
+      marginTop: 3,
+      height: 6,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    dotMine: {
+      backgroundColor: t.accentYou,
+    },
+    dotPartner: {
+      backgroundColor: t.accentPartner,
+    },
+    watchButton: {
+      backgroundColor: t.accentYou,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    watchButtonDisabled: {
+      opacity: 0.5,
+    },
+    watchButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      color: t.surface,
+      fontSize: fontSizes.md,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    captions: {
+      marginTop: 28,
+    },
+    captionsHeading: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+      marginBottom: 12,
+    },
+    captionRow: {
+      marginBottom: 16,
+    },
+    captionMeta: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginBottom: 2,
+    },
+    captionText: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+      lineHeight: 20,
+    },
+  });

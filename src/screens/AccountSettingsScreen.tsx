@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import { unregisterPushToken } from '@/lib/notifications';
 import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { useDeleteAccount } from '@/hooks/mutations';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 
@@ -80,6 +81,8 @@ function confirmDeleteAccount(
 }
 
 export default function AccountSettingsScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session } = usePairing();
   const partnerName = usePartnerName();
   const deleteAccount = useDeleteAccount();
@@ -130,7 +133,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
         }
       >
         {deleteAccount.isPending ? (
-          <ActivityIndicator color={colors.error} />
+          <ActivityIndicator color={t.danger} />
         ) : (
           <Text style={styles.dangerText}>Delete account</Text>
         )}
@@ -144,73 +147,76 @@ export default function AccountSettingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  back: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  backText: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.primary,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 24,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginBottom: 16,
-  },
-  rowLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  rowValue: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    flexShrink: 1,
-    marginLeft: 12,
-    textAlign: 'right',
-  },
-  dangerRow: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  dangerText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.error,
-  },
-  deleteRow: {
-    marginTop: 12,
-  },
-  deleteNote: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    lineHeight: 17,
-    marginTop: 12,
-    paddingHorizontal: 4,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    back: {
+      alignSelf: 'flex-start',
+      paddingVertical: 4,
+      marginBottom: 4,
+    },
+    backText: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.accentYou,
+    },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 24,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      marginBottom: 16,
+    },
+    rowLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    rowValue: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      flexShrink: 1,
+      marginLeft: 12,
+      textAlign: 'right',
+    },
+    dangerRow: {
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    dangerText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.danger,
+    },
+    deleteRow: {
+      marginTop: 12,
+    },
+    deleteNote: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      lineHeight: 17,
+      marginTop: 12,
+      paddingHorizontal: 4,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+  });

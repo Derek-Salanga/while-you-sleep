@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import Button from '@/components/ui/Button';
@@ -18,6 +19,8 @@ import {
 } from '@/lib/inviteCode';
 
 export default function PairingScreen() {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, refreshPair } = usePairing();
   const [inviteCode, setInviteCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -221,88 +224,91 @@ export default function PairingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  expiry: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginBottom: 4,
-  },
-  inviteAction: {
-    paddingVertical: 10,
-  },
-  inviteActionText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    color: colors.primary,
-  },
-  inviteCancelText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    color: colors.error,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xxl,
-    color: colors.ink,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  card: {
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  waitingHeadline: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.lg,
-    color: colors.ink,
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 12,
-  },
-  cardLabel: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-  },
-  code: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.primary,
-    marginVertical: 8,
-    letterSpacing: 1,
-  },
-  helper: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  orDivider: {
-    fontFamily: fonts.body,
-    color: colors.muted,
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-  signOutLink: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signOutText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    expiry: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginBottom: 4,
+    },
+    inviteAction: {
+      paddingVertical: 10,
+    },
+    inviteActionText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.sm,
+      color: t.accentYou,
+    },
+    inviteCancelText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.sm,
+      color: t.danger,
+    },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xxl,
+      color: t.textPrimary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginBottom: 32,
+    },
+    card: {
+      padding: 24,
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    waitingHeadline: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.lg,
+      color: t.textPrimary,
+      textAlign: 'center',
+      marginTop: 12,
+      marginBottom: 12,
+    },
+    cardLabel: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+    },
+    code: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.accentYou,
+      marginVertical: 8,
+      letterSpacing: 1,
+    },
+    helper: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      textAlign: 'center',
+    },
+    orDivider: {
+      fontFamily: fonts.body,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginVertical: 16,
+    },
+    signOutLink: {
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    signOutText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+  });

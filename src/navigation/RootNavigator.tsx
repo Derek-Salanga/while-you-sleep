@@ -1,6 +1,10 @@
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import { usePairing } from '@/lib/PairingContext';
@@ -14,7 +18,7 @@ import { petMood } from '@/types';
 import { sharedTodayDateString } from '@/lib/date';
 import { navigationRef } from './navigationRef';
 import { RootStackParamList } from '@/types';
-import { colors } from '@/theme/colors';
+import { useTheme } from '@/theme/ThemeContext';
 
 import AuthScreen from '@/screens/AuthScreen';
 import PairingScreen from '@/screens/PairingScreen';
@@ -25,6 +29,7 @@ import ClipViewScreen from '@/screens/ClipViewScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const t = useTheme();
   const { session, pair, pairPending, loading } = usePairing();
   // A pair row exists as soon as one side creates an invite, with user_b
   // still null until the partner joins — that's not a completed pairing
@@ -96,16 +101,32 @@ export default function RootNavigator() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: colors.background,
+          backgroundColor: t.background,
         }}
       >
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={t.accentYou} size="large" />
       </View>
     );
   }
 
+  // Without a theme the container paints react-navigation's white
+  // DefaultTheme background beneath every screen, which shows during
+  // transitions and would flash white in dark mode.
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={{
+        ...(t.name === 'dark' ? DarkTheme : DefaultTheme),
+        colors: {
+          ...(t.name === 'dark' ? DarkTheme : DefaultTheme).colors,
+          background: t.background,
+          card: t.surface,
+          text: t.textPrimary,
+          border: t.border,
+          primary: t.accentYou,
+        },
+      }}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!session ? (
           <Stack.Screen name="Auth" component={AuthScreen} />

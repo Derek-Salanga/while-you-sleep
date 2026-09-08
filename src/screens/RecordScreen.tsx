@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -30,7 +36,8 @@ import { useUploadClip } from '@/hooks/mutations';
 import { sharedTodayDateString } from '@/lib/date';
 import { getQuestionForDate } from '@/data/dailyQuestions';
 import { Clip } from '@/types';
-import { colors } from '@/theme/colors';
+import { Theme, brand, media } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
 // The daily clip IS the daily question's answer -- there's no separate
@@ -47,6 +54,8 @@ const VIDEO_BITRATE = 2_500_000; // 2.5 Mbps
 type Phase = 'loading' | 'camera' | 'review' | 'revealed';
 
 export default function RecordScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair } = usePairing();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -200,7 +209,7 @@ export default function RecordScreen({ navigation }: any) {
       <View style={styles.container}>
         {closeButton}
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.surface} size="large" />
+          <ActivityIndicator color={media.text} size="large" />
         </View>
       </View>
     );
@@ -319,7 +328,7 @@ export default function RecordScreen({ navigation }: any) {
         <TextInput
           style={styles.captionInput}
           placeholder="Say a bit more…"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={t.textMuted}
           multiline
           value={captionDraft}
           onChangeText={setCaptionDraft}
@@ -331,7 +340,7 @@ export default function RecordScreen({ navigation }: any) {
           disabled={uploading}
         >
           {uploading ? (
-            <ActivityIndicator color={colors.surface} />
+            <ActivityIndicator color={media.text} />
           ) : (
             <Text style={styles.buttonText}>Send</Text>
           )}
@@ -404,7 +413,7 @@ export default function RecordScreen({ navigation }: any) {
             ]}
           >
             <LinearGradient
-              colors={[colors.primary, colors.secondary]}
+              colors={[brand.you, brand.partner]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={StyleSheet.absoluteFill}
@@ -418,231 +427,238 @@ export default function RecordScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.ink },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  camera: { flex: 1 },
-  closeButton: {
-    position: 'absolute',
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  closeButtonText: {
-    color: colors.surface,
-    fontSize: fontSizes.md,
-    fontFamily: fonts.bodySemiBold,
-  },
-  promptCard: {
-    position: 'absolute',
-    // 64 leaves room for the close button at left: 16 (40 wide).
-    left: 64,
-    right: 16,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    // BlurView won't clip its blur to the border radius without this.
-    overflow: 'hidden',
-  },
-  promptEyebrow: {
-    color: colors.secondary,
-    fontSize: fontSizes.xs,
-    fontFamily: fonts.bodySemiBold,
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  promptText: {
-    color: colors.surface,
-    fontSize: fontSizes.md,
-    fontFamily: fonts.display,
-    lineHeight: 24,
-  },
-  permissionContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  permissionText: {
-    fontFamily: fonts.body,
-    color: colors.ink,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontFamily: fonts.bodySemiBold,
-    color: colors.surface,
-    fontSize: fontSizes.md,
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  flipButton: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  flipButtonText: {
-    fontFamily: fonts.bodyMedium,
-    color: colors.surface,
-    fontSize: fontSizes.sm,
-  },
-  recordButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: colors.surface,
-  },
-  recordButtonActive: {
-    borderRadius: 12,
-  },
-  timerPill: {
-    position: 'absolute',
-    bottom: 132,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-  },
-  timerText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.surface,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  reviewTitle: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.surface,
-    paddingHorizontal: 24,
-    marginBottom: 4,
-  },
-  reviewSubtitle: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  captionInput: {
-    marginHorizontal: 24,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
-  retakeButton: {
-    marginHorizontal: 24,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  retakeButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.surface,
-  },
-  revealContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: 24,
-  },
-  textCloseButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    marginBottom: 16,
-  },
-  textCloseButtonText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 12,
-  },
-  question: {
-    fontFamily: fonts.displayItalic,
-    fontSize: fontSizes.lg,
-    color: colors.ink,
-    marginBottom: 24,
-  },
-  answersContainer: {
-    gap: 16,
-  },
-  answerCard: {
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-  },
-  answerCardMine: {
-    backgroundColor: colors.primaryTint,
-    borderColor: colors.primaryLight,
-  },
-  answerCardPartner: {
-    backgroundColor: colors.secondaryTint,
-    borderColor: colors.secondaryLight,
-  },
-  answerLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-    marginBottom: 6,
-  },
-  answerCaption: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-    marginBottom: 12,
-  },
-  watchButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  watchButtonText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.sm,
-    color: colors.ink,
-  },
-  waiting: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-});
+// The one component that legitimately uses both systems. The camera and
+// review phases are media chrome over a live preview and stay pinned to
+// `media`; the permission and `revealed` phases are ordinary app surfaces
+// and take theme tokens. Mixing them in one StyleSheet is the honest
+// shape -- splitting the file would separate styles from the phases they
+// belong to.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: media.bg },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    camera: { flex: 1 },
+    closeButton: {
+      position: 'absolute',
+      left: 16,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1,
+    },
+    closeButtonText: {
+      color: media.text,
+      fontSize: fontSizes.md,
+      fontFamily: fonts.bodySemiBold,
+    },
+    promptCard: {
+      position: 'absolute',
+      // 64 leaves room for the close button at left: 16 (40 wide).
+      left: 64,
+      right: 16,
+      borderRadius: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      // BlurView won't clip its blur to the border radius without this.
+      overflow: 'hidden',
+    },
+    promptEyebrow: {
+      color: brand.partner,
+      fontSize: fontSizes.xs,
+      fontFamily: fonts.bodySemiBold,
+      letterSpacing: 1.2,
+      marginBottom: 4,
+    },
+    promptText: {
+      color: media.text,
+      fontSize: fontSizes.md,
+      fontFamily: fonts.display,
+      lineHeight: 24,
+    },
+    permissionContainer: {
+      flex: 1,
+      backgroundColor: t.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    permissionText: {
+      fontFamily: fonts.body,
+      color: t.textPrimary,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    button: {
+      backgroundColor: brand.you,
+      borderRadius: 16,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    buttonText: {
+      fontFamily: fonts.bodySemiBold,
+      color: media.text,
+      fontSize: fontSizes.md,
+    },
+    controls: {
+      position: 'absolute',
+      bottom: 40,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+    },
+    flipButton: {
+      width: 56,
+      height: 56,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    flipButtonText: {
+      fontFamily: fonts.bodyMedium,
+      color: media.text,
+      fontSize: fontSizes.sm,
+    },
+    recordButton: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      overflow: 'hidden',
+      borderWidth: 4,
+      borderColor: media.text,
+    },
+    recordButtonActive: {
+      borderRadius: 12,
+    },
+    timerPill: {
+      position: 'absolute',
+      bottom: 132,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: 14,
+      paddingVertical: 6,
+      paddingHorizontal: 14,
+    },
+    timerText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: media.text,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    reviewTitle: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: media.text,
+      paddingHorizontal: 24,
+      marginBottom: 4,
+    },
+    reviewSubtitle: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: media.textMuted,
+      paddingHorizontal: 24,
+      marginBottom: 16,
+    },
+    captionInput: {
+      marginHorizontal: 24,
+      backgroundColor: media.text,
+      borderRadius: 16,
+      padding: 16,
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: media.bg,
+      minHeight: 100,
+      textAlignVertical: 'top',
+      marginBottom: 16,
+    },
+    retakeButton: {
+      marginHorizontal: 24,
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    retakeButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: media.text,
+    },
+    revealContainer: {
+      flex: 1,
+      backgroundColor: t.background,
+      paddingHorizontal: 24,
+    },
+    textCloseButton: {
+      alignSelf: 'flex-start',
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      marginBottom: 16,
+    },
+    textCloseButtonText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+    },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 12,
+    },
+    question: {
+      fontFamily: fonts.displayItalic,
+      fontSize: fontSizes.lg,
+      color: t.textPrimary,
+      marginBottom: 24,
+    },
+    answersContainer: {
+      gap: 16,
+    },
+    answerCard: {
+      borderRadius: 20,
+      padding: 18,
+      borderWidth: 1,
+    },
+    answerCardMine: {
+      backgroundColor: t.fillYou,
+      borderColor: t.fillYou,
+    },
+    answerCardPartner: {
+      backgroundColor: t.fillPartner,
+      borderColor: t.fillPartner,
+    },
+    answerLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+      marginBottom: 6,
+    },
+    answerCaption: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+      marginBottom: 12,
+    },
+    watchButton: {
+      alignSelf: 'flex-start',
+      backgroundColor: t.surface,
+      borderRadius: 12,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+    },
+    watchButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+    },
+    waiting: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+  });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,8 @@ import {
   sharedTodayDateString,
   sharedDatePlusDays,
 } from '@/lib/date';
-import { colors } from '@/theme/colors';
+import { Theme } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -47,6 +48,8 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
 ];
 
 export default function SettingsScreen({ navigation }: any) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, myProfile, refreshProfiles } = usePairing();
   const insets = useSafeAreaInsets();
   // Cached rather than useState + useFocusEffect: unmountOnBlur remounts
@@ -176,7 +179,7 @@ export default function SettingsScreen({ navigation }: any) {
             value={nicknameInput}
             onChangeText={setNicknameInput}
             placeholder="Your nickname"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={t.textMuted}
             autoFocus
             maxLength={20}
           />
@@ -221,7 +224,7 @@ export default function SettingsScreen({ navigation }: any) {
             value={partnerNicknameInput}
             onChangeText={setPartnerNicknameInput}
             placeholder="What you call them"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={t.textMuted}
             autoFocus
             maxLength={20}
           />
@@ -385,111 +388,114 @@ export default function SettingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.xl,
-    color: colors.ink,
-    marginBottom: 24,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    marginBottom: 16,
-  },
-  pauseHint: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  pauseOption: {
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  pauseOptionText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.md,
-    color: colors.primary,
-  },
-  pauseResumeText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: fontSizes.md,
-    color: colors.secondaryDark,
-  },
-  rowLabel: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  rowValue: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.sm,
-    color: colors.muted,
-  },
-  editCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    marginBottom: 16,
-  },
-  editHint: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    lineHeight: 17,
-    marginBottom: 12,
-  },
-  nicknameInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.body,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  // Fixed height so the native spinner never lays out with a zero-size
-  // frame mid-transition -- iOS's UIDatePicker can reset its displayed
-  // value to the Unix epoch if that happens.
-  spinnerBox: {
-    height: 216,
-  },
-  pickerSave: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  pickerSaveText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.surface,
-  },
-  pickerClose: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  pickerCloseText: {
-    fontFamily: fonts.bodySemiBold,
-    fontSize: fontSizes.md,
-    color: colors.muted,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object
+// has to be rebuilt when the theme changes.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: t.background, padding: 20 },
+    title: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.xl,
+      color: t.textPrimary,
+      marginBottom: 24,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      marginBottom: 16,
+    },
+    pauseHint: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      marginTop: 4,
+      marginBottom: 12,
+    },
+    pauseOption: {
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: t.border,
+    },
+    pauseOptionText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.md,
+      color: t.accentYou,
+    },
+    pauseResumeText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.md,
+      color: t.accentPartner,
+    },
+    rowLabel: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    rowValue: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+    },
+    editCard: {
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      padding: 18,
+      marginBottom: 16,
+    },
+    editHint: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      lineHeight: 17,
+      marginBottom: 12,
+    },
+    nicknameInput: {
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    // Fixed height so the native spinner never lays out with a zero-size
+    // frame mid-transition -- iOS's UIDatePicker can reset its displayed
+    // value to the Unix epoch if that happens.
+    spinnerBox: {
+      height: 216,
+    },
+    pickerSave: {
+      backgroundColor: t.accentYou,
+      borderRadius: 16,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    pickerSaveText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.surface,
+    },
+    pickerClose: {
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    pickerCloseText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.md,
+      color: t.textMuted,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+  });
