@@ -43,9 +43,17 @@ function Particle({
   onDone?: () => void;
 }) {
   const t = useSharedValue(0);
+  // withDelay holds the *animation*, not the view: without this the particle
+  // is already mounted at t = 0, so it renders full-opacity and un-moved,
+  // parked at the bottom of the screen until its turn. This flips on the
+  // instant its delay elapses, so a staggered particle is genuinely absent
+  // rather than waiting in place.
+  const spawned = useSharedValue(0);
 
   React.useEffect(() => {
     t.value = 0;
+    spawned.value = 0;
+    spawned.value = withDelay(seed.delay, withTiming(1, { duration: 1 }));
     t.value = withDelay(
       seed.delay,
       withTiming(
@@ -66,7 +74,8 @@ function Particle({
     return {
       // Holds full opacity for the first third, then fades -- fading from
       // the very start makes them look like they were never really there.
-      opacity: p < 0.35 ? 1 : 1 - (p - 0.35) / 0.65,
+      // Multiplied by `spawned` so nothing is visible before it launches.
+      opacity: spawned.value * (p < 0.35 ? 1 : 1 - (p - 0.35) / 0.65),
       transform: [
         { translateY: -RISE * p },
         // A sine wander rather than a straight line, so six of them don't
