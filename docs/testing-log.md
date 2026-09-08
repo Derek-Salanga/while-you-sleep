@@ -1433,3 +1433,27 @@ Two placement notes worth keeping:
 Not verified: how this reads on a physical iPhone. The emulator renders in
 software, so six simultaneously animated views look choppier there than on
 real hardware.
+
+2026-09-07 (follow-up): **arc A verified on device**, closing the two items
+left open when it merged.
+
+**Invite UI.** Creating an invite produced `G2E-C8Y` — six characters, all
+from the intended alphabet, none of them the ambiguous glyphs the rewrite
+exists to avoid (`O 0 I 1 L`). That is the ~887 million space confirmed in
+practice rather than on paper; the old generator's 534 values were the whole
+reason `join_pair_by_code` was worth throttling. "Expires in 3 days" renders
+under the code, **Get a new code** replaces it, and **Cancel invite**
+withdraws it and returns the screen to its Create state.
+
+**Expired OTP.** With the dashboard expiry temporarily dropped to 60s, a code
+submitted after ~70 seconds now reads *"That code has expired"* rather than
+*"Invalid code"* over Supabase's raw "Token has expired or is invalid". The
+old copy sent people hunting for a typo in a code that was merely late.
+Expiry restored to 900s afterwards.
+
+Method note worth reusing: **temporarily lowering the dashboard OTP expiry to
+60s turns a 15-minute wait into about two.** Nothing in the repo controls
+that value, so this is the only way to exercise the branch at all.
+
+Arc A is now fully verified: attempt ceiling (SQL, both directions), code
+format and lifecycle (device), and expired-OTP copy (device).

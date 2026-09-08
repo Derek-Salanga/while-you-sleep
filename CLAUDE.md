@@ -1238,6 +1238,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   app's other motion, which is all sub-300ms — the distance sets the
   duration. Tuning constants are at the top of `src/components/ReactionBurst.tsx`
 
+- Invite codes end to end (2026-09-07): a created invite is six characters
+  from the unambiguous alphabet (`G2E-C8Y` observed), shows its expiry,
+  regenerates, and cancels back to the Create state. The attempt ceiling was
+  confirmed separately in SQL
+- Expired-OTP copy (2026-09-07): a code submitted after its window says "That
+  code has expired" rather than "Invalid code". Tested by temporarily
+  dropping the dashboard expiry to 60s, which turns a 15-minute wait into two
+
 **Not verified:**
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
