@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Theme } from '@/theme/themes';
@@ -40,7 +40,6 @@ export default function AuthScreen() {
         },
       });
       if (error) throw error;
-      Keyboard.dismiss();
       setStage('enterCode');
     } catch (err: any) {
       Alert.alert('Could not send code', err.message);
@@ -115,80 +114,83 @@ export default function AuthScreen() {
             : `Enter the code we sent to ${email.trim()}`}
         </Text>
 
-        {stage === 'enterEmail' ? (
-          <>
-            <Input
-              // Keyed so React unmounts this and mounts the code field
-              // rather than reconciling them as one element. Both stages
-              // render an <Input> as the first child of a fragment in the
-              // same position, so without distinct keys React reuses the
-              // underlying native TextInput -- and a keyboardType change on
-              // an already-mounted, focused input does not take. The result
-              // was a number pad on the email field, with no return key to
-              // dismiss it and no way to type an address: a dead end that
-              // needed a force-quit.
-              key="email"
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Button
-              title="Send code"
-              onPress={handleSendCode}
-              loading={busy}
-              disabled={busy || !email.trim()}
-            />
-          </>
-        ) : (
-          <>
-            <Input
-              key="code"
-              centered
-              placeholder="123456"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={code}
-              onChangeText={setCode}
-            />
-            <Button
-              title="Verify & sign in"
-              onPress={handleVerifyCode}
-              loading={busy}
-              disabled={busy || code.trim().length < 6}
-            />
-            <Pressable
-              style={({ pressed }) => [
-                styles.linkButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={handleResend}
-              disabled={busy}
-            >
-              <Text style={styles.linkButtonText}>Resend code</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.linkButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={() => {
-                // Dismissed explicitly: remounting the field swaps the
-                // keyboard, but leaving the old one up through the
-                // transition makes it visibly change type under your thumb.
-                Keyboard.dismiss();
-                setStage('enterEmail');
-                setCode('');
-              }}
-              disabled={busy}
-            >
-              <Text style={styles.linkButtonText}>Use a different email</Text>
-            </Pressable>
-          </>
-        )}
+        {/* Keyed on `stage` so the whole subtree is torn down and rebuilt on
+            a switch. Keying the two <Input>s alone is enough for React to
+            stop reconciling them as one element, but this makes it
+            structural rather than something a later edit could quietly undo
+            by reordering the children. */}
+        <View key={stage} style={styles.stage}>
+          {stage === 'enterEmail' ? (
+            <>
+              <Input
+                // Keyed so React unmounts this and mounts the code field
+                // rather than reconciling them as one element. Both stages
+                // render an <Input> as the first child of a fragment in the
+                // same position, so without distinct keys React reuses the
+                // underlying native TextInput -- and a keyboardType change on
+                // an already-mounted, focused input does not take. The result
+                // was a number pad on the email field, with no return key to
+                // dismiss it and no way to type an address: a dead end that
+                // needed a force-quit.
+                key="email"
+                placeholder="you@example.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Button
+                title="Send code"
+                onPress={handleSendCode}
+                loading={busy}
+                disabled={busy || !email.trim()}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                key="code"
+                centered
+                placeholder="123456"
+                keyboardType="number-pad"
+                maxLength={6}
+                value={code}
+                onChangeText={setCode}
+              />
+              <Button
+                title="Verify & sign in"
+                onPress={handleVerifyCode}
+                loading={busy}
+                disabled={busy || code.trim().length < 6}
+              />
+              <Pressable
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleResend}
+                disabled={busy}
+              >
+                <Text style={styles.linkButtonText}>Resend code</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => {
+                  setStage('enterEmail');
+                  setCode('');
+                }}
+                disabled={busy}
+              >
+                <Text style={styles.linkButtonText}>Use a different email</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
       </Screen>
     </KeyboardAvoidingView>
   );
@@ -198,6 +200,7 @@ export default function AuthScreen() {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
+    stage: { alignSelf: 'stretch' },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xxl,
