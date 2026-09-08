@@ -1233,6 +1233,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   outline bumps they rendered as side lumps, which is what made the previous
   version read as a cloud
 
+- Reaction burst (2026-09-07): six emoji rising half a screen over 1400ms
+  when you set a reaction, nothing on clear. Deliberately louder than the
+  app's other motion, which is all sub-300ms — the distance sets the
+  duration. Tuning constants are at the top of `src/components/ReactionBurst.tsx`
+
 **Not verified:**
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
