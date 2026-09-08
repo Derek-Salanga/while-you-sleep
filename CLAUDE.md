@@ -1246,6 +1246,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   code has expired" rather than "Invalid code". Tested by temporarily
   dropping the dashboard expiry to 60s, which turns a 15-minute wait into two
 
+- WCAG AA in the light theme (2026-09-07): the record CTA label, HeroCard's
+  two halves, `border`, `error` and the pet's line colour all clear AA, and
+  `src/theme/themes.test.ts` asserts every pairing so it can't silently
+  regress. The CTA label is `ink` rather than white — white on the gradient's
+  orange end is 1.55:1, and keeping it would mean amber-ing the brand hue or
+  adding a pill inside the button
+
 **Not verified:**
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
   marked with a `ponytail:` comment in `get_pet_state()` and changing them is
