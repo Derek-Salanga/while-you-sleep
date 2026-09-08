@@ -5,7 +5,6 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon-1024.png",
-    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/icon-1024.png",
       "resizeMode": "contain",

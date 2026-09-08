@@ -252,6 +252,10 @@ export default function HomeScreen({ navigation }: any) {
               there's nothing to validate on save here. */}
           <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
             <DateTimePicker
+              // Follows the OS appearance by default, not the app's -- so a
+              // user on System=dark with the app forced Light would get a
+              // dark picker on a light sheet.
+              themeVariant={t.name}
               value={pickerDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
