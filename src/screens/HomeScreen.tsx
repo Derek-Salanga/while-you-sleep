@@ -420,7 +420,11 @@ const styles = StyleSheet.create({
   recordCtaLabel: {
     fontFamily: fonts.bodySemiBold,
     fontSize: fontSizes.md,
-    color: colors.surface,
+    // Was colors.surface. White on the gradient's orange end is 1.55:1 --
+    // the worst combination in the app, on its primary call to action. Ink
+    // gets 4.12 at the blue end and 8.95 at the orange; at 16pt semibold
+    // this is WCAG large text, so 3:1 applies and it clears both.
+    color: colors.ink,
   },
   tripCardTitle: {
     fontFamily: fonts.bodySemiBold,

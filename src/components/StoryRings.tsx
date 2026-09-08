@@ -14,7 +14,10 @@ const RING_STROKE = 3;
 const AVATAR_SIZE = RING_SIZE - RING_STROKE * 2 - 6; // leaves a gap between ring and avatar
 const RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const LABEL_WIDTH = 84;
-const MUTED_GRAY = '#B8B2C4';
+// Was a byte-identical copy of colors.border, which meant it silently
+// stopped matching the moment that token moved -- exactly what happened
+// here. Reads from the palette now so it can't desync again.
+const MUTED_GRAY = colors.border;
 
 function initial(name: string | null | undefined, fallback: string): string {
   return (name?.trim()?.[0] ?? fallback).toUpperCase();

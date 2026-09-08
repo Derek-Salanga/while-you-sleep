@@ -41,6 +41,10 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
     borderWidth: 1,
+    // Without this React Native falls back to black. Masked until now
+    // because the only non-elevated consumer (TimelineScreen) always passes
+    // its own borderColor -- the next one would have found a black box.
+    borderColor: colors.border,
   },
   elevated: {
     backgroundColor: colors.surface,

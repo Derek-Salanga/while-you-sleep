@@ -1457,3 +1457,37 @@ that value, so this is the only way to exercise the branch at all.
 
 Arc A is now fully verified: attempt ceiling (SQL, both directions), code
 format and lifecycle (device), and expired-OTP copy (device).
+
+2026-09-07 (follow-up 2): **the accessibility pass is confirmed on device.**
+All six fixes render as intended: the record CTA's label is legible across
+the whole gradient, HeroCard's halves each carry readable text, the unwatched
+dot and destructive copy are a stronger red, borders are visible, and the
+pet's face reads on its blue half. Nothing else moved.
+
+Two of the six went through a round of "that passes but looks wrong", which
+is the part worth recording:
+
+**HeroCard.** The scrim was chosen up front and built, then rendered against
+three alternatives — inset boxes, full-half, gradient, and none. All four
+clear AA. Every scrim variant dims the day/night split the card exists to
+show, and the inset boxes in particular read as panels pasted onto the card.
+Shipped without a scrim: the left half deepens to `primaryDark` and keeps
+white (5.20), the right keeps its orange and takes ink (8.95). That works
+only because the small text is already segregated by half; if either half
+ever has to carry the other's text colour, a scrim behind the text is the
+way back.
+
+**The record CTA label.** Dark text on the gradient reads as a large change,
+and white was asked for back. Worth knowing before reversing it: the label is
+16pt semibold, so it is WCAG *large* text and the bar is 3:1 rather than 4.5.
+White can be kept, but only by paying for it — darkening the gradient's
+orange end to `#D47F00` (3.07, and the day-orange becomes amber on the app's
+most prominent element) or putting the label on a translucent pill (3.59, and
+a button-shaped element inside a button). Ink was kept: it is the only option
+that clears *body* contrast rather than relying on the large-text exemption,
+and the only one that changes nothing but the text colour.
+
+Method note: both decisions were settled by rendering the candidates through
+headless Chrome and looking at them. The contrast numbers narrowed the field
+to things that pass; they could not say which of those looked right, and in
+both cases the shipped answer was not the one chosen from numbers alone.
