@@ -1391,6 +1391,13 @@ palette/type proposals:
   workflow" above; automates stage -> commit -> push -> PR.
 - Design-focused skills (`ui-ux-pro-max`, the `Leonxlnx/taste-skill`
   bundle) — see "Design tooling installed".
+- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to
+  knowledge graph. Trigger: `/graphify`. When the user types
+  `/graphify`, use the installed graphify skill or instructions before
+  doing anything else.
+- **Find Skills** (`~/.claude/skills/find-skills/SKILL.md`) - Discover
+  and install Claude Code skills from the registry. Trigger: `find a
+  skill for`, `search skills`, `install skill`
 
 ## Session checklist
 
