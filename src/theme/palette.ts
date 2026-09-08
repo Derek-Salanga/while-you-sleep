@@ -17,6 +17,15 @@ export const palette = {
   orange: '#FFC670',
   orangeLight: '#FFE0A3',
   orangeDark: '#E6A94F',
+  // The record CTA's gradient end. Two jobs, and the base orange fails both:
+  // it dissolves into the cream ground (1.44:1) so the button loses its right
+  // edge, and it cannot carry white (1.55:1). This clears 3.12 against the
+  // background and 3.32 under white -- both above the 3:1 that a UI boundary
+  // and 16pt-semibold large text respectively need.
+  //
+  // #D47F00 was tried first and looked right, but landed at 2.89 against the
+  // background. The test caught it; the eye would not have.
+  orangeDeep: '#CB7A00',
   orangeSoft: '#FFEBC9',
   orangeTint: '#FFF6E8',
 

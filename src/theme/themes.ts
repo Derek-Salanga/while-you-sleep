@@ -60,6 +60,10 @@ export const brand = {
   // blue -- enough for the 28pt count, which is WCAG large, but not the 16pt
   // caption beside it. On this it gets 5.20.
   youDeep: palette.blueDark,
+  // Used only for the record CTA's gradient -- see the note in palette.ts.
+  // The circular record button in RecordScreen keeps the true hues, since it
+  // carries no text and sits over a camera preview rather than a page.
+  partnerDeep: palette.orangeDeep,
 } as const;
 
 export const lightTheme: Theme = {

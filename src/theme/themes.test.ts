@@ -101,15 +101,24 @@ describe('brand fills', () => {
     expect(contrast(lightTheme.textOnYou, brand.partner)).toBeLessThan(LARGE);
   });
 
-  // The record button's gradient runs between the two brand hues, so its
-  // label sits on every colour in between. Ink is the only one that survives
-  // the orange end, and the label is 16pt semibold = WCAG large.
-  it('an ink gradient label clears large-text contrast at both ends', () => {
-    expect(contrast(lightTheme.textPrimary, brand.you)).toBeGreaterThanOrEqual(
+  // The record CTA's gradient runs blue -> partnerDeep, and its white label
+  // sits on every colour in between, so both ends have to clear large text
+  // (the label is 16pt semibold). partnerDeep exists precisely because the
+  // base orange clears neither this nor the cream background.
+  it('a white gradient label clears large-text contrast at both ends', () => {
+    expect(contrast(lightTheme.textOnYou, brand.you)).toBeGreaterThanOrEqual(
       LARGE
     );
     expect(
-      contrast(lightTheme.textPrimary, brand.partner)
+      contrast(lightTheme.textOnYou, brand.partnerDeep)
+    ).toBeGreaterThanOrEqual(LARGE);
+  });
+
+  // The reason partnerDeep exists at all: the base hue neither carries white
+  // nor separates from the light ground.
+  it('the CTA gradient end separates from the light background', () => {
+    expect(
+      contrast(brand.partnerDeep, lightTheme.background)
     ).toBeGreaterThanOrEqual(LARGE);
   });
 });

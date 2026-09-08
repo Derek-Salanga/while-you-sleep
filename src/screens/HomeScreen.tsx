@@ -38,7 +38,7 @@ import {
   parseDateString,
   daysBetween,
 } from '@/lib/date';
-import { Theme } from '@/theme/themes';
+import { Theme, brand } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import { countries, flagEmoji, countryName } from '@/data/countries';
@@ -215,7 +215,7 @@ export default function HomeScreen({ navigation }: any) {
       >
         <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
           <LinearGradient
-            colors={[t.accentYou, t.accentPartner]}
+            colors={[brand.you, brand.partnerDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -430,11 +430,13 @@ const makeStyles = (t: Theme) =>
     recordCtaLabel: {
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
-      // Was t.surface. White on the gradient's orange end is 1.55:1 --
-      // the worst combination in the app, on its primary call to action. Ink
-      // gets 4.12 at the blue end and 8.95 at the orange; at 16pt semibold
-      // this is WCAG large text, so 3:1 applies and it clears both.
-      color: t.textPrimary,
+      // White, over a gradient whose far end is deepened to
+      // brand.partnerDeep. Ink was tried first and cleared contrast
+      // comfortably, but against the cream ground the base orange end
+      // dissolved into the page and the button stopped reading as a button.
+      // Deepening the gradient fixes the edge and lets the label stay white
+      // (3.07 -- large text, which a 16pt semibold label is).
+      color: t.textOnYou,
     },
     tripCardTitle: {
       fontFamily: fonts.bodySemiBold,
