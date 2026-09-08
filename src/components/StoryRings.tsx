@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { usePairing } from '@/lib/PairingContext';
@@ -6,7 +6,8 @@ import { useClips } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString } from '@/lib/date';
 import { Clip } from '@/types';
-import { colors } from '@/theme/colors';
+import { Theme, brand } from '@/theme/themes';
+import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
 const RING_SIZE = 64;
@@ -14,10 +15,9 @@ const RING_STROKE = 3;
 const AVATAR_SIZE = RING_SIZE - RING_STROKE * 2 - 6; // leaves a gap between ring and avatar
 const RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const LABEL_WIDTH = 84;
-// Was a byte-identical copy of colors.border, which meant it silently
+// Was a byte-identical copy of the border colour, which meant it silently
 // stopped matching the moment that token moved -- exactly what happened
-// here. Reads from the palette now so it can't desync again.
-const MUTED_GRAY = colors.border;
+// once already. Comes from the theme now so it can't desync again.
 
 function initial(name: string | null | undefined, fallback: string): string {
   return (name?.trim()?.[0] ?? fallback).toUpperCase();
@@ -43,6 +43,9 @@ function Ring({
   muted: boolean;
   onPress?: () => void;
 }) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
+
   return (
     <Pressable
       style={styles.ringContainer}
@@ -64,7 +67,7 @@ function Ring({
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={RADIUS}
-            stroke={muted ? MUTED_GRAY : `url(#${gradientId})`}
+            stroke={muted ? t.border : `url(#${gradientId})`}
             strokeWidth={RING_STROKE}
             fill="none"
           />
@@ -83,6 +86,8 @@ function Ring({
 }
 
 export default function StoryRings({ navigation }: { navigation: any }) {
+  const t = useTheme();
+  const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair, myProfile } = usePairing();
   const partnerName = usePartnerName();
   const { data: clips = [] } = useClips(pair?.id);
@@ -123,8 +128,8 @@ export default function StoryRings({ navigation }: { navigation: any }) {
         label="You"
         initialLetter={initial(myProfile?.display_name, 'Y')}
         gradientId="ringYou"
-        gradientFrom={colors.primary}
-        gradientTo={colors.primaryLight}
+        gradientFrom={brand.you}
+        gradientTo={brand.you}
         muted={!myClipToday}
         onPress={myClipToday ? () => goToClip(myClipToday) : undefined}
       />
@@ -132,8 +137,8 @@ export default function StoryRings({ navigation }: { navigation: any }) {
         label={partnerName ?? 'Partner'}
         initialLetter={initial(partnerName, 'P')}
         gradientId="ringPartner"
-        gradientFrom={colors.secondary}
-        gradientTo={colors.secondaryLight}
+        gradientFrom={brand.partner}
+        gradientTo={brand.partner}
         muted={!partnerUnwatched}
         onPress={partnerTarget ? () => goToClip(partnerTarget) : undefined}
       />
@@ -141,44 +146,48 @@ export default function StoryRings({ navigation }: { navigation: any }) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: 24,
-    marginBottom: 20,
-  },
-  ringContainer: {
-    alignItems: 'center',
-    // Wider than the ring itself so a name gets a usable amount of room
-    // before it ellipsizes; the ring stays centred within it.
-    width: LABEL_WIDTH,
-  },
-  ringBox: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-  },
-  avatar: {
-    position: 'absolute',
-    top: (RING_SIZE - AVATAR_SIZE) / 2,
-    left: (RING_SIZE - AVATAR_SIZE) / 2,
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitial: {
-    fontFamily: fonts.display,
-    fontSize: fontSizes.md,
-    color: colors.ink,
-  },
-  label: {
-    fontFamily: fonts.body,
-    fontSize: fontSizes.xs,
-    color: colors.muted,
-    marginTop: 4,
-  },
-});
+// makeStyles rather than a module-level StyleSheet.create: the object has
+// to be rebuilt when the theme changes. Both components in this file call
+// it through their own useMemo.
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      gap: 24,
+      marginBottom: 20,
+    },
+    ringContainer: {
+      alignItems: 'center',
+      // Wider than the ring itself so a name gets a usable amount of room
+      // before it ellipsizes; the ring stays centred within it.
+      width: LABEL_WIDTH,
+    },
+    ringBox: {
+      width: RING_SIZE,
+      height: RING_SIZE,
+    },
+    avatar: {
+      position: 'absolute',
+      top: (RING_SIZE - AVATAR_SIZE) / 2,
+      left: (RING_SIZE - AVATAR_SIZE) / 2,
+      width: AVATAR_SIZE,
+      height: AVATAR_SIZE,
+      borderRadius: AVATAR_SIZE / 2,
+      backgroundColor: t.surface,
+      borderWidth: 1,
+      borderColor: t.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    avatarInitial: {
+      fontFamily: fonts.display,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
+    label: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginTop: 4,
+    },
+  });

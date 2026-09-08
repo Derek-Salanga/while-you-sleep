@@ -40,6 +40,8 @@ function combinations(t: Theme): [string, string, number, string][] {
     [t.accentYou, t.background, BODY, 'accent text on the background'],
     [t.accentPartner, t.background, BODY, 'partner accent on the background'],
     [t.danger, t.surface, BODY, 'destructive text'],
+    [t.textOnAccent, t.accentYou, BODY, 'primary button label'],
+    [t.textPrimary, t.fillPartner, BODY, 'secondary button label'],
     // 3:1 because a border is a UI boundary, not text -- and on an Input it
     // is the only thing saying where the field is.
     [t.border, t.surface, LARGE, 'card / input border'],

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '@/theme/colors';
+import { useTheme } from '@/theme/ThemeContext';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -17,12 +17,13 @@ export default function Screen({
   topInset = false,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   return (
     <View
       style={{
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: theme.background,
         padding,
         paddingTop: topInset ? insets.top + padding : padding,
         justifyContent: centered ? 'center' : undefined,

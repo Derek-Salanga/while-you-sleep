@@ -31,6 +31,12 @@ export interface Theme {
   // a dark one.
   accentYou: string;
   accentPartner: string;
+  // Text on a solid `accentYou` fill -- a primary button. Flips between the
+  // themes because accentYou itself does: the light accent is dark enough
+  // to carry white (5.20), the dark accent is light enough to need ink
+  // (6.08). One token, opposite values, which is the whole reason it exists
+  // rather than being hardcoded at the call site.
+  textOnAccent: string;
 
   // Card washes, and the edges that carry the actual meaning. The fills are
   // decorative and sit at low contrast against the background by design;
@@ -67,6 +73,7 @@ export const lightTheme: Theme = {
   border: palette.slate,
   accentYou: palette.blueOnLight,
   accentPartner: palette.orangeOnLight,
+  textOnAccent: palette.white,
   fillYou: palette.blueSoft,
   fillPartner: palette.orangeSoft,
   edgeYou: palette.blue,
@@ -87,6 +94,7 @@ export const darkTheme: Theme = {
   // back to being the brand colours rather than darkened stand-ins.
   accentYou: palette.blueLight,
   accentPartner: palette.orange,
+  textOnAccent: palette.ink,
   fillYou: palette.nightFillYou,
   fillPartner: palette.nightFillPartner,
   edgeYou: palette.blue,

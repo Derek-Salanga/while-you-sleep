@@ -1,8 +1,12 @@
 import React from 'react';
 import Svg, { Defs, ClipPath, Rect, Path } from 'react-native-svg';
-import { colors } from '@/theme/colors';
+import { brand } from '@/theme/themes';
 
-// The "Crossover Split" motif from assets/icon-1024.png, as vector. No SVG
+// The "Crossover Split" motif from assets/icon-1024.png, as vector.
+//
+// Reads from `brand`, not the theme: these two hues encode "you" and "your
+// partner" and are identical in light and dark. A themed heart would mean
+// the motif changing meaning with the appearance setting. No SVG
 // source for the icon is checked in (it's a raster only), so this is a plain
 // symmetric heart silhouette split down the middle, with each half taking the
 // opposite partner's color -- which is what the icon itself does.
@@ -26,12 +30,12 @@ export default function CrossoverHeart({ size = 88 }: { size?: number }) {
       </Defs>
       <Path
         d={HEART_PATH}
-        fill={colors.secondary}
+        fill={brand.partner}
         clipPath="url(#crossoverHeartLeft)"
       />
       <Path
         d={HEART_PATH}
-        fill={colors.primary}
+        fill={brand.you}
         clipPath="url(#crossoverHeartRight)"
       />
     </Svg>
