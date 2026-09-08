@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
@@ -32,6 +32,10 @@ export default function PairingScreen() {
     pair && !pair.user_b && pair.user_a === session?.user.id ? pair : null;
   const myCode = myPendingInvite?.invite_code ?? null;
   const expiryLabel = formatExpiry(myPendingInvite?.invite_expires_at ?? null);
+  // Regenerating is Cancel + Create in one tap, so it earns a control only
+  // where those two would read as giving up and starting over rather than
+  // retrying -- which is exactly an expired code.
+  const isExpired = expiryLabel === 'Expired';
 
   // Pick up a partner joining while we're sitting on the waiting screen.
   useFocusEffect(
@@ -147,9 +151,13 @@ export default function PairingScreen() {
   return (
     <Screen padding={24} centered>
       <Text style={styles.title}>While You Sleep</Text>
-      <Text style={styles.subtitle}>
-        Pair with your partner to start sharing daily clips.
-      </Text>
+      {/* Onboarding copy, so it goes once you're holding a code -- at that
+          point you have already done the thing it explains. */}
+      {!myCode && (
+        <Text style={styles.subtitle}>
+          Pair with your partner to start sharing daily clips.
+        </Text>
+      )}
 
       {myCode ? (
         <Card elevated style={styles.card}>
@@ -157,33 +165,46 @@ export default function PairingScreen() {
           <Text style={styles.waitingHeadline}>
             Waiting for your other half
           </Text>
-          <Text style={styles.cardLabel}>Your invite code</Text>
+          {/* No "Your invite code" label: nothing else on this screen is a
+              large hyphenated string in the accent colour, and the headline
+              above already says what is happening. */}
           <Text style={styles.code}>{myCode}</Text>
-          {expiryLabel && <Text style={styles.expiry}>{expiryLabel}</Text>}
-          <Text style={styles.helper}>
-            Share this code with your partner. Once they join, you can both
-            start sending daily clips.
+          {/* One line where there were three. The old helper -- "Share this
+              code with your partner. Once they join, you can both start
+              sending daily clips." -- restated the headline and then
+              described the thing you had just done. */}
+          <Text style={styles.expiry}>
+            {isExpired
+              ? 'This code has expired'
+              : `Share this code${expiryLabel ? ` · ${expiryLabel.toLowerCase()}` : ''}`}
           </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.inviteAction,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleRegenerate}
-            disabled={busy}
-          >
-            <Text style={styles.inviteActionText}>Get a new code</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.inviteAction,
-              pressed && styles.pressed,
-            ]}
-            onPress={confirmCancel}
-            disabled={busy}
-          >
-            <Text style={styles.inviteCancelText}>Cancel invite</Text>
-          </Pressable>
+          {/* Side by side rather than stacked: they are a pair of choices
+              about the same code, and two full-width rows made them read as
+              two separate sections. */}
+          <View style={styles.inviteActions}>
+            {isExpired && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.inviteAction,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleRegenerate}
+                disabled={busy}
+              >
+                <Text style={styles.inviteActionText}>Get a new code</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={({ pressed }) => [
+                styles.inviteAction,
+                pressed && styles.pressed,
+              ]}
+              onPress={confirmCancel}
+              disabled={busy}
+            >
+              <Text style={styles.inviteCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
         </Card>
       ) : (
         <Button
@@ -234,6 +255,11 @@ const makeStyles = (t: Theme) =>
       color: t.textMuted,
       marginBottom: 4,
     },
+    inviteActions: {
+      flexDirection: 'row',
+      gap: 20,
+      marginTop: 4,
+    },
     inviteAction: {
       paddingVertical: 10,
     },
@@ -264,7 +290,9 @@ const makeStyles = (t: Theme) =>
     card: {
       padding: 24,
       alignItems: 'center',
-      marginBottom: 24,
+      // No marginBottom: the divider below owns the gap on both sides. With
+      // both set, there was 40px above "or" and 16 below it, which read as
+      // the divider belonging to the input rather than separating the two.
     },
     waitingHeadline: {
       fontFamily: fonts.display,
@@ -274,11 +302,6 @@ const makeStyles = (t: Theme) =>
       marginTop: 12,
       marginBottom: 12,
     },
-    cardLabel: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-    },
     code: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
@@ -286,17 +309,11 @@ const makeStyles = (t: Theme) =>
       marginVertical: 8,
       letterSpacing: 1,
     },
-    helper: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-      textAlign: 'center',
-    },
     orDivider: {
       fontFamily: fonts.body,
       color: t.textMuted,
       textAlign: 'center',
-      marginVertical: 16,
+      marginVertical: 20,
     },
     signOutLink: {
       paddingVertical: 12,
