@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { unregisterPushToken } from '@/lib/notifications';
@@ -16,6 +17,12 @@ import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
+
+// The policy lives as PRIVACY.md in the public repo; GitHub renders it. Also
+// the URL to give App Store Connect. Swap for a GitHub Pages URL if one is set
+// up later -- only this constant changes.
+const PRIVACY_POLICY_URL =
+  'https://github.com/Derek-Salanga/while-you-sleep/blob/main/PRIVACY.md';
 
 // Signing out drops the session, which unmounts this whole stack via
 // RootNavigator's gate -- there's no undo and no confirmation elsewhere in
@@ -105,6 +112,19 @@ export default function AccountSettingsScreen({ navigation }: any) {
           {session?.user.email ?? '—'}
         </Text>
       </View>
+
+      <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() =>
+          Linking.openURL(PRIVACY_POLICY_URL).catch(() =>
+            Alert.alert("Couldn't open the privacy policy")
+          )
+        }
+        accessibilityRole="link"
+      >
+        <Text style={styles.rowLabel}>Privacy Policy</Text>
+        <Text style={styles.rowValue}>›</Text>
+      </Pressable>
 
       <Pressable
         style={({ pressed }) => [styles.dangerRow, pressed && styles.pressed]}
