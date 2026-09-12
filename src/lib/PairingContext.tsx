@@ -19,6 +19,7 @@ export function usePairing() {
   const {
     pair,
     pairPending,
+    pairUnknown,
     refreshPair,
     partnerProfile,
     refreshPartnerProfile,
@@ -32,6 +33,7 @@ export function usePairing() {
     session,
     pair,
     pairPending,
+    pairUnknown,
     loading,
     refreshPair,
     myProfile,
