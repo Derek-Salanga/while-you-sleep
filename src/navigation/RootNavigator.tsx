@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -19,6 +19,8 @@ import { sharedTodayDateString } from '@/lib/date';
 import { navigationRef } from './navigationRef';
 import { RootStackParamList } from '@/types';
 import { useTheme } from '@/theme/ThemeContext';
+import { fonts, fontSizes } from '@/theme/typography';
+import Button from '@/components/ui/Button';
 
 import AuthScreen from '@/screens/AuthScreen';
 import PairingScreen from '@/screens/PairingScreen';
@@ -30,7 +32,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const t = useTheme();
-  const { session, pair, pairPending, loading } = usePairing();
+  const { session, pair, pairPending, pairUnknown, refreshPair, loading } =
+    usePairing();
   // A pair row exists as soon as one side creates an invite, with user_b
   // still null until the partner joins — that's not a completed pairing
   // yet, so route to Pairing until both sides are set.
@@ -109,6 +112,23 @@ export default function RootNavigator() {
     );
   }
 
+  // The pair query failed with nothing cached to fall back on -- we don't
+  // know whether this account is paired, so don't guess. Falling through to
+  // PairingScreen here would tell an already-paired, merely-offline user
+  // that they need to re-pair, which is actively wrong, not just unpolished.
+  if (session && pairUnknown) {
+    return (
+      <View
+        style={[rootStyles.offlineContainer, { backgroundColor: t.background }]}
+      >
+        <Text style={[rootStyles.offlineText, { color: t.textPrimary }]}>
+          Couldn't reach While You Sleep. Check your connection and try again.
+        </Text>
+        <Button title="Try again" onPress={() => refreshPair()} />
+      </View>
+    );
+  }
+
   // Without a theme the container paints react-navigation's white
   // DefaultTheme background beneath every screen, which shows during
   // transitions and would flash white in dark mode.
@@ -151,3 +171,17 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const rootStyles = StyleSheet.create({
+  offlineContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    gap: 16,
+  },
+  offlineText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.md,
+    textAlign: 'center',
+  },
+});

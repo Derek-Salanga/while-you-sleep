@@ -51,7 +51,7 @@ const MAX_DURATION_SECONDS = 30;
 // device's camera capabilities.
 const VIDEO_BITRATE = 2_500_000; // 2.5 Mbps
 
-type Phase = 'loading' | 'camera' | 'review' | 'revealed';
+type Phase = 'loading' | 'camera' | 'review' | 'revealed' | 'error';
 
 export default function RecordScreen({ navigation }: any) {
   const t = useTheme();
@@ -113,7 +113,12 @@ export default function RecordScreen({ navigation }: any) {
 
     if (error) {
       console.error("Failed to load today's clips:", error.message);
-      setPhase('camera');
+      // Deliberately NOT 'camera' -- we don't actually know whether today's
+      // clip already exists (e.g. offline). Treating "couldn't check" the
+      // same as "you haven't posted" risked showing the camera to someone
+      // who already sent today's answer, and a later re-send would silently
+      // overwrite it (the upload upserts on pair_id/sender_id/date).
+      setPhase('error');
       return;
     }
     const rows = (data ?? []) as Clip[];
@@ -275,6 +280,23 @@ export default function RecordScreen({ navigation }: any) {
             </Text>
           )}
         </View>
+      </View>
+    );
+  }
+
+  if (phase === 'error') {
+    return (
+      <View style={styles.permissionContainer}>
+        {closeButton}
+        <Text style={styles.permissionText}>
+          Couldn't check today's answers. Check your connection and try again.
+        </Text>
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          onPress={loadTodayClips}
+        >
+          <Text style={styles.buttonText}>Try again</Text>
+        </Pressable>
       </View>
     );
   }

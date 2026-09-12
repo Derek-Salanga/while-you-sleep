@@ -10,6 +10,12 @@ interface PairContextValue {
   // know whether it's paired" -- the window RootNavigator used to render
   // PairingScreen in.
   pairPending: boolean;
+  // True only when the pair query has failed AND there's no cached pair data
+  // to fall back on -- i.e. "we don't know your pair status", not "you have
+  // no pair". A stale-but-present `pair` from a prior successful fetch keeps
+  // this false even if a background refetch then fails, which is the correct
+  // case: keep using what we already know rather than distrust it.
+  pairUnknown: boolean;
   refreshPair: () => Promise<void>;
   partnerProfile: Profile | null;
   refreshPartnerProfile: () => Promise<void>;
@@ -24,8 +30,10 @@ export function PairProvider({ children }: { children: React.ReactNode }) {
   const {
     data: pair,
     isPending: pairPending,
+    isError: pairIsError,
     refetch: refetchPair,
   } = usePair(userId);
+  const pairUnknown = pairIsError && !pair;
 
   const partnerId =
     pair && userId
@@ -49,11 +57,19 @@ export function PairProvider({ children }: { children: React.ReactNode }) {
     () => ({
       pair: pair ?? null,
       pairPending,
+      pairUnknown,
       refreshPair,
       partnerProfile: partnerProfile ?? null,
       refreshPartnerProfile,
     }),
-    [pair, pairPending, refreshPair, partnerProfile, refreshPartnerProfile]
+    [
+      pair,
+      pairPending,
+      pairUnknown,
+      refreshPair,
+      partnerProfile,
+      refreshPartnerProfile,
+    ]
   );
 
   return <PairContext.Provider value={value}>{children}</PairContext.Provider>;
