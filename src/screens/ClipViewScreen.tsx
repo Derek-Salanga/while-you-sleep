@@ -9,8 +9,12 @@ import {
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePairing } from '@/lib/PairingContext';
-import { useClip, useReactions } from '@/hooks/queries';
-import { useMarkClipViewed, useSetReaction } from '@/hooks/mutations';
+import { useClip, useFavorites, useReactions } from '@/hooks/queries';
+import {
+  useMarkClipViewed,
+  useSetFavorite,
+  useSetReaction,
+} from '@/hooks/mutations';
 import { REACTION_EMOJI } from '@/data/reactions';
 import ReactionBurst from '@/components/ReactionBurst';
 import { media } from '@/theme/themes';
@@ -74,6 +78,41 @@ export default function ClipViewScreen({ route, navigation }: any) {
       (r) => r.clip_id === activeClipId && r.user_id === session?.user.id
     ) ?? null;
 
+  // Favorites, like reactions above: fetched unfiltered and matched against
+  // the clip currently on screen so it follows activeClipId in reel mode.
+  const { data: favorites } = useFavorites(pair?.id);
+  const { mutate: setFavorite } = useSetFavorite();
+  const isFavorited =
+    favorites?.some(
+      (f) => f.clip_id === activeClipId && f.user_id === session?.user.id
+    ) ?? false;
+
+  const favoriteButton = (
+    <Pressable
+      style={({ pressed }) => [
+        styles.favoriteButton,
+        { top: insets.top + 12 },
+        pressed && styles.pressed,
+      ]}
+      onPress={() => {
+        if (!session?.user) return;
+        setFavorite({
+          clipId: activeClipId,
+          userId: session.user.id,
+          favorited: !isFavorited,
+        });
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isFavorited
+          ? 'Remove from favorite moments'
+          : 'Mark as a favorite moment'
+      }
+    >
+      <Text style={styles.favoriteButtonText}>{isFavorited ? '★' : '☆'}</Text>
+    </Pressable>
+  );
+
   const closeButton = (
     <Pressable
       style={({ pressed }) => [
@@ -115,6 +154,7 @@ export default function ClipViewScreen({ route, navigation }: any) {
         contentFit="contain"
       />
       {closeButton}
+      {favoriteButton}
       {/* Only your own reaction lives here. The partner's is deliberately
           absent: seeing their response before or during playback colours how
           you experience your own clip, and this screen should be the video
@@ -251,6 +291,22 @@ const styles = StyleSheet.create({
     color: media.text,
     fontSize: fontSizes.md,
     fontFamily: fonts.bodySemiBold,
+  },
+  // Mirrors closeButton on the opposite corner -- same size, same scrim, same
+  // vertical position, so the two read as a pair of controls framing the clip.
+  favoriteButton: {
+    position: 'absolute',
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: media.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  favoriteButtonText: {
+    color: media.text,
+    fontSize: fontSizes.lg,
   },
   pressed: {
     opacity: 0.7,

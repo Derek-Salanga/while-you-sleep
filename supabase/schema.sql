@@ -875,6 +875,68 @@ create policy "clip_reactions_delete_own" on clip_reactions
 -- theirs in the table, this must return 0:
 --   select count(*) from clip_reactions;
 
+-- Favorite moments: either partner can mark a clip they can see as one
+-- worth looking back on. Shared, like reactions -- your partner sees what
+-- you've starred, not a private bookmark list.
+--
+-- Binary, unlike clip_reactions' emoji value, so insert/delete is the whole
+-- interface: no update policy, no "change your mind" case to handle --
+-- tapping the star again is just a delete.
+--
+-- VISIBILITY MIRRORS `clips`, same reasoning as clip_reactions above: a
+-- pair-membership-only policy would leak the reveal, showing that a clip
+-- exists and is starred on a day you haven't posted your own answer yet.
+create table if not exists clip_favorites (
+  clip_id uuid not null references clips (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (clip_id, user_id)
+);
+
+alter table clip_favorites enable row level security;
+
+create policy "clip_favorites_select_visible_clips" on clip_favorites
+  for select using (
+    exists (
+      select 1 from clips c
+      join pairs p on p.id = c.pair_id
+      where c.id = clip_favorites.clip_id
+        and is_pair_member(p, auth.uid())
+        and (
+          c.sender_id = auth.uid()
+          or has_own_clip(c.pair_id, c.recorded_for_date)
+        )
+    )
+  );
+
+-- Writes are your own row only, and only against a clip you can actually
+-- see -- otherwise you could favorite a clip the reveal is still hiding
+-- from you, and the row would pop into existence the moment you posted.
+create policy "clip_favorites_insert_own" on clip_favorites
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from clips c
+      join pairs p on p.id = c.pair_id
+      where c.id = clip_favorites.clip_id
+        and is_pair_member(p, auth.uid())
+        and (
+          c.sender_id = auth.uid()
+          or has_own_clip(c.pair_id, c.recorded_for_date)
+        )
+    )
+  );
+
+-- Un-favoriting is a delete, own row only. No visibility re-check needed --
+-- a row can only exist if insert already passed one.
+create policy "clip_favorites_delete_own" on clip_favorites
+  for delete using (auth.uid() = user_id);
+
+-- Verify the reveal actually holds, same check as clip_reactions above. As
+-- the partner, on a date you have NOT posted, with a favorite of theirs in
+-- the table, this must return 0:
+--   select count(*) from clip_favorites;
+
 -- Sends the partner a push when a clip lands. This is the app's only
 -- re-open trigger: the daily local reminder nudges you to post, but until
 -- now nothing told you your partner had.

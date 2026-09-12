@@ -158,6 +158,41 @@ export function useSetReaction() {
   });
 }
 
+// Favorite/un-favorite a clip. Binary, unlike useSetReaction's emoji value:
+// favoriting is an insert, un-favoriting (tapping the star again) is a
+// delete -- there's no "change your mind" case that needs an update.
+export function useSetFavorite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clipId,
+      userId,
+      favorited,
+    }: {
+      clipId: string;
+      userId: string;
+      favorited: boolean;
+    }) => {
+      if (favorited) {
+        const { error } = await supabase
+          .from('clip_favorites')
+          .insert({ clip_id: clipId, user_id: userId });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('clip_favorites')
+          .delete()
+          .eq('clip_id', clipId)
+          .eq('user_id', userId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    },
+  });
+}
+
 // Pause the pet: "we're travelling", not "we gave up". Either partner can
 // set it, since it's shared state like pair_trips.
 //

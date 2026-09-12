@@ -65,6 +65,15 @@ export interface ClipReaction {
   created_at: string;
 }
 
+// One row per person per clip -- presence means favorited, there's no value
+// to hold beyond that, unlike ClipReaction's emoji. See clip_favorites in
+// supabase/schema.sql.
+export interface ClipFavorite {
+  clip_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 // Shared pet state. `score` is authoritative and server-computed (see
 // get_pet_state in supabase/schema.sql -- it cannot be derived client-side,
 // because reveal gating would show each partner a different pet). `mood` is
