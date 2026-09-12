@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
+import { useFavorites } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { formatDateString } from '@/lib/date';
 import { Clip } from '@/types';
@@ -111,6 +112,16 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // so a month with no captions renders nothing rather than an empty heading.
   const captioned = clips.filter((c) => c.caption_text);
 
+  // Favorites come from the shared query (also used by ClipViewScreen)
+  // rather than this screen's own inline style -- clip_favorites_select_
+  // visible_clips already does the reveal-gating work, so filtering this
+  // screen's already-visible `clips` array against it needs no extra fetch
+  // logic of its own.
+  const { data: favorites } = useFavorites(pair?.id);
+  const favorited = clips.filter((c) =>
+    favorites?.some((f) => f.clip_id === c.id)
+  );
+
   return (
     <ScrollView
       style={[styles.container, { paddingTop: insets.top + 20 }]}
@@ -211,6 +222,51 @@ export default function MonthlySummaryScreen({ navigation }: any) {
                 : `Watch this month's clips (${queueIds.length})`}
             </Text>
           </Pressable>
+
+          {favorited.length > 0 && (
+            <View style={styles.captions}>
+              <Text style={styles.captionsHeading}>Favorite moments</Text>
+              {favorited.map((clip) => {
+                const clipFavorites =
+                  favorites?.filter((f) => f.clip_id === clip.id) ?? [];
+                const mineFavorited = clipFavorites.some(
+                  (f) => f.user_id === session?.user.id
+                );
+                const partnerFavorited = clipFavorites.some(
+                  (f) => f.user_id !== session?.user.id
+                );
+                const who =
+                  mineFavorited && partnerFavorited
+                    ? `${myProfile?.display_name ?? 'You'} & ${partnerName ?? 'your partner'}`
+                    : mineFavorited
+                      ? (myProfile?.display_name ?? 'You')
+                      : (partnerName ?? 'Your partner');
+                return (
+                  <Pressable
+                    key={clip.id}
+                    style={({ pressed }) => [
+                      styles.captionRow,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={() =>
+                      navigation.navigate('ClipView', { clipId: clip.id })
+                    }
+                  >
+                    <Text style={styles.captionMeta}>
+                      ★ {Number(clip.recorded_for_date.split('-')[2])}
+                      {'  ·  '}
+                      {who}
+                    </Text>
+                    {clip.caption_text && (
+                      <Text style={styles.captionText}>
+                        {clip.caption_text}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {captioned.length > 0 && (
             <View style={styles.captions}>

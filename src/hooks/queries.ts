@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import {
   Clip,
+  ClipFavorite,
   ClipReaction,
   Pair,
   PairPet,
@@ -193,6 +194,24 @@ export function useReactions(pairId: string | null | undefined) {
     enabled: !!pairId,
     queryFn: async (): Promise<ClipReaction[]> => {
       const { data, error } = await supabase.from('clip_reactions').select('*');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// Every favorite the viewer is allowed to see, in one request. Same shape as
+// useReactions above, including the reasoning for both being unfiltered and
+// for the single shared key: clip_favorites_select_visible_clips already
+// scopes rows to visible clips, and the consumers (ClipViewScreen,
+// MonthlySummaryScreen) both need the whole set rather than one clip at a
+// time.
+export function useFavorites(pairId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['favorites', pairId],
+    enabled: !!pairId,
+    queryFn: async (): Promise<ClipFavorite[]> => {
+      const { data, error } = await supabase.from('clip_favorites').select('*');
       if (error) throw error;
       return data ?? [];
     },
