@@ -1395,6 +1395,15 @@ extension was never necessary.
 - **`ExtensionStorage` no-ops without its native module**, so the call is safe
   from Expo Go, Android and web with no platform guard — the package ships
   stub methods when `expo.modules.ExtensionStorage` is absent.
+- **The iOS deployment target is 16.4 because of that native module**, set via
+  `expo-build-properties` in `app.json`. `ExtensionStorage.podspec` declares
+  `platform :ios, '16.4'`, and at the previous 15.1 `use_expo_modules!`
+  **silently dropped the pod** — no error, no warning, just absent from
+  `Podfile.lock`. The stubs above then swallow every write, so the app looks
+  fine, the App Group container is created by the entitlement, and the widget
+  sits empty forever. Raising this dropped iOS 15 support, which is the real
+  cost of this feature. If the widget ever stops updating, check
+  `grep -i extensionstorage ios/Podfile.lock` before suspecting anything else.
 - **Colours come from `src/theme/palette.ts`**, including the *deepened* blue
   (`#4F63D1`) for the ground rather than the base hue: white on the base blue
   is 3.37:1, fine for the big count but not for the caption; on the deep one
@@ -1424,6 +1433,22 @@ route: `eas.json` sets that variable for every EAS profile, and a local
 main app target, so it reads like the *app* is broken rather than a missing
 Sentry credential — and it happens before any Swift is compiled, which makes
 it easy to misread as a widget problem.
+
+**Never pass `CODE_SIGNING_ALLOWED=NO` when testing the App Group.** It skips
+signing, and on a simulator build the entitlements are what create the shared
+container — without them the widget reads nothing. (The entitlements live in
+the binary's `__TEXT,__entitlements` section on simulator, *not* in the code
+signature, so `codesign -d --entitlements` showing an empty dict is normal and
+not evidence of a problem. Check with
+`strings -a <binary> | grep group.com.whileyousleep.app` instead.)
+
+Verified working on the simulator 2026-09-14: the app wrote
+`anniversaryDate => 2024-06-19` into
+`.../Shared/AppGroup/<uuid>/Library/Preferences/group.com.whileyousleep.app.plist`,
+and the widget rendered "817 days together / since June 19, 2024" on the home
+screen, agreeing with HeroCard. Debug builds put the app's code in
+`WhileYouSleep.debug.dylib`, so grep that rather than the thin main binary
+when checking whether a module linked.
 
 To type-check just the widget without building the whole app (seconds, not
 minutes):
