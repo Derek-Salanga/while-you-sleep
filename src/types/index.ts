@@ -4,6 +4,7 @@ export interface Profile {
   id: string;
   display_name: string;
   timezone: string | null;
+  ai_enabled: boolean;
   created_at: string;
 }
 

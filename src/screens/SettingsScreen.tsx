@@ -7,6 +7,7 @@ import {
   Platform,
   Alert,
   TextInput,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -28,7 +29,7 @@ import {
   usePartnerNickname,
   usePetState,
 } from '@/hooks/queries';
-import { useSetPetPause } from '@/hooks/mutations';
+import { useSetPetPause, useSetAiEnabled } from '@/hooks/mutations';
 import { usePartnerName } from '@/hooks/usePartnerName';
 
 // Presets, not a date picker. A picker buys nothing over three buttons
@@ -76,6 +77,7 @@ export default function SettingsScreen({ navigation }: any) {
   const partnerName = usePartnerName();
   const [editingPartnerNickname, setEditingPartnerNickname] = useState(false);
   const [partnerNicknameInput, setPartnerNicknameInput] = useState('');
+  const setAiEnabled = useSetAiEnabled();
 
   const startEditingAnniversary = () => {
     setPickerDate(parseDateString(anniversary?.anniversary_date));
@@ -384,6 +386,22 @@ export default function SettingsScreen({ navigation }: any) {
           </Text>
         </Pressable>
       )}
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>AI summaries</Text>
+        <Switch
+          value={myProfile?.ai_enabled ?? false}
+          onValueChange={(enabled) =>
+            session?.user &&
+            setAiEnabled.mutate(
+              { userId: session.user.id, enabled },
+              {
+                onError: (err: any) =>
+                  Alert.alert("Couldn't update", err.message),
+              }
+            )
+          }
+        />
+      </View>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AppearanceSettings')}

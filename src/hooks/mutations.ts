@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from 'buffer';
 import { supabase } from '@/lib/supabase';
-import { Clip } from '@/types';
+import { Clip, Profile } from '@/types';
 
 interface UploadClipInput {
   pairId: string;
@@ -190,6 +190,50 @@ export function useSetFavorite() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['favorites'] });
     },
+  });
+}
+
+// AI summary opt-in: a plain update on your own row, same pattern as the
+// nickname edit -- profiles_update_own already covers it, no RPC needed.
+// Optimistic: a Switch is bound directly to server state here (no local
+// staging step like the nickname/anniversary edit cards), so without this
+// it visibly lags a full round trip -- update, then the invalidate's
+// refetch -- before flipping.
+export function useSetAiEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      enabled,
+    }: {
+      userId: string;
+      enabled: boolean;
+    }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ai_enabled: enabled })
+        .eq('id', userId);
+      if (error) throw error;
+    },
+    onMutate: async ({ userId, enabled }) => {
+      const key = ['profile', userId];
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Profile>(key);
+      if (previous) {
+        queryClient.setQueryData<Profile>(key, {
+          ...previous,
+          ai_enabled: enabled,
+        });
+      }
+      return { previous, key };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.key, context.previous);
+      }
+    },
+    onSettled: (_data, _err, { userId }) =>
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] }),
   });
 }
 
