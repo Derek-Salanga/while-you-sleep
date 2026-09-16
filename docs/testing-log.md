@@ -1625,3 +1625,41 @@ allowed to disagree eventually will.
 Verified: the three functions exist with the expected signatures, the old
 two-argument form is gone, creating an invite works end to end with a
 server-generated code, and the eleventh create in an hour is refused.
+
+## 2026-09-16 — iOS "Days together" widget, real device
+
+First native code in the project verified on hardware.
+
+Installed the `preview` build on the test iPhone and added the widget from the
+home screen. It renders **89 days together / since June 19, 2026**, which is
+the correct count for that anniversary (11 + 31 + 31 + 16) and matches
+HeroCard inside the app. Earlier the same day the same widget was verified on
+the iPhone 16 Pro simulator at 817 days against the seeded test pair, along
+with the shared container write itself
+(`anniversaryDate => 2024-06-19` in
+`Shared/AppGroup/<uuid>/Library/Preferences/group.com.whileyousleep.app.plist`).
+
+Three failures on the way, none of which report themselves usefully:
+
+1. **The iOS deployment target was too low for the native module.**
+   `ExtensionStorage.podspec` requires iOS 16.4; at 15.1 `use_expo_modules!`
+   dropped the pod silently, and `ExtensionStorage` fell back to the no-op
+   stubs it ships for exactly that case. Every write was swallowed, so the app
+   looked healthy and the widget sat empty. Raising the target to 16.4 fixed
+   it and dropped iOS 15 support, which is the real price of this feature.
+2. **`ios.appleTeamId` did not match the team the credentials belong to.**
+   EAS prints the true team beside the certificate and profiles; trust that
+   over anything typed from memory.
+3. **A space in the widget target's `name`.** It produced an Xcode target
+   called "Days together" while the plugin registered "Daystogether" with EAS,
+   so EAS looked up a target that did not exist.
+
+(2) and (3) both fail identically: the "Configure Xcode project" phase errors,
+the server-side log file comes back empty (HTTP 200, 0 bytes), and the CLI
+says only "Unknown error". Neither is findable from the failure itself, which
+is why both are now written down in CLAUDE.md with one-line checks.
+
+Also worth remembering: a dev client shows "Expected MIME-Type to be
+'application/javascript' ... but got 'text/html'" when the Metro server it
+remembers is gone — the HTML is that server's error page. It is not an app
+bug, and no amount of rebuilding the app fixes it.
