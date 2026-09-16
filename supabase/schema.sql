@@ -1053,6 +1053,134 @@ create trigger clips_notify_partner
   after insert on clips
   for each row execute function notify_partner_of_clip();
 
+-- === AI automation (see docs/ai-automation-plan.md) ===
+-- ai_status null = never queued (sender had AI off, or queue_clip_for_ai
+-- skipped for a missing webhook secret). n8n writes these back with the
+-- service_role key, which bypasses RLS -- same reason
+-- cleanup_orphaned_clip_files needs no clips policy of its own.
+-- clips_update_own_as_sender is untouched.
+alter table clips
+  add column if not exists ai_status text check (ai_status is null or ai_status in ('pending', 'completed', 'failed')),
+  add column if not exists ai_title text,
+  add column if not exists ai_summary text,
+  add column if not exists ai_mood text check (
+    ai_mood is null or ai_mood in (
+      'joyful', 'loving', 'calm', 'nostalgic', 'excited',
+      'stressed', 'sad', 'tired', 'grateful', 'neutral'
+    )
+  );
+
+-- Transcript storage: private bucket, no schema column -- path is
+-- deterministic (<pair_id>/<clip_id>.txt). n8n writes with the
+-- service_role key; read it from the Supabase Studio Storage browser
+-- within the retention window (cleanup cron added separately).
+insert into storage.buckets (id, name, public)
+  values ('transcripts', 'transcripts', false)
+  on conflict (id) do nothing;
+
+-- Queues a clip for AI processing. Not client-callable -- only called
+-- from queue_ai_on_clip_insert() below, or retry_ai_processing() for a
+-- failed clip's owner.
+create or replace function queue_clip_for_ai(target_clip_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clip_row clips;
+  webhook_secret text;
+begin
+  select * into clip_row from clips where id = target_clip_id;
+  if clip_row is null then
+    raise exception 'Clip not found';
+  end if;
+
+  select decrypted_secret into webhook_secret
+    from vault.decrypted_secrets where name = 'n8n_webhook_secret';
+
+  if webhook_secret is null then
+    raise warning 'Vault secret "n8n_webhook_secret" not found -- AI processing skipped for clip %', target_clip_id;
+    return;
+  end if;
+
+  update clips set ai_status = 'pending' where id = target_clip_id;
+
+  -- Real subdomain deliberately not committed -- this is a public
+  -- portfolio repo. Set directly on the live function via the SQL
+  -- editor; see docs/ai-automation-plan.md.
+  perform net.http_post(
+    url := 'https://<your-subdomain>.app.n8n.cloud/webhook/clip-ai',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Webhook-Secret', webhook_secret
+    ),
+    body := jsonb_build_object(
+      'clip_id', clip_row.id,
+      'pair_id', clip_row.pair_id,
+      'sender_id', clip_row.sender_id,
+      'storage_path', clip_row.storage_path,
+      'recorded_for_date', clip_row.recorded_for_date,
+      'duration_seconds', clip_row.duration_seconds
+    )
+  );
+end;
+$$;
+
+revoke all on function queue_clip_for_ai(uuid) from public, anon, authenticated;
+
+-- Queue on insert, only if the sender opted in.
+create or replace function queue_ai_on_clip_insert() returns trigger
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  sender_opted_in boolean;
+begin
+  select ai_enabled into sender_opted_in from profiles where id = new.sender_id;
+  if coalesce(sender_opted_in, false) then
+    perform queue_clip_for_ai(new.id);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists clips_queue_ai on clips;
+create trigger clips_queue_ai
+  after insert on clips  -- insert only, same reasoning as clips_notify_partner:
+  for each row execute function queue_ai_on_clip_insert();  -- an upsert re-record must not re-queue
+
+-- Client-facing retry for a clip whose AI processing failed.
+create or replace function retry_ai_processing(target_clip_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clip_row clips;
+begin
+  select * into clip_row from clips where id = target_clip_id;
+  if clip_row is null then
+    raise exception 'Clip not found';
+  end if;
+  if clip_row.sender_id != auth.uid() then
+    raise exception 'Can only retry your own clip';
+  end if;
+  if clip_row.ai_status != 'failed' then
+    raise exception 'Clip is not in a failed state';
+  end if;
+  perform queue_clip_for_ai(target_clip_id);
+end;
+$$;
+
+grant execute on function retry_ai_processing(uuid) to authenticated;
+
+-- One-time manual step, like service_role_key: run in the SQL editor --
+-- select vault.create_secret('<random-secret>', 'n8n_webhook_secret',
+--   'Shared secret for the clip-ai n8n webhook');
+
 -- Tells you when your partner reacts to something you posted. Same shape as
 -- notify_partner_of_clip above; the differences are all guards.
 --

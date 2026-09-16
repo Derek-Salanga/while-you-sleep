@@ -1663,3 +1663,23 @@ Also worth remembering: a dev client shows "Expected MIME-Type to be
 'application/javascript' ... but got 'text/html'" when the Metro server it
 remembers is gone — the HTML is that server's error page. It is not an app
 bug, and no amount of rebuilding the app fixes it.
+
+## 2026-09-16 — AI automation layer, step 2 (Postgres-side queue trigger)
+
+First two steps of the AI automation build order (see
+`docs/ai-automation-plan.md`), each tested in isolation before touching n8n.
+
+**Per-partner opt-in toggle** confirmed on a real iPhone (EAS `development`
+build, Metro over an `expo start --tunnel` connection since the phone and
+dev machine were on different networks): flips instantly (optimistic
+update), persists to `profiles.ai_enabled`, and survives a reload.
+
+**The `clips_queue_ai` trigger** confirmed with a throwaway webhook.site URL
+standing in for n8n, which didn't exist yet — isolates "does Postgres fire
+correctly" from n8n entirely. Recording a clip with AI on produced a POST at
+webhook.site with the correct JSON body (`clip_id`, `pair_id`, `sender_id`,
+`storage_path`, `recorded_for_date`, `duration_seconds`) and the
+`X-Webhook-Secret` header, and the clip's `ai_status` flipped to `pending`
+in the `clips` table. `queue_clip_for_ai()`'s real webhook URL is
+deliberately not committed (public portfolio repo) — set directly on the
+live function via the SQL editor once Workflow 1 exists in n8n.
