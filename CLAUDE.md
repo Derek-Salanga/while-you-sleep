@@ -1106,6 +1106,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   actually schedules a real repeating `UNCalendarNotificationTrigger` with
   the correct device-local hour/minute for 20:00 UTC (verified 13:00 at
   UTC-7)
+- **The iOS widget on a real iPhone (2026-09-16):** installed from the
+  `preview` build, the "Days together" widget renders on the home screen with
+  the live value from the App Group — 89 days for an anniversary of
+  2026-06-19, which is the correct count and agrees with HeroCard. This is the
+  first native (Swift) code in the project running on a device, and it closes
+  the whole chain: RN app -> ExtensionStorage -> App Group -> WidgetKit.
+  Earlier the same day it was verified on the simulator at 817 days against
+  the test pair
+- **`preview` is the right profile for living with the app on a phone**, not
+  `development`. The dev client contains no JS and must reach a Metro server,
+  so once the tunnel it remembered went away it could only show "Expected
+  MIME-Type to be 'application/javascript' ... but got 'text/html'" — that is
+  a dead dev server returning an error page, not a broken app. `preview`
+  bundles the JS in and runs with no server at all
 - Android, first run ever (2026-09-01, Pixel 7 emulator, API 34): the app
   launches, renders, and the camera preview works. BlurView's
   `dimezisBlurView` frosted prompt card renders correctly — one of the two
@@ -1423,6 +1437,29 @@ compiled native code, so it cannot appear in Expo Go or in any dev client
 built before it existed — it needs a fresh build. `ios.appleTeamId` must be
 set in `app.json` or iOS builds fail. App Groups may also need enabling on the
 App ID in the Apple Developer portal.
+
+**Two things that broke the first EAS builds, both worth knowing.** Neither
+produces a usable error: the "Configure Xcode project" phase fails, the
+server-side log file comes back empty, and the CLI only says "Unknown error".
+
+1. **`ios.appleTeamId` must be the team the credentials were issued under.**
+   Signing as a different team fails this phase. `eas build` prints the real
+   one next to the certificate and profiles ("Apple Team ...") -- trust that
+   over anything typed from memory.
+2. **Never give the target a `name` containing a space** in
+   `expo-target.config.js`. The Xcode target takes the raw string ("Days
+   together") while the plugin sanitises it ("Daystogether") when registering
+   the extension under `extra.eas.build.experimental.ios.appExtensions`; EAS
+   then looks for a target that does not exist. Leaving `name` unset makes
+   both derive from the folder and agree. The user-visible name is
+   `configurationDisplayName` in `widgets.swift`, not this.
+
+Check them with:
+
+```bash
+grep -o 'name = "\?widget"\?;' ios/WhileYouSleep.xcodeproj/project.pbxproj
+npx expo config --type prebuild | grep -E "targetName|appleTeamId"
+```
 
 **Building locally with `xcodebuild` needs `SENTRY_DISABLE_AUTO_UPLOAD=true`
 in the environment**, or the build dies in a script phase with
