@@ -1424,6 +1424,29 @@ built before it existed — it needs a fresh build. `ios.appleTeamId` must be
 set in `app.json` or iOS builds fail. App Groups may also need enabling on the
 App ID in the Apple Developer portal.
 
+**Two things that broke the first EAS builds, both worth knowing.** Neither
+produces a usable error: the "Configure Xcode project" phase fails, the
+server-side log file comes back empty, and the CLI only says "Unknown error".
+
+1. **`ios.appleTeamId` must be the team the credentials were issued under.**
+   Signing as a different team fails this phase. `eas build` prints the real
+   one next to the certificate and profiles ("Apple Team ...") -- trust that
+   over anything typed from memory.
+2. **Never give the target a `name` containing a space** in
+   `expo-target.config.js`. The Xcode target takes the raw string ("Days
+   together") while the plugin sanitises it ("Daystogether") when registering
+   the extension under `extra.eas.build.experimental.ios.appExtensions`; EAS
+   then looks for a target that does not exist. Leaving `name` unset makes
+   both derive from the folder and agree. The user-visible name is
+   `configurationDisplayName` in `widgets.swift`, not this.
+
+Check them with:
+
+```bash
+grep -o 'name = "\?widget"\?;' ios/WhileYouSleep.xcodeproj/project.pbxproj
+npx expo config --type prebuild | grep -E "targetName|appleTeamId"
+```
+
 **Building locally with `xcodebuild` needs `SENTRY_DISABLE_AUTO_UPLOAD=true`
 in the environment**, or the build dies in a script phase with
 "An organization ID or slug is required (provide with --org)". This is the
