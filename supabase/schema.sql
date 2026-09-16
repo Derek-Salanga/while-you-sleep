@@ -7,6 +7,10 @@ create table if not exists profiles (
   -- kept here too so the limit holds for any write that isn't that form.
   display_name text not null default 'Anonymous' check (char_length(display_name) <= 20),
   timezone text,
+  -- Per-partner AI opt-in: each person's own clips are only queued for AI
+  -- processing (see docs/ai-automation-plan.md) if they've turned it on for
+  -- themselves. No new RLS policy -- profiles_update_own already covers it.
+  ai_enabled boolean not null default false,
   created_at timestamptz not null default now()
 );
 
