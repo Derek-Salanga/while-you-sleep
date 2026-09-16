@@ -1357,11 +1357,111 @@ palette/type proposals:
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
 
+## iOS home screen widget (Days together)
+
+The first native code in this repo. A WidgetKit extension in **Swift**, in
+`targets/widget/`, generated into an Xcode target by `@bacons/apple-targets`
+(needs SDK 53+, Xcode 16, CocoaPods 1.16.2+ — all satisfied). Android has no
+widget; that's a wholly separate Kotlin/RemoteViews implementation sharing
+nothing with this one, deliberately not started.
+
+**The project stays on Continuous Native Generation.** `targets/` is
+committed; `ios/` and `android/` are now gitignored, because a local
+`npx expo prebuild` (and every EAS build) regenerates them. This is *not* a
+move to the bare workflow — don't commit `ios/`, and don't hand-edit anything
+in it, since the next prebuild wipes it.
+
+**Why the widget needs no network, auth, or background refresh.** "Days
+together" is a pure function of (anniversary date, today). The app writes the
+*date* — one string — into an App Group container; `widgets.swift` derives
+every future day's count itself, and its timeline emits one entry per local
+midnight, so the number ticks over on its own whether or not the app ever
+runs again. Putting a Supabase client (and therefore a token) inside an
+extension was never necessary.
+
+- **App Group `group.com.whileyousleep.app`** is the entire data channel, and
+  it is declared in two places that must agree: `ios.entitlements` in
+  `app.json` and `entitlements` in `targets/widget/expo-target.config.js`. A
+  mismatch is silent, not an error — the widget just reads an empty container
+  and sits on its "not set yet" prompt forever.
+- **The write happens in `RootNavigator`** (`syncAnniversaryWidget`, in
+  `src/lib/widget.ts`), next to the reminder wiring and for the same reason:
+  it reads a query purely to drive a side effect, and RootNavigator is the one
+  component mounted for the whole session. Anywhere inside `MainTabs` would
+  sync only while that tab was mounted (`unmountOnBlur`), which is exactly when
+  a widget goes stale. It skips `undefined` (query still in flight) and writes
+  `null` (genuinely unset) — writing the former on every cold start would blank
+  a good widget back to its prompt.
+- **`ExtensionStorage` no-ops without its native module**, so the call is safe
+  from Expo Go, Android and web with no platform guard — the package ships
+  stub methods when `expo.modules.ExtensionStorage` is absent.
+- **The iOS deployment target is 16.4 because of that native module**, set via
+  `expo-build-properties` in `app.json`. `ExtensionStorage.podspec` declares
+  `platform :ios, '16.4'`, and at the previous 15.1 `use_expo_modules!`
+  **silently dropped the pod** — no error, no warning, just absent from
+  `Podfile.lock`. The stubs above then swallow every write, so the app looks
+  fine, the App Group container is created by the entitlement, and the widget
+  sits empty forever. Raising this dropped iOS 15 support, which is the real
+  cost of this feature. If the widget ever stops updating, check
+  `grep -i extensionstorage ios/Podfile.lock` before suspecting anything else.
+- **Colours come from `src/theme/palette.ts`**, including the *deepened* blue
+  (`#4F63D1`) for the ground rather than the base hue: white on the base blue
+  is 3.37:1, fine for the big count but not for the caption; on the deep one
+  both get 5.20. The day-orange appears only as a non-text accent bar — orange
+  on that blue is ~3.4:1, below AA for type.
+- **Fraunces/Inter are not bundled into the widget target.** An extension
+  can't read the host app's fonts, so the Swift uses `design: .serif` as a
+  stand-in for the display face. Adding the real `.ttf` to the widget's own
+  resources is the fix if it ever matters.
+- Cut from the `create-target` scaffold on purpose: the Control Widget, the
+  Live Activity, and the configuration `AppIntent`. There is one pair and one
+  anniversary, so there is nothing to configure — it's a `StaticConfiguration`,
+  `.systemSmall` only.
+
+**Testing it is EAS-bound, unlike everything else here.** The widget is
+compiled native code, so it cannot appear in Expo Go or in any dev client
+built before it existed — it needs a fresh build. `ios.appleTeamId` must be
+set in `app.json` or iOS builds fail. App Groups may also need enabling on the
+App ID in the Apple Developer portal.
+
+**Building locally with `xcodebuild` needs `SENTRY_DISABLE_AUTO_UPLOAD=true`
+in the environment**, or the build dies in a script phase with
+"An organization ID or slug is required (provide with --org)". This is the
+same failure recorded under "EAS Build" above, just reached by a different
+route: `eas.json` sets that variable for every EAS profile, and a local
+`xcodebuild` invocation inherits none of it. The error appears against the
+main app target, so it reads like the *app* is broken rather than a missing
+Sentry credential — and it happens before any Swift is compiled, which makes
+it easy to misread as a widget problem.
+
+**Never pass `CODE_SIGNING_ALLOWED=NO` when testing the App Group.** It skips
+signing, and on a simulator build the entitlements are what create the shared
+container — without them the widget reads nothing. (The entitlements live in
+the binary's `__TEXT,__entitlements` section on simulator, *not* in the code
+signature, so `codesign -d --entitlements` showing an empty dict is normal and
+not evidence of a problem. Check with
+`strings -a <binary> | grep group.com.whileyousleep.app` instead.)
+
+Verified working on the simulator 2026-09-14: the app wrote
+`anniversaryDate => 2024-06-19` into
+`.../Shared/AppGroup/<uuid>/Library/Preferences/group.com.whileyousleep.app.plist`,
+and the widget rendered "817 days together / since June 19, 2024" on the home
+screen, agreeing with HeroCard. Debug builds put the app's code in
+`WhileYouSleep.debug.dylib`, so grep that rather than the thin main binary
+when checking whether a module linked.
+
+To type-check just the widget without building the whole app (seconds, not
+minutes):
+
+```bash
+xcrun swiftc -typecheck \
+  -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+  -target arm64-apple-ios17.0-simulator \
+  targets/widget/widgets.swift targets/widget/index.swift
+```
+
 ## Explicitly out of scope for now
 
-- Home screen widgets (day-counter, distance-counter) — needs a native
-  config plugin (e.g. `@bacons/apple-targets`) outside the managed
-  Expo workflow currently in use.
 - Actual stitched highlight-reel video generation — Monthly Summary
   covers the "recap" need via stats + sequential playback instead (see
   "Monthly Summary feature" above); a real compiled video file is a

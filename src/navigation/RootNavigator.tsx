@@ -13,7 +13,8 @@ import {
   registerPushToken,
 } from '@/lib/notifications';
 import { routeForNotification } from '@/lib/notificationRouting';
-import { usePetState } from '@/hooks/queries';
+import { usePairAnniversary, usePetState } from '@/hooks/queries';
+import { syncAnniversaryWidget } from '@/lib/widget';
 import { petMood } from '@/types';
 import { sharedTodayDateString } from '@/lib/date';
 import { navigationRef } from './navigationRef';
@@ -60,6 +61,22 @@ export default function RootNavigator() {
       .then(() => registerPushToken(userId))
       .catch((err) => console.error('Notification setup failed:', err));
   }, [isPaired, userId, mood, paused]);
+
+  // Kept in the same place as the reminder wiring above, and for the same
+  // reason: this reads a query purely to drive a side effect, and RootNavigator
+  // is the one component mounted for the whole session. Anywhere inside
+  // MainTabs would only sync while that tab happened to be mounted
+  // (unmountOnBlur), which is exactly when a widget would go stale.
+  //
+  // Undefined means "not loaded yet" and must not be written -- that would
+  // clear a perfectly good widget back to its prompt state on every cold start
+  // while the query is still in flight. null (genuinely unset) is a real value
+  // and does clear it.
+  const { data: anniversary } = usePairAnniversary(pair?.id);
+  useEffect(() => {
+    if (anniversary === undefined) return;
+    syncAnniversaryWidget(anniversary?.anniversary_date ?? null);
+  }, [anniversary]);
 
   // Where a tap lands depends on which notification it was. The daily
   // reminder opens Home — resuming onto whatever screen the app was left on
