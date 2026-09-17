@@ -1740,3 +1740,34 @@ instruction, rather than inventing content.
   per-field `fx` toggle (on individual "Using Fields Below" params, or a
   single "Raw" body field) was reliable every time. Preferred that pattern
   throughout once discovered.
+
+## 2026-09-17 — AI automation layer, step 5 (failure handling)
+
+The "Handle AI Failure" sub-workflow (a separate n8n workflow, called via
+"When Executed by Another Workflow") is built and verified two ways:
+
+**Standalone**, with manually-entered test input (a real `clip_id` +
+`error_message: "test failure"`): the Supabase PATCH correctly flipped that
+clip's `ai_status` to `'failed'`, and the Telegram send returned
+`ok: true` with a real `message_id`.
+
+**Wired into Workflow 1 for real**, via a deliberate break: temporarily
+corrupting the Gemini API key header on `HTTP Request4` (the extraction
+call), publishing, then re-queuing a real clip. Confirmed: `HTTP Request4`'s
+error output correctly routed to its `Call 'Handle AI Failure'` node, that
+clip's `ai_status` flipped to `'failed'` in Supabase, and the Telegram alert
+arrived. Restoring the correct key and re-queuing again confirmed the happy
+path still works (`ai_status = 'completed'`) — the break didn't leave
+anything in a bad state.
+
+Every risky node in Workflow 1 now routes to its own `Call 'Handle AI
+Failure'` node — five in total, each a separate Execute Workflow node since
+each needs its own `clip_id`/`error_message` mapping from its own position
+in the chain. Two different mechanisms feed them: `HTTP Request`
+(signed-URL), `HTTP Request1`/`HTTP Request2` (AssemblyAI submit+poll),
+`HTTP Request4` (extraction), and `HTTP Request5` (write-back) each have
+"On Error: Continue Using Error Output" set, so a thrown request exception
+routes there directly. `If1`'s `status == "error"` branch is different — a
+plain IF-node data branch on AssemblyAI's own response body (a successful
+HTTP call reporting a business-logic failure), wired to its own Call node
+rather than relying on any node-level error setting.
