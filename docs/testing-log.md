@@ -1683,3 +1683,60 @@ webhook.site with the correct JSON body (`clip_id`, `pair_id`, `sender_id`,
 in the `clips` table. `queue_clip_for_ai()`'s real webhook URL is
 deliberately not committed (public portfolio repo) — set directly on the
 live function via the SQL editor once Workflow 1 exists in n8n.
+
+## 2026-09-17 — AI automation layer, steps 3-4 (full Workflow 1, end to end)
+
+n8n Workflow 1 built and verified live, all the way through: Postgres trigger
+→ n8n Webhook → Supabase signed URL → AssemblyAI transcription (poll loop) →
+transcript written to the `transcripts` bucket → Gemini extraction →
+`ai_title`/`ai_summary`/`ai_mood`/`ai_status` written back to the triggering
+`clips` row. Confirmed via the SQL re-queue trick
+(`select queue_clip_for_ai(id) from clips order by created_at desc limit 1;`)
+against a real clip, checked in Supabase Studio.
+
+Extraction is running on Gemini (`gemini-3.6-flash`), not Claude Haiku as
+originally designed — Anthropic Console billing rejected every card on hand
+mid-build. See the note in `docs/ai-automation-plan.md`'s Workflow 1 section;
+swapping back to Claude once billing is sorted is a single-node change, not a
+redesign.
+
+Real bugs found and fixed while building, beyond the auth issues below:
+- `queue_clip_for_ai()`'s webhook payload never included `caption_text`, which
+  the extraction prompt needs — fixed in this same pass (see schema.sql).
+- The `caption_text`/`duration_seconds` fields also had to be added to
+  Workflow 1's first Edit Fields node, which only captured 5 of the 7 webhook
+  fields.
+
+Also confirmed empty-transcript handling end to end, not just in the prompt
+design: a 2-second silent test clip transcribed to `""`, and Gemini correctly
+fell back to a generic title ("A Quiet Moment") per the system prompt's
+instruction, rather than inventing content.
+
+**Real-device debugging detours this pass, worth remembering:**
+- Supabase's newer `sb_secret_...` key format breaks when sent as
+  `Authorization: Bearer <key>` on Storage endpoints — "Invalid Compact JWS",
+  since Storage tries to decode it as a JWT. Fix: send it via a plain `apikey`
+  header instead (or both headers, matching this project's existing pg_net
+  calls). Confirmed directly from Postgres via `net.http_post` first, which
+  is what proved the key/project were fine and the issue was n8n-side.
+- n8n's Custom Auth credential (JSON-body credential editor) silently mangled
+  a pasted key on iPad multiple times in a row with identical results;
+  switching to plain literal header fields on the node (Send Headers toggle)
+  resolved it immediately. Worth trying before spending more time on the JSON
+  credential editor specifically on iOS.
+- **Unpublished n8n edits do not affect the production webhook.** Several
+  rounds of "identical error after a real fix" were actually caused by
+  testing against `version 1` (the first Publish) while every subsequent
+  change sat as an unpublished draft. The execution detail always shows which
+  version actually ran — check that first before re-debugging a fix that
+  didn't take.
+- AssemblyAI deprecated `speech_model` (singular) for `speech_models` (plural
+  array) since the plan was drafted; Gemini's `gemini-2.0-flash` was also
+  already deprecated in favor of `gemini-3.6-flash`. Expect API drift like
+  this on every external service in this plan — check the live error, not
+  just the plan doc's example payloads.
+- n8n's raw JSON body editor's own Fixed/Expression toggle did not reliably
+  evaluate embedded `{{ }}` at the whole-box level on this n8n version; the
+  per-field `fx` toggle (on individual "Using Fields Below" params, or a
+  single "Raw" body field) was reliable every time. Preferred that pattern
+  throughout once discovered.

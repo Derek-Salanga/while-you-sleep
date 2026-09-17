@@ -1121,7 +1121,11 @@ begin
       'sender_id', clip_row.sender_id,
       'storage_path', clip_row.storage_path,
       'recorded_for_date', clip_row.recorded_for_date,
-      'duration_seconds', clip_row.duration_seconds
+      'duration_seconds', clip_row.duration_seconds,
+      -- The Claude/Gemini extraction prompt uses this as context alongside
+      -- the transcript -- originally missing here, caught while building
+      -- Workflow 1's extraction node.
+      'caption_text', clip_row.caption_text
     )
   );
 end;
