@@ -1760,10 +1760,14 @@ arrived. Restoring the correct key and re-queuing again confirmed the happy
 path still works (`ai_status = 'completed'`) — the break didn't leave
 anything in a bad state.
 
-Every risky node in Workflow 1 (`HTTP Request` signed-URL,
-`HTTP Request1`/`HTTP Request2` AssemblyAI submit+poll, `If1`'s
-`status == "error"` branch, `HTTP Request4` extraction, `HTTP Request5`
-write-back) now has "On Error: Continue Using Error Output" set and routes
-to its own `Call 'Handle AI Failure'` node — five in total, each a separate
-Execute Workflow node since each needs its own `clip_id`/`error_message`
-mapping from its own position in the chain.
+Every risky node in Workflow 1 now routes to its own `Call 'Handle AI
+Failure'` node — five in total, each a separate Execute Workflow node since
+each needs its own `clip_id`/`error_message` mapping from its own position
+in the chain. Two different mechanisms feed them: `HTTP Request`
+(signed-URL), `HTTP Request1`/`HTTP Request2` (AssemblyAI submit+poll),
+`HTTP Request4` (extraction), and `HTTP Request5` (write-back) each have
+"On Error: Continue Using Error Output" set, so a thrown request exception
+routes there directly. `If1`'s `status == "error"` branch is different — a
+plain IF-node data branch on AssemblyAI's own response body (a successful
+HTTP call reporting a business-logic failure), wired to its own Call node
+rather than relying on any node-level error setting.
