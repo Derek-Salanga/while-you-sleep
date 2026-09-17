@@ -1305,8 +1305,18 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   (`gemini-3.6-flash`), not Claude Haiku as designed, pending an Anthropic
   billing fix — see `docs/ai-automation-plan.md`. No dedicated CLAUDE.md
   section for this feature yet (planned for the last build-order step, once
-  the full layer ships). `retry_ai_processing` and Workflow 2 (weekly recap)
-  are not yet built or tested.
+  the full layer ships). Workflow 2 (weekly recap) is not yet built or
+  tested.
+
+- **The AI automation layer's failure handling (2026-09-17):** a deliberate
+  break (a corrupted API key on the extraction node) confirmed the whole
+  chain — the node's error output routes to a shared "Handle AI Failure"
+  sub-workflow, which flips that clip's `ai_status` to `'failed'` in
+  Supabase and sends a Telegram alert. Restoring the key confirmed the
+  happy path resumes cleanly. Every risky node in Workflow 1 has this
+  wired. `retry_ai_processing` itself (the client-facing RPC, and the
+  in-app Retry row planned for step 6) is not yet tested — the recovery
+  check so far used the SQL re-queue trick, not the real retry path.
 
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
