@@ -261,18 +261,51 @@ Test `get_weekly_recap_batch` directly in the SQL editor against seeded multi-da
 ## n8n Workflow 1: per-upload processing (node by node)
 
 1. **Webhook** (trigger, POST, Header Auth as above).
-2. **Edit Fields** — pull `clip_id`, `pair_id`, `sender_id`, `storage_path`, `recorded_for_date` into workflow variables.
+2. **Edit Fields** — pull `clip_id`, `pair_id`, `sender_id`, `storage_path`, `recorded_for_date`, `caption_text`, `duration_seconds` into workflow variables.
 3. **HTTP Request** — Supabase Storage sign: `POST {SUPABASE_URL}/storage/v1/object/sign/clips/{{storage_path}}`, header `Authorization: Bearer {{service_role_key}}` (n8n credential), body `{"expiresIn": 600}` → `signedURL`.
 4. **HTTP Request** — AssemblyAI submit: `POST https://api.assemblyai.com/v2/transcript`, header `Authorization: {{assemblyai_key}}`, body `{"audio_url": "{{signedURL}}", "language_detection": true, "speech_model": "universal"}` (confirm exact code-switching param names against AssemblyAI's current docs at build time — their API evolves). Response includes a transcript `id`.
 5. **Wait** (5s) → **HTTP Request** GET `.../transcript/{{id}}` → **IF** `status == "completed"` continue / `status == "error"` throw / else loop back to Wait. (AssemblyAI's webhook-callback option is a viable later optimization to avoid polling; polling keeps this a single linear workflow, easier to build and test incrementally now.)
 6. **Edit Fields** — extract `text` (may be an empty string — no speech is a valid case, not a failure).
 7. **HTTP Request** — write transcript to Storage: `PUT {SUPABASE_URL}/storage/v1/object/transcripts/{{pair_id}}/{{clip_id}}.txt`, service_role key, `Content-Type: text/plain`, body = transcript text.
-8. **HTTP Request** — Claude extraction call (see prompt below).
-9. **Edit Fields** — parse `content[0].input` (the tool call's arguments — already schema-valid JSON because of `strict: true`) into `title`/`summary`/`mood`.
+8. **HTTP Request** — extraction call (see prompt below; **built against Gemini, not Claude** — see note below).
+9. **Edit Fields** — parse the model's structured JSON output into `title`/`summary`/`mood`.
 10. **HTTP Request** — write back: `PATCH {SUPABASE_URL}/rest/v1/clips?id=eq.{{clip_id}}`, service_role key, body `{"ai_title": ..., "ai_summary": ..., "ai_mood": ..., "ai_status": "completed"}`.
 11. **On each risky node (3, 4/5, 8, 10):** set "On Error: Continue using error output" and wire the error output to an **Execute Workflow** node calling the shared **Handle AI Failure** sub-workflow (below), passing `clip_id` and the error message.
 
-### Claude extraction call (step 8)
+### Extraction call (step 8)
+
+**Built against Gemini (`gemini-3.6-flash`), not Claude, as of 2026-09-17.** The
+original design below (Claude Haiku, tool-use for structured output) is the
+intended shape and the one to switch back to first — this deviated only
+because Anthropic Console billing rejected every card on hand mid-build, with
+no free tier to fall back on for testing. Gemini's `responseSchema` JSON mode
+does the same structured-output job as Claude's tool-use; the actual n8n node
+sends:
+
+```json
+{
+  "systemInstruction": { "parts": [{ "text": "<same system prompt as below>" }] },
+  "contents": [{ "role": "user", "parts": [{ "text": "Transcript: \"<transcript>\"\nCaption (may be empty): \"<caption_text>\"\nDuration: <duration_seconds>s" }] }],
+  "generationConfig": {
+    "responseMimeType": "application/json",
+    "responseSchema": {
+      "type": "OBJECT",
+      "properties": {
+        "title": { "type": "STRING" },
+        "summary": { "type": "STRING" },
+        "mood": { "type": "STRING", "enum": ["joyful", "loving", "calm", "nostalgic", "excited", "stressed", "sad", "tired", "grateful", "neutral"] }
+      },
+      "required": ["title", "summary", "mood"]
+    }
+  }
+}
+```
+`POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent`,
+header `x-goog-api-key`. Response text (`candidates[0].content.parts[0].text`)
+is a JSON *string*, unlike Claude's already-parsed tool input — needs one
+`JSON.parse()` in the following Edit Fields node.
+
+**Original design, intended default once billing is sorted:**
 
 `POST https://api.anthropic.com/v1/messages`, headers `x-api-key`, `anthropic-version: 2023-06-01`.
 

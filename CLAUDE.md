@@ -1294,6 +1294,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   guessing was no longer blind. `pairs` now has no client INSERT policy at
   all. Rate limiting on the create path confirmed on device
 
+- **The AI automation layer's Workflow 1, end to end (2026-09-17):** Postgres
+  trigger (`clips_queue_ai`) → n8n Webhook → Supabase signed URL → AssemblyAI
+  transcription (poll loop) → transcript written to the `transcripts` bucket
+  → extraction call → `ai_title`/`ai_summary`/`ai_mood`/`ai_status` written
+  back to the triggering `clips` row. Verified via the SQL re-queue trick
+  against a real clip, checked in Supabase Studio; includes correct
+  empty-transcript fallback (a silent test clip produced "A Quiet Moment"
+  rather than invented content). Extraction currently runs on Gemini
+  (`gemini-3.6-flash`), not Claude Haiku as designed, pending an Anthropic
+  billing fix — see `docs/ai-automation-plan.md`. No dedicated CLAUDE.md
+  section for this feature yet (planned for the last build-order step, once
+  the full layer ships). `retry_ai_processing` and Workflow 2 (weekly recap)
+  are not yet built or tested.
+
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
