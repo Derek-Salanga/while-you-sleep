@@ -57,6 +57,18 @@
               "name": "recorded_for_date",
               "value": "={{$json.body.recorded_for_date}}",
               "type": "string"
+            },
+            {
+              "id": "3d8b9a1a-6f2e-4c3a-9c1a-8e6a7d5b3c2f",
+              "name": "caption_text",
+              "value": "={{$json.body.caption_text}}",
+              "type": "string"
+            },
+            {
+              "id": "7a2e5c4d-1b8f-4a6e-9d3c-2f5b8e1a6d4c",
+              "name": "duration_seconds",
+              "value": "={{$json.body.duration_seconds}}",
+              "type": "string"
             }
           ]
         },
@@ -270,18 +282,6 @@
               "name": "pair_id",
               "value": "={{$('Edit Fields').item.json.pair_id}}",
               "type": "string"
-            },
-            {
-              "id": "77397e42-55c1-4515-b10b-9e4f2556c757",
-              "name": "caption_text",
-              "value": "={{$json.body.caption_text}}",
-              "type": "string"
-            },
-            {
-              "id": "006fd283-bd37-4ffe-ad51-303097e56412",
-              "name": "duration_seconds",
-              "value": "={{$json.body.duration_seconds}}",
-              "type": "string"
             }
           ]
         },
@@ -371,13 +371,13 @@
           "assignments": [
             {
               "id": "3a570649-96eb-4713-977a-070a4fdb0a95",
-              "name": "=ai_field",
+              "name": "ai_title",
               "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).title }}",
               "type": "string"
             },
             {
               "id": "66574d68-c10e-44cf-93cb-e529427ce97a",
-              "name": "=ai_summary",
+              "name": "ai_summary",
               "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).summary }}",
               "type": "string"
             },
@@ -389,7 +389,7 @@
             },
             {
               "id": "adfcbfeb-ea1b-4595-a926-ed6e4cc1361d",
-              "name": "=clip_id",
+              "name": "clip_id",
               "value": "={{$('Edit Fields1').item.json.clip_id}}",
               "type": "string"
             }

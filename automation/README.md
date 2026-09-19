@@ -78,9 +78,12 @@ setup (see `supabase/schema.sql`).
 ## Re-import instructions
 
 1. In n8n, **Workflows → Import from File** (or paste the JSON) for each
-   of the three files. Import `handle-ai-failure.json` first — the other
-   two reference it by workflow ID via "Execute Workflow" nodes, and
-   n8n needs it to exist to resolve that reference cleanly.
+   of the three files. Import `handle-ai-failure.json` first —
+   `clip-ai-processing.json` references it by workflow ID via six
+   "Execute Workflow" nodes (one per risky step), and n8n needs it to
+   exist to resolve those references cleanly. `weekly-recap.json` has no
+   such reference — it alerts failures via its own inline Telegram node
+   instead, so import order doesn't matter for that one.
 2. Re-create the two proper credentials above, then re-select them on
    the Webhook and Telegram nodes (a fresh import won't have them
    selected).

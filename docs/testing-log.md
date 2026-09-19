@@ -1850,3 +1850,45 @@ single clip to mark failed here, matching the plan's own reasoning.
 Publishing this workflow also activates its schedule — the real weekly
 recap will fire this coming Sunday at 20:00 UTC with no further action
 needed. Not yet observed: an actual scheduled (non-manual) firing.
+
+## 2026-09-19 — AI automation layer, step 9 (export) — two real bugs found on code review
+
+Code review of the exported workflow JSON (PR #124) found two real, live
+bugs that had been running in production since they were introduced, both
+now fixed. Neither was caught by the interactive testing in the 2026-09-16
+through -18 entries above, because that testing checked "did processing
+complete and populate *something*," not "does every field hold the value
+it should."
+
+**`caption_text`/`duration_seconds` never reached the extraction prompt.**
+The 2026-09-16 entry (step 2/3) records adding these two fields to "the
+original Edit Fields node" — they were actually added to **Edit Fields1**
+(the second one, after AssemblyAI's poll) instead, an easy mix-up given the
+near-identical names. Edit Fields1's versions also read `$json.body.*`,
+which doesn't exist at that point in the chain (`$json` there is
+AssemblyAI's response, not the webhook body), and nothing downstream reads
+from Edit Fields1 for these two fields regardless — the extraction node
+explicitly pulls from `$('Edit Fields')`, the first one, by name. Net
+effect: every extraction call since step 4 first went live has sent an
+empty caption and the literal text `"Duration: undefineds"`. Fixed by
+moving the two fields to the actual first Edit Fields node and deleting the
+dead copies.
+
+**`ai_title` was never actually written back.** The **2026-09-18 entry's
+diagnosis above is wrong** — the null title wasn't Gemini omitting a
+schema-required field. The write-back Set node's title field was named
+`=ai_field` instead of `ai_title` (a stray `=`, which puts n8n in
+expression-name mode; with no `{{ }}` inside, it evaluates to the literal
+string `"ai_field"`). The PATCH body reads `$json.ai_title`, always
+undefined, so `ai_title` silently dropped out of every write via
+`JSON.stringify`. Every clip processed by this workflow has a real
+`ai_summary`/`ai_mood` but a permanently null `ai_title`, until this fix.
+Two sibling fields (`ai_summary`, `clip_id`) had the same stray-`=`
+malformation but coincidentally still worked, since their literal
+expression text happened to equal the intended field name — cleaned up
+too, for correctness rather than because they were broken.
+
+**Not yet re-verified live**: both fixes need to be applied to the actual
+n8n workflow (not just the committed export) and a fresh clip processed
+end-to-end to confirm `ai_title` populates and the extraction prompt
+receives real caption/duration values.

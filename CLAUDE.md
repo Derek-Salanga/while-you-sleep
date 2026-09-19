@@ -1322,10 +1322,16 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a
-  partially-populated row (a `null` title from a Gemini response that
-  didn't include every schema-required field) rendering gracefully rather
-  than breaking. Not yet exercised on-device: the `ai_status === 'failed'`
-  Retry row, and a row with a real (non-null) `ai_title`.
+  partially-populated row rendering gracefully rather than breaking. That
+  test row's `null` title was attributed here to Gemini omitting a
+  schema-required field — **wrong, corrected 2026-09-19 on code review of
+  PR #124**: the write-back node's field name had a stray `=` prefix
+  (`=ai_field` instead of `ai_title`), so `ai_title` was silently dropped
+  from every PATCH regardless of what Gemini returned. The graceful
+  degradation this entry confirmed is still real and still the right
+  behavior; the cause was misdiagnosed. Not yet exercised on-device: the
+  `ai_status === 'failed'` Retry row, and a row with a real `ai_title` now
+  that the write-back bug is fixed.
 
 - **The AI automation layer's weekly recap data + cleanup cron
   (2026-09-19):** `get_weekly_recap_batch()` verified against the live
@@ -1595,14 +1601,17 @@ email before it would ever unlock in-app.
 
 **App-side UI** (`TimelineScreen`, `ClipViewScreen`): `ai_title`/mood emoji
 render in the card header / above the date line, `ai_summary` below the
-caption, all independently of each other — Gemini's structured output
-doesn't reliably include every schema-required field (a real, observed gap;
-Claude's `strict: true` tool-use wouldn't have this problem), so a
+caption, all independently of each other — defensive by design, so a
 partially-populated row degrades gracefully instead of one missing field
-blanking the rest. A `failed` clip you sent shows a muted "AI summary
-failed — Retry" row calling `retry_ai_processing()`, an RPC mirroring
-`mark_clip_viewed()`'s security-definer shape (only your own clip, only if
-it's actually `failed`).
+blanking the rest. This got a real workout early on for the wrong reason: a
+null `ai_title` was first attributed to Gemini's structured output
+skipping a schema-required field, but was actually an n8n node-naming typo
+in the write-back step (fixed 2026-09-19, see `automation/README.md`) —
+the graceful degradation still did its job either way. A `failed` clip you
+sent shows a muted "AI summary failed — Retry" row calling
+`retry_ai_processing()`, an RPC mirroring `mark_clip_viewed()`'s
+security-definer shape (only your own clip, only if it's actually
+`failed`).
 
 **Extraction currently runs on Gemini (`gemini-3.6-flash`), not Claude
 Haiku as designed** — Anthropic Console billing rejected every card on hand
@@ -1615,6 +1624,8 @@ redesign — see `automation/README.md`'s "Deviations from the plan."
 app itself (it only exists as the email right now) was never part of this
 scope — the recap is deliberately email-only, matching "a warm weekly recap
 email" from the original ask, not an in-app digest.
+
+## Explicitly out of scope for now
 
 - Actual stitched highlight-reel video generation — Monthly Summary
   covers the "recap" need via stats + sequential playback instead (see
