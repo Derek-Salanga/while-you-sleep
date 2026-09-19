@@ -164,6 +164,7 @@ begin
   for obj in
     select o.name from storage.objects o
     where o.bucket_id = 'transcripts' and o.created_at < now() - retention
+      and o.name ~ '^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}\.txt$'
     order by o.created_at
     limit 200
   loop
