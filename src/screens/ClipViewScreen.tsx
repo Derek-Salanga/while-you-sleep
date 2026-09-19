@@ -17,6 +17,7 @@ import {
 } from '@/hooks/mutations';
 import { REACTION_EMOJI } from '@/data/reactions';
 import ReactionBurst from '@/components/ReactionBurst';
+import { AI_MOOD_EMOJI } from '@/lib/aiMood';
 import { media } from '@/theme/themes';
 import { fonts, fontSizes } from '@/theme/typography';
 
@@ -202,6 +203,21 @@ export default function ClipViewScreen({ route, navigation }: any) {
       {clip.caption_text && (
         <Text style={styles.caption}>{clip.caption_text}</Text>
       )}
+      {/* Title and mood render independently -- Gemini's structured output
+          doesn't reliably include every schema-required field, so a row can
+          have a mood with no title (or vice versa). Joined rather than two
+          separate elements to avoid a stray leading gap when title is
+          missing. */}
+      {clip.ai_status === 'completed' && (clip.ai_title || clip.ai_mood) && (
+        <Text style={styles.aiTitle}>
+          {[clip.ai_title, clip.ai_mood ? AI_MOOD_EMOJI[clip.ai_mood] : null]
+            .filter(Boolean)
+            .join('  ')}
+        </Text>
+      )}
+      {clip.ai_status === 'completed' && clip.ai_summary && (
+        <Text style={styles.caption}>{clip.ai_summary}</Text>
+      )}
       <Text style={styles.dateLabel}>
         {clip.recorded_for_date}
         {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
@@ -244,6 +260,14 @@ const styles = StyleSheet.create({
     color: media.text,
     textAlign: 'center',
     lineHeight: 22,
+    paddingTop: 16,
+    paddingHorizontal: 24,
+  },
+  aiTitle: {
+    fontFamily: fonts.bodySemiBold,
+    fontSize: fontSizes.md,
+    color: media.text,
+    textAlign: 'center',
     paddingTop: 16,
     paddingHorizontal: 24,
   },

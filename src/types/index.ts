@@ -19,6 +19,18 @@ export interface Pair {
   created_at: string;
 }
 
+export type AiMood =
+  | 'joyful'
+  | 'loving'
+  | 'calm'
+  | 'nostalgic'
+  | 'excited'
+  | 'stressed'
+  | 'sad'
+  | 'tired'
+  | 'grateful'
+  | 'neutral';
+
 export interface Clip {
   id: string;
   pair_id: string;
@@ -29,6 +41,12 @@ export interface Clip {
   caption_text: string | null; // optional note alongside the daily question's video answer
   viewed_at: string | null;
   created_at: string;
+  // AI automation layer (see docs/ai-automation-plan.md). null/'pending' both
+  // render nothing -- 'pending' just means processing hasn't finished yet.
+  ai_status: 'pending' | 'completed' | 'failed' | null;
+  ai_title: string | null;
+  ai_summary: string | null;
+  ai_mood: AiMood | null;
 }
 
 export interface PairTrip {

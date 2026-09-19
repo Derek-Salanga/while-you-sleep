@@ -12,12 +12,16 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Pressable,
+  Alert,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips, useReactions } from '@/hooks/queries';
+import { useRetryAiProcessing } from '@/hooks/mutations';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
+import { AI_MOOD_EMOJI } from '@/lib/aiMood';
 import { Clip } from '@/types';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
@@ -70,6 +74,7 @@ export default function TimelineScreen({ navigation }: any) {
   // One request for the whole list rather than per card. At most one row
   // per person per clip, so this stays small.
   const { data: reactions = [] } = useReactions(pair?.id);
+  const retryAi = useRetryAiProcessing();
 
   // Driven by an explicit pull flag rather than react-query's isRefetching.
   // isRefetching is true for *any* refetch, including the one this screen
@@ -143,14 +148,42 @@ export default function TimelineScreen({ navigation }: any) {
                     {r.emoji}
                   </Text>
                 ))}
+              {item.ai_status === 'completed' && item.ai_mood && (
+                <Text style={styles.cardReaction}>
+                  {AI_MOOD_EMOJI[item.ai_mood]}
+                </Text>
+              )}
               {unwatched && <View style={styles.unwatchedDot} />}
             </View>
           </View>
+          {item.ai_status === 'completed' && item.ai_title && (
+            <Text style={styles.cardAiTitle}>{item.ai_title}</Text>
+          )}
           <Text style={styles.cardDate}>
             {formatClipDate(item.recorded_for_date)}
           </Text>
           {item.caption_text && (
             <Text style={styles.cardCaption}>{item.caption_text}</Text>
+          )}
+          {item.ai_status === 'completed' && item.ai_summary && (
+            <Text style={styles.cardCaption}>{item.ai_summary}</Text>
+          )}
+          {item.ai_status === 'failed' && mine && (
+            <Pressable
+              disabled={retryAi.isPending}
+              style={({ pressed }) => pressed && styles.pressed}
+              onPress={() =>
+                retryAi.mutate(item.id, {
+                  onError: (err: any) =>
+                    Alert.alert("Couldn't retry", err.message),
+                })
+              }
+            >
+              <Text style={styles.cardAiFailed}>
+                AI summary failed —{' '}
+                <Text style={styles.cardAiRetry}>Retry</Text>
+              </Text>
+            </Pressable>
           )}
         </Card>
       </Animated.View>
@@ -275,6 +308,25 @@ const makeStyles = (t: Theme) =>
       fontSize: fontSizes.xs,
       color: t.textMuted,
       marginTop: 4,
+    },
+    cardAiTitle: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: fontSizes.sm,
+      color: t.textPrimary,
+      marginTop: 4,
+    },
+    cardAiFailed: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginTop: 8,
+    },
+    cardAiRetry: {
+      fontFamily: fonts.bodySemiBold,
+      color: t.accent,
+    },
+    pressed: {
+      opacity: 0.7,
     },
     // Not truncated: captions are short by design, and ClipViewScreen shows the
     // same text in full, so the two surfaces stay consistent.
