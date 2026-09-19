@@ -208,17 +208,13 @@ export default function ClipViewScreen({ route, navigation }: any) {
           have a mood with no title (or vice versa). Joined rather than two
           separate elements to avoid a stray leading gap when title is
           missing. */}
-      {clip.ai_status === 'completed' &&
-        (clip.ai_title || clip.ai_mood) && (
-          <Text style={styles.aiTitle}>
-            {[
-              clip.ai_title,
-              clip.ai_mood ? AI_MOOD_EMOJI[clip.ai_mood] : null,
-            ]
-              .filter(Boolean)
-              .join('  ')}
-          </Text>
-        )}
+      {clip.ai_status === 'completed' && (clip.ai_title || clip.ai_mood) && (
+        <Text style={styles.aiTitle}>
+          {[clip.ai_title, clip.ai_mood ? AI_MOOD_EMOJI[clip.ai_mood] : null]
+            .filter(Boolean)
+            .join('  ')}
+        </Text>
+      )}
       {clip.ai_status === 'completed' && clip.ai_summary && (
         <Text style={styles.caption}>{clip.ai_summary}</Text>
       )}

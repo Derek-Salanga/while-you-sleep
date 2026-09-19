@@ -180,7 +180,8 @@ export default function TimelineScreen({ navigation }: any) {
               }
             >
               <Text style={styles.cardAiFailed}>
-                AI summary failed — <Text style={styles.cardAiRetry}>Retry</Text>
+                AI summary failed —{' '}
+                <Text style={styles.cardAiRetry}>Retry</Text>
               </Text>
             </Pressable>
           )}
