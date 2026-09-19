@@ -1771,3 +1771,24 @@ routes there directly. `If1`'s `status == "error"` branch is different — a
 plain IF-node data branch on AssemblyAI's own response body (a successful
 HTTP call reporting a business-logic failure), wired to its own Call node
 rather than relying on any node-level error setting.
+
+## 2026-09-18 — AI automation layer, step 6 (Timeline/ClipView UI)
+
+`ai_title`/`ai_summary`/mood emoji rendering confirmed live on a real device
+(dev client over the same tunnel Metro from earlier this pass): the
+`2026-09-17` test clip (`ai_status = 'completed'`) shows its summary text and
+a 😌 mood emoji on the Timeline card. That row's `ai_title` is `null` —
+overwritten by a later re-queue test whose Gemini response came back missing
+`title` despite the schema marking it required — so the title line correctly
+renders nothing rather than breaking, confirming the per-field conditional
+rendering handles a partially-populated row. Gemini's structured output not
+reliably including every "required" field is a real gap worth remembering
+(Claude's `strict: true` tool-use, the original design, wouldn't have this
+problem) — not urgent to fix now since the UI already degrades gracefully,
+but worth revisiting once Anthropic billing is sorted and extraction moves
+back to Claude.
+
+Not yet exercised on a real device this pass: the `ai_status === 'failed'`
+Retry row (no failed clip was visible/tested in the app itself, only
+confirmed at the database level in step 5), and `ai_title`/mood rendering on
+a row that actually has a title.

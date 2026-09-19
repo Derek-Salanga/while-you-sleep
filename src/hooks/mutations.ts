@@ -77,6 +77,22 @@ export function useUploadClip() {
   });
 }
 
+// Retry a clip whose AI processing failed. RPC rather than a table write,
+// mirroring mark_clip_viewed() -- the security definer function is what
+// enforces "only your own clip, only if it's actually failed" server-side.
+export function useRetryAiProcessing() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clipId: string) => {
+      const { error } = await supabase.rpc('retry_ai_processing', {
+        target_clip_id: clipId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clips'] }),
+  });
+}
+
 // Clearing the Timeline's unwatched dot is the whole point of invalidating
 // here -- the row itself is written and forgotten.
 export function useMarkClipViewed() {

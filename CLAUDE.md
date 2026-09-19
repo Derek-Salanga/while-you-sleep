@@ -1315,8 +1315,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   Supabase and sends a Telegram alert. Restoring the key confirmed the
   happy path resumes cleanly. Every risky node in Workflow 1 has this
   wired. `retry_ai_processing` itself (the client-facing RPC, and the
-  in-app Retry row planned for step 6) is not yet tested — the recovery
-  check so far used the SQL re-queue trick, not the real retry path.
+  in-app Retry row) is not yet tested — the recovery check so far used the
+  SQL re-queue trick, not the real retry path.
+
+- **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
+  `ai_title`/`ai_summary`/mood emoji render on a real device, including a
+  partially-populated row (a `null` title from a Gemini response that
+  didn't include every schema-required field) rendering gracefully rather
+  than breaking. Not yet exercised on-device: the `ai_status === 'failed'`
+  Retry row, and a row with a real (non-null) `ai_title`.
 
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
