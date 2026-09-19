@@ -1,0 +1,962 @@
+{
+  "name": "AI Clip Tag Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clip-ai",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        -16
+      ],
+      "id": "6e7d1a35-aabc-40dc-ba35-111340a32ce3",
+      "name": "Webhook",
+      "webhookId": "940e5e15-06f7-47eb-a864-0719a88befd8",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Ar8tBDpZqNlo7sMI",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f77ecab0-3793-4a7d-95f0-d592fddca8fc",
+              "name": "clip_id",
+              "value": "={{$json.body.clip_id}}",
+              "type": "string"
+            },
+            {
+              "id": "bbc99a4b-a05f-4a5c-903f-273cf0eed274",
+              "name": "pair_id",
+              "value": "={{$json.body.pair_id}}",
+              "type": "string"
+            },
+            {
+              "id": "b458dd16-271b-4deb-88ab-7c89da303aad",
+              "name": "sender_id",
+              "value": "={{$json.body.sender_id}}",
+              "type": "string"
+            },
+            {
+              "id": "6423f5b3-6586-4137-b4e7-6bbcf2396230",
+              "name": "storage_path",
+              "value": "={{$json.body.storage_path}}",
+              "type": "string"
+            },
+            {
+              "id": "6b683332-b3cc-43ad-bbc0-3ce3a5e89fd9",
+              "name": "recorded_for_date",
+              "value": "={{$json.body.recorded_for_date}}",
+              "type": "string"
+            },
+            {
+              "id": "3d8b9a1a-6f2e-4c3a-9c1a-8e6a7d5b3c2f",
+              "name": "caption_text",
+              "value": "={{$json.body.caption_text}}",
+              "type": "string"
+            },
+            {
+              "id": "7a2e5c4d-1b8f-4a6e-9d3c-2f5b8e1a6d4c",
+              "name": "duration_seconds",
+              "value": "={{$json.body.duration_seconds}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -304,
+        -16
+      ],
+      "id": "9b0522f4-2fa6-460b-8fdb-c90b63d65ef2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://lgzcvryexckjrwlipenr.supabase.co/storage/v1/object/sign/clips/{{$json.storage_path}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_SERVICE_ROLE_KEY>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"expiresIn\": 600}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -80,
+        -16
+      ],
+      "id": "999e11f4-f216-46c8-9228-2f47a12849cb",
+      "name": "HTTP Request",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.assemblyai.com/v2/transcript",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "<ASSEMBLYAI_API_KEY>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "audio_url",
+              "value": "=https://lgzcvryexckjrwlipenr.supabase.co/storage/v1{{$json.signedURL}}"
+            },
+            {
+              "name": "language_detection",
+              "value": "true"
+            },
+            {
+              "name": "speech_models",
+              "value": "={{ [\"universal-3-5-pro\", \"universal-2\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        144,
+        -112
+      ],
+      "id": "7cbf580c-172f-4650-8705-02098298ad0a",
+      "name": "HTTP Request1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        368,
+        -16
+      ],
+      "id": "e6889253-c535-49d6-9639-acf51793ebf4",
+      "name": "Wait",
+      "webhookId": "52d86f03-fa1b-4f04-afcb-119e27a0b0b8"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.assemblyai.com/v2/transcript/{{$json.id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "<ASSEMBLYAI_API_KEY>"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        592,
+        -96
+      ],
+      "id": "664e6542-780a-448b-a78e-2ad938a41795",
+      "name": "HTTP Request2",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "17c7d0f4-8d5b-4889-980b-a007e761a925",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        816,
+        -192
+      ],
+      "id": "51234acc-da32-404d-8a3d-e8e717b6d1a4",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8fece7be-f791-4683-a29d-82b398a28d29",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        96
+      ],
+      "id": "75560157-5992-4328-ab57-e55208404f6d",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6bda7d79-a28e-4feb-a300-8ba627234d58",
+              "name": "transcript",
+              "value": "={{$json.text}}",
+              "type": "string"
+            },
+            {
+              "id": "693f0509-5749-4599-b7e7-732342bf3065",
+              "name": "clip_id",
+              "value": "={{$('Edit Fields').item.json.clip_id}}",
+              "type": "string"
+            },
+            {
+              "id": "65118a2c-c25d-4d79-8963-58a441e010bb",
+              "name": "pair_id",
+              "value": "={{$('Edit Fields').item.json.pair_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        -240
+      ],
+      "id": "78d11b33-f798-4543-972c-d1f5d8c1edc2",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://lgzcvryexckjrwlipenr.supabase.co/storage/v1/object/transcripts/{{$json.pair_id}}/{{$json.clip_id}}.txt",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "text/plain"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{$json.transcript}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1264,
+        -240
+      ],
+      "id": "35cd6d4e-5248-43bd-99a4-2b04205d0a6a",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "<GEMINI_API_KEY>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  systemInstruction: {\n    parts: [{ text: 'You are summarizing a private video diary entry between two long-distance partners. The speaker may mix English and Tagalog (Taglish) -- read across both naturally. If the transcript is empty or has no meaningful speech, base the title/summary on the caption text if one is given; if there\\'s truly nothing to go on, use a gentle, generic title like \"A quiet moment\" and a summary noting there was no dialogue -- never invent content that wasn\\'t said.' }]\n  },\n  contents: [{\n    role: \"user\",\n    parts: [{ text: \"Transcript: \\\"\" + $('Edit Fields1').item.json.transcript + \"\\\"\\nCaption (may be empty): \\\"\" + ($('Edit Fields').item.json.caption_text || \"\") + \"\\\"\\nDuration: \" + $('Edit Fields').item.json.duration_seconds + \"s\" }]\n  }],\n  generationConfig: {\n    responseMimeType: \"application/json\",\n    responseSchema: {\n      type: \"OBJECT\",\n      properties: {\n        title: { type: \"STRING\", description: \"A short, warm title for this diary entry, 3-6 words, no quotation marks.\" },\n        summary: { type: \"STRING\", description: \"One warm sentence, present tense, under 160 characters, summarizing what was said or shown.\" },\n        mood: { type: \"STRING\", enum: [\"joyful\",\"loving\",\"calm\",\"nostalgic\",\"excited\",\"stressed\",\"sad\",\"tired\",\"grateful\",\"neutral\"] }\n      },\n      required: [\"title\", \"summary\", \"mood\"]\n    }\n  }\n}) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1488,
+        -240
+      ],
+      "id": "ecf2fc8a-0eee-4e11-bc8c-d8dd5b6a4e4f",
+      "name": "HTTP Request4",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a570649-96eb-4713-977a-070a4fdb0a95",
+              "name": "ai_title",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).title }}",
+              "type": "string"
+            },
+            {
+              "id": "66574d68-c10e-44cf-93cb-e529427ce97a",
+              "name": "ai_summary",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).summary }}",
+              "type": "string"
+            },
+            {
+              "id": "41f66551-a909-4e95-8294-2e048bcd0195",
+              "name": "ai_mood",
+              "value": "={{ JSON.parse($json.candidates[0].content.parts[0].text).mood }}",
+              "type": "string"
+            },
+            {
+              "id": "adfcbfeb-ea1b-4595-a926-ed6e4cc1361d",
+              "name": "clip_id",
+              "value": "={{$('Edit Fields1').item.json.clip_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1712,
+        -144
+      ],
+      "id": "1f5c51f2-e39f-4c6d-82b5-c4a06756a649",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "method": "=PATCH",
+        "url": "=https://lgzcvryexckjrwlipenr.supabase.co/rest/v1/clips?id=eq.{{$json.clip_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ai_title: $json.ai_title, ai_summary: $json.ai_summary, ai_mood: $json.ai_mood, ai_status: \"completed\" }) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1936,
+        -144
+      ],
+      "id": "f8292677-a0e8-40a7-9355-32313f22a802",
+      "name": "HTTP Request5",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        80
+      ],
+      "id": "1d9f9f4f-cd14-4930-950c-6f69f11f986e",
+      "name": "Call 'Handle AI Failure'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "error_message": "={{$json.error.message}}",
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        -208
+      ],
+      "id": "0cc461ed-3de3-42dc-bf6d-d62f2b9537be",
+      "name": "Call 'Handle AI Failure'1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        0
+      ],
+      "id": "1413a512-e7ba-49c8-94d9-89b49a112469",
+      "name": "Call 'Handle AI Failure'2"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1712,
+        -336
+      ],
+      "id": "28d4401b-9223-4824-9ea1-06e5f60719f6",
+      "name": "Call 'Handle AI Failure'3"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2160,
+        -144
+      ],
+      "id": "919ea756-f92f-4e75-bb03-9672522d2a03",
+      "name": "Call 'Handle AI Failure'4",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "07e354a9-50aa-4ade-971f-b72c48e64a59",
+      "name": "Call 'Handle AI Failure'5"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Call 'Handle AI Failure'5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Call 'Handle AI Failure'4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c46fdb68-315d-4b79-b240-83df48a2dc68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bb19ac30070a4cb5bbe02e42da2632103809a6dba58157b0b850d09203a9928c"
+  },
+  "nodeGroups": [],
+  "id": "bDwtk2ixJIFJbviS",
+  "tags": []
+}

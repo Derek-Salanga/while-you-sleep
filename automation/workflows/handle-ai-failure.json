@@ -1,0 +1,117 @@
+{
+  "name": "Handle AI Failure",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "clip_id"
+            },
+            {
+              "name": "error_message"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4055e42c-2949-4724-b9ce-1b5a73aeeafb",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://lgzcvryexckjrwlipenr.supabase.co/rest/v1/clips?id=eq.{{$json.clip_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <SUPABASE_SERVICE_ROLE_KEY>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ ai_status: \"failed\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "f1885bf8-0759-409f-aac7-924ccd6e4b10",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "chatId": "<YOUR_TELEGRAM_CHAT_ID>",
+        "text": "={{ \"AI processing failed for clip \" + $json.clip_id + \": \" + $json.error_message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        176
+      ],
+      "id": "53edfe44-cd38-4777-90e0-f8bc3f59f3f6",
+      "name": "Send a text message",
+      "webhookId": "5fc25b3b-6157-4305-b3b4-4705823a1c8b",
+      "credentials": {
+        "telegramApi": {
+          "id": "yhpGeCcbfL7piCaW",
+          "name": "Telegram account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "739649ec-b97c-4097-b465-23379995e9ca",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bb19ac30070a4cb5bbe02e42da2632103809a6dba58157b0b850d09203a9928c"
+  },
+  "nodeGroups": [],
+  "id": "5lGIFMNjNz6dJARQ",
+  "tags": []
+}
