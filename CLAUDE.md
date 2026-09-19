@@ -1305,8 +1305,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   (`gemini-3.6-flash`), not Claude Haiku as designed, pending an Anthropic
   billing fix — see `docs/ai-automation-plan.md`. No dedicated CLAUDE.md
   section for this feature yet (planned for the last build-order step, once
-  the full layer ships). Workflow 2 (weekly recap) is not yet built or
-  tested.
+  the full layer ships).
 
 - **The AI automation layer's failure handling (2026-09-17):** a deliberate
   break (a corrupted API key on the extraction node) confirmed the whole
