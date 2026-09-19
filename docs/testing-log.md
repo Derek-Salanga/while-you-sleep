@@ -1792,3 +1792,13 @@ Not yet exercised on a real device this pass: the `ai_status === 'failed'`
 Retry row (no failed clip was visible/tested in the app itself, only
 confirmed at the database level in step 5), and `ai_title`/mood rendering on
 a row that actually has a title.
+
+**Follow-up, same day, after code review on PR #121:** two real findings
+fixed and confirmed on-device. `ClipViewScreen` originally only showed the
+mood emoji when `ai_title` was also present (unlike `TimelineScreen`'s
+independent rendering) — exactly the case this pass's test clip hit (mood
+present, title null). Reloading the app after the fix confirmed the emoji
+now renders on that clip's ClipView screen. Also confirmed the Retry row's
+`Pressable`, nested inside the card's own `Pressable`, does not
+mis-propagate the tap into navigating to ClipView — standard RN
+touch-responder behavior, but flagged by the review as unverified until now.
