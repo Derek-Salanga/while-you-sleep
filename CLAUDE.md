@@ -88,6 +88,9 @@ src/
   types/index.ts                shared data models
 supabase/
   schema.sql                    tables + RLS policies (source of truth for schema)
+automation/                     n8n workflows for the AI automation layer --
+  workflows/*.json               external to the app, see automation/README.md
+  README.md
 .github/workflows/ci.yml        lint + type-check + test on every push/PR to main
 ```
 
@@ -1543,7 +1546,75 @@ xcrun swiftc -typecheck \
   targets/widget/widgets.swift targets/widget/index.swift
 ```
 
-## Explicitly out of scope for now
+## AI automation layer (started 2026-09-16, shipped 2026-09-19)
+
+An n8n Cloud automation layer, external to the app, that: (1) auto-generates
+a title/summary/mood for each clip from its audio, opt-in per partner, and
+(2) sends a warm weekly recap email to both partners. Full design rationale
+lives in [docs/ai-automation-plan.md](docs/ai-automation-plan.md); the full
+verification history (including every bug found while building) is in
+[docs/testing-log.md](docs/testing-log.md)'s 2026-09-16 through -19 entries.
+The n8n workflows themselves, a README covering credentials/re-import, and
+the deviations from the original plan are in
+[automation/](automation/README.md) — start there for the operational
+picture, this section is the "what and why."
+
+**Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
+"AI summaries" toggle, `Switch` bound with an optimistic update since it's
+the one true binary preference in Settings, unlike Pause's date-range
+picker). Each person's own clips are only queued for AI processing if *they*
+turned it on — a couple where one partner has it on and the other doesn't is
+a normal, supported state.
+
+**Architecture:** a Postgres `after insert` trigger on `clips`
+(`clips_queue_ai`, mirroring `clips_notify_partner`'s shape — an upsert
+re-record must not re-queue) calls `queue_clip_for_ai()`, which
+`net.http_post`s to n8n if the sender opted in. n8n signs the clip's Storage
+URL, transcribes via AssemblyAI (chosen over Whisper for accepting a URL
+directly and stronger Tagalog/Taglish support — see the plan doc's
+comparison table), extracts a title/summary/mood, and `PATCH`es the result
+back onto the `clips` row. A separate scheduled workflow
+(`get_weekly_recap_batch()`, Sunday 20:00 UTC) builds a recap letter and
+emails both partners via Resend. Every risky node routes its error output to
+a shared "Handle AI Failure" sub-workflow (per-clip processing) or a
+lightweight Telegram alert (the recap, which has no single clip to mark
+failed) — both confirmed live via deliberate breaks, not just reasoned
+about.
+
+**Mood is a fixed 10-value enum** (`joyful, loving, calm, nostalgic,
+excited, stressed, sad, tired, grateful, neutral`), mapped to an emoji in
+`src/lib/aiMood.ts`. **Transcripts are not persisted in Postgres** — a
+private `transcripts` Storage bucket with a nightly age-based cleanup cron
+(`cleanup_old_transcripts`, mirroring `cleanup_orphaned_clip_files`'s
+Vault-secret + one-request-per-object shape, including the same
+path-anchoring regex guard against a crafted object name path-traversing
+into the delete URL). **The weekly recap is mutual-reveal-gated** — a day
+only counts if both partners posted that day, matching the app's existing
+reveal-gating everywhere else, and avoiding the recap spoiling an entry by
+email before it would ever unlock in-app.
+
+**App-side UI** (`TimelineScreen`, `ClipViewScreen`): `ai_title`/mood emoji
+render in the card header / above the date line, `ai_summary` below the
+caption, all independently of each other — Gemini's structured output
+doesn't reliably include every schema-required field (a real, observed gap;
+Claude's `strict: true` tool-use wouldn't have this problem), so a
+partially-populated row degrades gracefully instead of one missing field
+blanking the rest. A `failed` clip you sent shows a muted "AI summary
+failed — Retry" row calling `retry_ai_processing()`, an RPC mirroring
+`mark_clip_viewed()`'s security-definer shape (only your own clip, only if
+it's actually `failed`).
+
+**Extraction currently runs on Gemini (`gemini-3.6-flash`), not Claude
+Haiku as designed** — Anthropic Console billing rejected every card on hand
+mid-build, with no free tier to fall back on. Gemini's `responseSchema` JSON
+mode does the same structured-output job as Claude's tool-use would have.
+Swapping back once billing is sorted is a single-node change in n8n, not a
+redesign — see `automation/README.md`'s "Deviations from the plan."
+
+**Not yet built:** a UI surface for the weekly recap's content inside the
+app itself (it only exists as the email right now) was never part of this
+scope — the recap is deliberately email-only, matching "a warm weekly recap
+email" from the original ask, not an in-app digest.
 
 - Actual stitched highlight-reel video generation — Monthly Summary
   covers the "recap" need via stats + sequential playback instead (see
