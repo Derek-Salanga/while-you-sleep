@@ -203,12 +203,22 @@ export default function ClipViewScreen({ route, navigation }: any) {
       {clip.caption_text && (
         <Text style={styles.caption}>{clip.caption_text}</Text>
       )}
-      {clip.ai_status === 'completed' && clip.ai_title && (
-        <Text style={styles.aiTitle}>
-          {clip.ai_title}
-          {clip.ai_mood ? `  ${AI_MOOD_EMOJI[clip.ai_mood]}` : ''}
-        </Text>
-      )}
+      {/* Title and mood render independently -- Gemini's structured output
+          doesn't reliably include every schema-required field, so a row can
+          have a mood with no title (or vice versa). Joined rather than two
+          separate elements to avoid a stray leading gap when title is
+          missing. */}
+      {clip.ai_status === 'completed' &&
+        (clip.ai_title || clip.ai_mood) && (
+          <Text style={styles.aiTitle}>
+            {[
+              clip.ai_title,
+              clip.ai_mood ? AI_MOOD_EMOJI[clip.ai_mood] : null,
+            ]
+              .filter(Boolean)
+              .join('  ')}
+          </Text>
+        )}
       {clip.ai_status === 'completed' && clip.ai_summary && (
         <Text style={styles.caption}>{clip.ai_summary}</Text>
       )}

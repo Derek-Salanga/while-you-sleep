@@ -170,6 +170,7 @@ export default function TimelineScreen({ navigation }: any) {
           )}
           {item.ai_status === 'failed' && mine && (
             <Pressable
+              disabled={retryAi.isPending}
               style={({ pressed }) => pressed && styles.pressed}
               onPress={() =>
                 retryAi.mutate(item.id, {
