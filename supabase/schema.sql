@@ -1205,6 +1205,13 @@ begin
   for obj in
     select o.name from storage.objects o
     where o.bucket_id = 'transcripts' and o.created_at < now() - retention
+      -- Same anchoring as cleanup_orphaned_clip_files, same reason: the
+      -- name goes straight into a Storage API URL below. transcripts has no
+      -- storage.objects RLS policy today (only service_role, via n8n,
+      -- writes here), so this isn't reachable yet -- but that's exactly the
+      -- invariant the sibling function's anchor protects against silently
+      -- breaking if a policy is ever added.
+      and o.name ~ '^[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}\.txt$'
     order by o.created_at
     limit 200
   loop
