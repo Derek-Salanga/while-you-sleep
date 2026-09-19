@@ -1802,3 +1802,20 @@ now renders on that clip's ClipView screen. Also confirmed the Retry row's
 `Pressable`, nested inside the card's own `Pressable`, does not
 mis-propagate the tap into navigating to ClipView — standard RN
 touch-responder behavior, but flagged by the review as unverified until now.
+
+## 2026-09-19 — AI automation layer, step 7 (weekly recap data + cleanup cron)
+
+Both pieces verified directly in the SQL editor, no n8n involved yet.
+
+`cleanup_old_transcripts()`'s cron job registered correctly
+(`cron.job` shows `cleanup-old-transcripts` at `43 4 * * *`, staggered 26
+minutes after `cleanup-orphaned-clip-files` at `17 4 * * *`).
+
+`get_weekly_recap_batch()` returned real, correct data on the live project's
+five test pairs: all five came back (every one has at least one partner with
+`ai_enabled = true`), but only one had a non-empty `entries` array — the pair
+with a genuinely mutually-revealed, AI-processed day
+(`2026-09-17`, `sender: "b"`, matching the earlier cross-account test in
+step 3). The other four correctly returned `entries: []`, confirming the
+mutual-reveal `exists()` check and the `ai_status = 'completed'` filter both
+hold — a clip existing isn't enough on its own to appear in a recap.

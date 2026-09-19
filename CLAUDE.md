@@ -1325,6 +1325,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   than breaking. Not yet exercised on-device: the `ai_status === 'failed'`
   Retry row, and a row with a real (non-null) `ai_title`.
 
+- **The AI automation layer's weekly recap data + cleanup cron
+  (2026-09-19):** `get_weekly_recap_batch()` verified against the live
+  project's five test pairs — every opted-in pair returns, but only the one
+  with a genuinely mutual-revealed, AI-processed day has a non-empty
+  `entries` array, confirming the reveal-gating and `ai_status` filters both
+  hold. `cleanup_old_transcripts()`'s nightly cron confirmed registered.
+  Workflow 2 (the n8n side that actually calls this and sends the recap
+  email) is not yet built.
+
 **Not verified:**
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting

@@ -1181,6 +1181,104 @@ $$;
 
 grant execute on function retry_ai_processing(uuid) to authenticated;
 
+-- Nightly transcript cleanup -- mirrors cleanup_orphaned_clip_files' shape
+-- (Vault secret, one request per object, limit per run), just against the
+-- transcripts bucket on age alone rather than orphan detection.
+create or replace function cleanup_old_transcripts(retention interval default interval '7 days')
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  project_url text := 'https://lgzcvryexckjrwlipenr.supabase.co';
+  service_key text;
+  obj record;
+  deleted int := 0;
+begin
+  select decrypted_secret into service_key
+    from vault.decrypted_secrets where name = 'service_role_key';
+  if service_key is null then
+    raise exception 'Vault secret "service_role_key" not found';
+  end if;
+
+  for obj in
+    select o.name from storage.objects o
+    where o.bucket_id = 'transcripts' and o.created_at < now() - retention
+    order by o.created_at
+    limit 200
+  loop
+    perform net.http_delete(
+      url := project_url || '/storage/v1/object/transcripts/' || obj.name,
+      headers := jsonb_build_object('Authorization', 'Bearer ' || service_key, 'apikey', service_key)
+    );
+    deleted := deleted + 1;
+  end loop;
+  return deleted;
+end;
+$$;
+
+revoke all on function cleanup_old_transcripts(interval) from public, anon, authenticated;
+
+select cron.schedule(
+  'cleanup-old-transcripts', '43 4 * * *',
+  $cron$ select public.cleanup_old_transcripts(); $cron$
+);
+
+-- Weekly recap data, one call for n8n's schedule workflow. Mutual-reveal-
+-- gated: a day only counts if BOTH partners posted that day, matching the
+-- app's existing reveal-gating elsewhere. Only returns pairs where at least
+-- one partner opted in.
+create or replace function get_weekly_recap_batch(
+  week_start date default (current_date - interval '7 days')::date
+)
+returns table (
+  pair_id uuid,
+  partner_a_email text,
+  partner_b_email text,
+  entries jsonb
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    p.id,
+    ua.email,
+    ub.email,
+    coalesce(jsonb_agg(
+      jsonb_build_object(
+        'date', c.recorded_for_date,
+        'sender', case when c.sender_id = p.user_a then 'a' else 'b' end,
+        'title', c.ai_title,
+        'summary', c.ai_summary,
+        'mood', c.ai_mood
+      ) order by c.recorded_for_date, c.sender_id
+    ) filter (where c.id is not null), '[]'::jsonb) as entries
+  from pairs p
+  join auth.users ua on ua.id = p.user_a
+  left join auth.users ub on ub.id = p.user_b
+  join profiles pa on pa.id = p.user_a
+  left join profiles pb on pb.id = p.user_b
+  left join clips c
+    on c.pair_id = p.id
+   and c.recorded_for_date >= week_start
+   and c.recorded_for_date < week_start + 7
+   and c.ai_status = 'completed'
+   and exists ( -- mutual reveal: someone else also posted that day
+     select 1 from clips c2
+     where c2.pair_id = p.id
+       and c2.recorded_for_date = c.recorded_for_date
+       and c2.sender_id != c.sender_id
+   )
+  where p.user_b is not null
+    and (coalesce(pa.ai_enabled, false) or coalesce(pb.ai_enabled, false))
+  group by p.id, ua.email, ub.email;
+$$;
+
+revoke all on function get_weekly_recap_batch(date) from public, anon, authenticated;
+
 -- One-time manual step, like service_role_key: run in the SQL editor --
 -- select vault.create_secret('<random-secret>', 'n8n_webhook_secret',
 --   'Shared secret for the clip-ai n8n webhook');
