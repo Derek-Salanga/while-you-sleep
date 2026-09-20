@@ -813,8 +813,7 @@
         -144
       ],
       "id": "919ea756-f92f-4e75-bb03-9672522d2a03",
-      "name": "Call 'Handle AI Failure'4",
-      "onError": "continueErrorOutput"
+      "name": "Call 'Handle AI Failure'4"
     },
     {
       "parameters": {

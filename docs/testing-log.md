@@ -2041,3 +2041,18 @@ concurrently with no batching, fine at n=1 but worth adding before a
 second couple signs up — documented in `automation/README.md`'s
 Deviations section rather than fixed now, since it's untestable at the
 current scale.
+
+**A seventh pass found no live-pipeline bugs** — the first pass with none,
+a meaningful signal the workflow logic has converged. Four
+consistency/robustness items instead: the plan doc and CLAUDE.md still
+described the poll counter as the removed self-referencing version
+(someone rebuilding from the plan would reintroduce the masked-failure
+bug — corrected, with an explicit "do not rebuild it this way" note in
+the plan); the README called the workflow "Clip AI Processing" while n8n
+shows it as "AI Clip Tag Workflow" (corrected to match); and
+`Call 'Handle AI Failure'4` was the only one of the nine Execute Workflow
+nodes with "On Error: Continue Using Error Output" set, its error output
+unconnected — so if it ever failed (e.g. not re-selected after a fresh
+import), the error would be swallowed, the execution would show green,
+and the clip would sit at `'pending'` with no alert. Reset to the default
+"Stop Workflow" so it fails visibly like the other eight.

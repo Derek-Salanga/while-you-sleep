@@ -14,7 +14,7 @@ clip inserted (sender opted in)
   -> POST to n8n webhook
        |
        v
-Clip AI Processing (clip-ai-processing.json)
+AI Clip Tag Workflow (clip-ai-processing.json)
   Webhook -> Edit Fields -> sign clip URL -> AssemblyAI transcribe
   -> poll until done -> write transcript to Storage
   -> Gemini extraction -> PATCH clips (ai_title/ai_summary/ai_mood/ai_status)

@@ -1321,7 +1321,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   now wired and the transcript-write one confirmed via the same
   deliberate-break test. **A third gap** — the AssemblyAI poll loop had no
   maximum iteration count, so a hang would strand a clip at `'pending'`
-  forever the same way — was fixed the same day with a self-referencing
+  forever the same way — was fixed the same day with a `$runIndex`-based
   poll counter capped at 24 attempts, verified non-disruptive on a real
   run (the loop-back path itself wasn't exercised, since that clip
   resolved on the first poll). **Building that fix introduced a real bug of
