@@ -79,7 +79,7 @@ setup (see `supabase/schema.sql`).
 
 1. In n8n, **Workflows → Import from File** (or paste the JSON) for each
    of the three files. Import `handle-ai-failure.json` first —
-   `clip-ai-processing.json` references it by workflow ID via six
+   `clip-ai-processing.json` references it by workflow ID via eight
    "Execute Workflow" nodes (one per risky step), and n8n needs it to
    exist to resolve those references cleanly. `weekly-recap.json` has no
    such reference — it alerts failures via its own inline Telegram node
@@ -113,6 +113,14 @@ setup (see `supabase/schema.sql`).
   step list included one defensively; n8n's HTTP Request node already
   auto-splits a top-level JSON array response into one item per array
   element, so it wasn't needed.
+- **`Edit Fields2` (in `clip-ai-processing.json`) calls `JSON.parse` on
+  the same Gemini response three times** (once per field) instead of
+  once. Redundant, not incorrect — n8n's Set node in "Manual Mapping"
+  mode evaluates each field's expression independently, so parsing once
+  and reusing the result means restructuring the whole node into "JSON"
+  output mode with one combining expression. Left as-is rather than
+  making the committed export diverge from what's actually live;
+  worth doing next time this node is touched for another reason.
 
 ## Testing
 
