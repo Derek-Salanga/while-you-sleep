@@ -1947,3 +1947,42 @@ self-reference name now matching the actual node name) was verified by
 direct inspection instead, same standard as `Edit Fields2`'s branch above
 — there's no practical way to force AssemblyAI into a multi-minute hang on
 demand either.
+
+**A fourth review pass on the poll-counter fix itself found three more real
+bugs and one false alarm**, all fixed/resolved the same night:
+
+- **"Increment Poll Count" silently dropped `id`/`status`/`text`.** n8n's
+  Set node only outputs explicitly-assigned fields unless "Include Other
+  Input Fields" is on — it wasn't. Every other Edit Fields node in this
+  workflow works around the same limitation by explicitly re-deriving
+  needed fields via `$('NodeName')` references instead, but that pattern
+  doesn't fit here, since the very next poll needs AssemblyAI's `id`
+  untouched. This was the most serious of the four: any clip needing more
+  than one poll (i.e. most clips with real speech, not just an edge case)
+  would have had its second poll request `.../v2/transcript/undefined`,
+  404, and get incorrectly marked `'failed'` mid-processing. Fixed by
+  turning the toggle on. Verified by direct config inspection (`Include
+  Other Input Fields: All`) — the loop-back path still wasn't exercised by
+  a real run, same limitation as testing the counter itself.
+- **The AssemblyAI-error Telegram alert always showed "undefined."**
+  `Call 'Handle AI Failure'5` (fired when AssemblyAI's poll response body
+  itself says `status: "error"`) read `error_message` as
+  `{{$json.error.message}}`, copied from the pattern used everywhere else
+  — but AssemblyAI's `error` field is a plain string, not an object, so
+  `.message` on it is always `undefined`. The clip still correctly got
+  marked `'failed'`; only the alert's usefulness was degraded. Fixed with
+  a type check: `{{ typeof $json.error === 'object' ? $json.error.message
+  : $json.error }}`.
+- **`If2`'s cap allowed 25 polls, not the documented 24** — an off-by-one
+  (`poll_count <= 24` lets the 24th pass through and only catches the
+  25th). Fixed by changing the operator to "is less than."
+- **False alarm, not a bug**: the `Wait` node's exported `parameters: {}`
+  looked like it meant the "5 second wait" claimed everywhere was never
+  actually configured. Checked directly in n8n: it's genuinely set to
+  5.00 seconds — that value just happens to match n8n's own schema
+  default for this node type, so it's omitted from the export rather than
+  being unset. No change needed.
+
+The doc node-count ("eight" → "nine" `Call 'Handle AI Failure'` nodes,
+after adding the poll-timeout branch) was also stale in both
+`automation/README.md` and `CLAUDE.md` — corrected in the same pass.

@@ -79,7 +79,7 @@ setup (see `supabase/schema.sql`).
 
 1. In n8n, **Workflows → Import from File** (or paste the JSON) for each
    of the three files. Import `handle-ai-failure.json` first —
-   `clip-ai-processing.json` references it by workflow ID via eight
+   `clip-ai-processing.json` references it by workflow ID via nine
    "Execute Workflow" nodes (one per risky step), and n8n needs it to
    exist to resolve those references cleanly. `weekly-recap.json` has no
    such reference — it alerts failures via its own inline Telegram node

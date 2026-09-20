@@ -1324,10 +1324,19 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   forever the same way — was fixed the same day with a self-referencing
   poll counter capped at 24 attempts, verified non-disruptive on a real
   run (the loop-back path itself wasn't exercised, since that clip
-  resolved on the first poll). Eight risky spots in Workflow 1 now route
-  to `Handle AI Failure`. `retry_ai_processing` itself (the client-facing
-  RPC, and the in-app Retry row) is not yet tested — the recovery check so
-  far used the SQL re-queue trick, not the real retry path.
+  resolved on the first poll). **Building that fix introduced a real bug of
+  its own**, caught on the next review pass: the poll counter's Set node
+  silently dropped AssemblyAI's `id` field (n8n only passes through
+  explicitly-assigned fields by default), which would have broken every
+  clip needing more than one poll. Fixed by enabling "Include Other Input
+  Fields." Two smaller issues fixed in the same pass — an alert that
+  always showed "undefined" for AssemblyAI's own error field, and an
+  off-by-one letting 25 polls happen instead of 24 — see
+  `docs/testing-log.md` for the full account. Nine risky spots in
+  Workflow 1 now route to `Handle AI Failure`. `retry_ai_processing`
+  itself (the client-facing RPC, and the in-app Retry row) is not yet
+  tested — the recovery check so far used the SQL re-queue trick, not the
+  real retry path.
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a

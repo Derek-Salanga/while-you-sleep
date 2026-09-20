@@ -273,6 +273,7 @@
             }
           ]
         },
+        "includeOtherFields": true,
         "options": {}
       },
       "type": "n8n-nodes-base.set",
@@ -300,7 +301,7 @@
               "rightValue": 24,
               "operator": {
                 "type": "number",
-                "operation": "lte"
+                "operation": "lt"
               }
             }
           ],
@@ -827,7 +828,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
-            "error_message": "={{$json.error.message}}"
+            "error_message": "={{ typeof $json.error === 'object' ? $json.error.message : $json.error }}"
           },
           "matchingColumns": [],
           "schema": [
