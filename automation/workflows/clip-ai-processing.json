@@ -330,7 +330,8 @@
         -240
       ],
       "id": "35cd6d4e-5248-43bd-99a4-2b04205d0a6a",
-      "name": "HTTP Request3"
+      "name": "HTTP Request3",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -404,7 +405,8 @@
         -144
       ],
       "id": "1f5c51f2-e39f-4c6d-82b5-c4a06756a649",
-      "name": "Edit Fields2"
+      "name": "Edit Fields2",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -755,6 +757,110 @@
       ],
       "id": "07e354a9-50aa-4ade-971f-b72c48e64a59",
       "name": "Call 'Handle AI Failure'5"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        -144
+      ],
+      "id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Call 'Handle AI Failure'6"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "={{$json.error.message}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1936,
+        -48
+      ],
+      "id": "b2c3d4e5-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Call 'Handle AI Failure'7"
     }
   ],
   "pinData": {},
@@ -901,6 +1007,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'6",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -927,6 +1040,13 @@
         [
           {
             "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'7",
             "type": "main",
             "index": 0
           }

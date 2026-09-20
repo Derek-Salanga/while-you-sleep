@@ -1315,8 +1315,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   chain — the node's error output routes to a shared "Handle AI Failure"
   sub-workflow, which flips that clip's `ai_status` to `'failed'` in
   Supabase and sends a Telegram alert. Restoring the key confirmed the
-  happy path resumes cleanly. Every risky node in Workflow 1 has this
-  wired. `retry_ai_processing` itself (the client-facing RPC, and the
+  happy path resumes cleanly. **Two nodes were initially missed**
+  (transcript write, extraction-response parse — an original plan-doc gap,
+  not an implementation slip) and found on code review 2026-09-19; both
+  now wired and the transcript-write one confirmed via the same
+  deliberate-break test. All seven risky nodes in Workflow 1 route to
+  `Handle AI Failure` now. `retry_ai_processing` itself (the client-facing
+  RPC, and the
   in-app Retry row) is not yet tested — the recovery check so far used the
   SQL re-queue trick, not the real retry path.
 

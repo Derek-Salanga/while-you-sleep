@@ -1905,3 +1905,21 @@ SQL re-queue trick:
   Once corrected to `ai_title` and republished, a fresh re-queue produced a
   real, non-null `ai_title` on the `clips` row for the first time since
   this feature shipped.
+
+**A second review pass on the same PR found two more gaps**, this time
+traced back to the original plan doc's own step 11, which only listed
+nodes 3, 4/5, 8, 10 for error handling — never the transcript-write step
+(`HTTP Request3`) or the extraction-response parse (`Edit Fields2`). Either
+failing left a clip stuck at `ai_status = 'pending'` forever: no retry
+possible (`retry_ai_processing()` only accepts `'failed'`), and no failure
+state visible in the app UI (which only renders for `'completed'`/`'failed'`).
+
+Fixed and confirmed live the same day: added `Call 'Handle AI Failure'6`
+(off `HTTP Request3`'s error output) and `'7` (off `Edit Fields2`'s).
+Tested with the usual deliberate-break trick on `HTTP Request3` — corrupted
+its Supabase header, re-queued, confirmed the Telegram alert fired and
+`ai_status` flipped to `'failed'`, restored the key, re-queued again,
+confirmed `ai_status` returned to `'completed'`. `Edit Fields2`'s branch
+was verified by wiring alone, not a forced failure — there's no easy way
+to make Gemini return malformed JSON in a 200 response on demand, and the
+wiring is structurally identical to every other proven branch.

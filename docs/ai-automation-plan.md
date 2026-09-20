@@ -271,7 +271,7 @@ Test `get_weekly_recap_batch` directly in the SQL editor against seeded multi-da
 8. **HTTP Request** — extraction call (see prompt below; **built against Gemini, not Claude** — see note below).
 9. **Edit Fields** — parse the model's structured JSON output into `title`/`summary`/`mood`.
 10. **HTTP Request** — write back: `PATCH {SUPABASE_URL}/rest/v1/clips?id=eq.{{clip_id}}`, service_role key, body `{"ai_title": ..., "ai_summary": ..., "ai_mood": ..., "ai_status": "completed"}`.
-11. **On each risky node (3, 4/5, 8, 10):** set "On Error: Continue using error output" and wire the error output to an **Execute Workflow** node calling the shared **Handle AI Failure** sub-workflow (below), passing `clip_id` and the error message.
+11. **On each risky node (3, 4/5, 7, 8, 9, 10):** set "On Error: Continue using error output" and wire the error output to an **Execute Workflow** node calling the shared **Handle AI Failure** sub-workflow (below), passing `clip_id` and the error message. This list originally omitted steps 7 (transcript write) and 9 (parsing the extraction response) — a real gap, since a failure in either left a clip stuck at `ai_status = 'pending'` forever with no way to retry (`retry_ai_processing()` only accepts `'failed'`). Found on code review 2026-09-19, fixed the same day — see `docs/testing-log.md`.
 
 ### Extraction call (step 8)
 
