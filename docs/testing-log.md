@@ -1986,3 +1986,16 @@ bugs and one false alarm**, all fixed/resolved the same night:
 The doc node-count ("eight" → "nine" `Call 'Handle AI Failure'` nodes,
 after adding the poll-timeout branch) was also stale in both
 `automation/README.md` and `CLAUDE.md` — corrected in the same pass.
+
+**A fifth pass found one more**, the same "silently wrong forever" class:
+the Gemini prompt concatenated `duration_seconds` with no null guard, so a
+clip with a null duration (a real case — this pass's own test clip) sent
+the literal text `"Duration: nulls"` to Gemini on every extraction. The
+sibling `caption_text` on the same line already had a `|| ""` guard; this
+one had been missed. Fixed with a ternary that renders `"Duration:
+unknown"` instead, and confirmed live: the node's resolved request body
+on a real re-queue now reads `"\nDuration: unknown"`.
+
+Lower severity than the earlier finds — Gemini still produced a sensible
+title/summary/mood with the garbage duration string, since it's a minor
+detail in the prompt — but same class of bug, and cheap to fix.
