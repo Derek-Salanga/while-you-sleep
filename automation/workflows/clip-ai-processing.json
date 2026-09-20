@@ -10,10 +10,7 @@
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        -528,
-        -16
-      ],
+      "position": [-528, -16],
       "id": "6e7d1a35-aabc-40dc-ba35-111340a32ce3",
       "name": "Webhook",
       "webhookId": "940e5e15-06f7-47eb-a864-0719a88befd8",
@@ -76,10 +73,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
-      "position": [
-        -304,
-        -16
-      ],
+      "position": [-304, -16],
       "id": "9b0522f4-2fa6-460b-8fdb-c90b63d65ef2",
       "name": "Edit Fields"
     },
@@ -107,10 +101,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        -80,
-        -16
-      ],
+      "position": [-80, -16],
       "id": "999e11f4-f216-46c8-9228-2f47a12849cb",
       "name": "HTTP Request",
       "onError": "continueErrorOutput"
@@ -149,10 +140,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        144,
-        -112
-      ],
+      "position": [144, -112],
       "id": "7cbf580c-172f-4650-8705-02098298ad0a",
       "name": "HTTP Request1",
       "onError": "continueErrorOutput"
@@ -161,10 +149,7 @@
       "parameters": {},
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [
-        368,
-        -16
-      ],
+      "position": [368, -16],
       "id": "e6889253-c535-49d6-9639-acf51793ebf4",
       "name": "Wait",
       "webhookId": "52d86f03-fa1b-4f04-afcb-119e27a0b0b8"
@@ -185,10 +170,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        592,
-        -96
-      ],
+      "position": [592, -96],
       "id": "664e6542-780a-448b-a78e-2ad938a41795",
       "name": "HTTP Request2",
       "onError": "continueErrorOutput",
@@ -221,10 +203,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [
-        816,
-        -192
-      ],
+      "position": [816, -192],
       "id": "51234acc-da32-404d-8a3d-e8e717b6d1a4",
       "name": "If"
     },
@@ -255,10 +234,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [
-        1040,
-        96
-      ],
+      "position": [1040, 96],
       "id": "75560157-5992-4328-ab57-e55208404f6d",
       "name": "If1"
     },
@@ -279,10 +255,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
-      "position": [
-        1040,
-        280
-      ],
+      "position": [1040, 280],
       "id": "d4e5f6a7-8b9c-4d0e-9f1a-2b3c4d5e6f7a",
       "name": "Increment Poll Count"
     },
@@ -312,10 +285,7 @@
       },
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [
-        1264,
-        280
-      ],
+      "position": [1264, 280],
       "id": "f6a7b8c9-0d1e-4f2a-8b3c-4d5e6f7a8b9c",
       "name": "If2"
     },
@@ -364,10 +334,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        1488,
-        360
-      ],
+      "position": [1488, 360],
       "id": "a7b8c9d0-1e2f-4a3b-9c4d-5e6f7a8b9c0d",
       "name": "Call 'Handle AI Failure'8"
     },
@@ -399,10 +366,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
-      "position": [
-        1040,
-        -240
-      ],
+      "position": [1040, -240],
       "id": "78d11b33-f798-4543-972c-d1f5d8c1edc2",
       "name": "Edit Fields1"
     },
@@ -435,10 +399,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        1264,
-        -240
-      ],
+      "position": [1264, -240],
       "id": "35cd6d4e-5248-43bd-99a4-2b04205d0a6a",
       "name": "HTTP Request3",
       "onError": "continueErrorOutput"
@@ -468,10 +429,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        1488,
-        -240
-      ],
+      "position": [1488, -240],
       "id": "ecf2fc8a-0eee-4e11-bc8c-d8dd5b6a4e4f",
       "name": "HTTP Request4",
       "onError": "continueErrorOutput"
@@ -510,10 +468,7 @@
       },
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
-      "position": [
-        1712,
-        -144
-      ],
+      "position": [1712, -144],
       "id": "1f5c51f2-e39f-4c6d-82b5-c4a06756a649",
       "name": "Edit Fields2",
       "onError": "continueErrorOutput"
@@ -547,10 +502,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        1936,
-        -144
-      ],
+      "position": [1936, -144],
       "id": "f8292677-a0e8-40a7-9355-32313f22a802",
       "name": "HTTP Request5",
       "onError": "continueErrorOutput"
@@ -600,10 +552,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        144,
-        80
-      ],
+      "position": [144, 80],
       "id": "1d9f9f4f-cd14-4930-950c-6f69f11f986e",
       "name": "Call 'Handle AI Failure'"
     },
@@ -652,10 +601,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        368,
-        -208
-      ],
+      "position": [368, -208],
       "id": "0cc461ed-3de3-42dc-bf6d-d62f2b9537be",
       "name": "Call 'Handle AI Failure'1"
     },
@@ -704,10 +650,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        816,
-        0
-      ],
+      "position": [816, 0],
       "id": "1413a512-e7ba-49c8-94d9-89b49a112469",
       "name": "Call 'Handle AI Failure'2"
     },
@@ -756,10 +699,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        1712,
-        -336
-      ],
+      "position": [1712, -336],
       "id": "28d4401b-9223-4824-9ea1-06e5f60719f6",
       "name": "Call 'Handle AI Failure'3"
     },
@@ -808,10 +748,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        2160,
-        -144
-      ],
+      "position": [2160, -144],
       "id": "919ea756-f92f-4e75-bb03-9672522d2a03",
       "name": "Call 'Handle AI Failure'4"
     },
@@ -860,10 +797,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        1264,
-        0
-      ],
+      "position": [1264, 0],
       "id": "07e354a9-50aa-4ade-971f-b72c48e64a59",
       "name": "Call 'Handle AI Failure'5"
     },
@@ -912,10 +846,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        1488,
-        -144
-      ],
+      "position": [1488, -144],
       "id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
       "name": "Call 'Handle AI Failure'6"
     },
@@ -964,10 +895,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
-      "position": [
-        1936,
-        -48
-      ],
+      "position": [1936, -48],
       "id": "b2c3d4e5-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "Call 'Handle AI Failure'7"
     }

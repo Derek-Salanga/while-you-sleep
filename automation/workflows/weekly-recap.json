@@ -14,10 +14,7 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.4,
-      "position": [
-        0,
-        160
-      ],
+      "position": [0, 160],
       "id": "4f0d0ff6-8759-4654-addb-919225b28ede",
       "name": "Schedule Trigger"
     },
@@ -46,10 +43,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        224,
-        160
-      ],
+      "position": [224, 160],
       "id": "9db9e4bb-7344-41fe-acab-f4f9889501c6",
       "name": "HTTP Request",
       "onError": "continueErrorOutput"
@@ -81,10 +75,7 @@
       },
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.3,
-      "position": [
-        448,
-        32
-      ],
+      "position": [448, 32],
       "id": "0ac27db4-444f-4ffd-97e1-5c1f2563d036",
       "name": "Filter"
     },
@@ -109,10 +100,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        672,
-        32
-      ],
+      "position": [672, 32],
       "id": "c7340b80-d12e-421e-a186-829ce39de58a",
       "name": "HTTP Request1",
       "onError": "continueErrorOutput"
@@ -142,10 +130,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        896,
-        -160
-      ],
+      "position": [896, -160],
       "id": "38df7175-39d0-46a5-aa62-50981d09a766",
       "name": "HTTP Request2",
       "onError": "continueErrorOutput"
@@ -175,10 +160,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        896,
-        32
-      ],
+      "position": [896, 32],
       "id": "2a1d8332-7108-4044-bfff-6357869692ea",
       "name": "HTTP Request3",
       "onError": "continueErrorOutput"
@@ -191,10 +173,7 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        1120,
-        80
-      ],
+      "position": [1120, 80],
       "id": "66b8b896-650d-47a5-b745-9880f86ee51b",
       "name": "Send a text message",
       "webhookId": "efdf5a76-4248-4b79-b1fd-5eda113ddd65",

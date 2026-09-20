@@ -16,10 +16,7 @@
       },
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.2,
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "id": "4055e42c-2949-4724-b9ce-1b5a73aeeafb",
       "name": "When Executed by Another Workflow"
     },
@@ -52,10 +49,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [
-        224,
-        0
-      ],
+      "position": [224, 0],
       "id": "f1885bf8-0759-409f-aac7-924ccd6e4b10",
       "name": "HTTP Request",
       "onError": "continueRegularOutput"
@@ -68,10 +62,7 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [
-        224,
-        176
-      ],
+      "position": [224, 176],
       "id": "53edfe44-cd38-4777-90e0-f8bc3f59f3f6",
       "name": "Send a text message",
       "webhookId": "5fc25b3b-6157-4305-b3b4-4705823a1c8b",
