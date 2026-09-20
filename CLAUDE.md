@@ -1329,9 +1329,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   (`=ai_field` instead of `ai_title`), so `ai_title` was silently dropped
   from every PATCH regardless of what Gemini returned. The graceful
   degradation this entry confirmed is still real and still the right
-  behavior; the cause was misdiagnosed. Not yet exercised on-device: the
-  `ai_status === 'failed'` Retry row, and a row with a real `ai_title` now
-  that the write-back bug is fixed.
+  behavior; the cause was misdiagnosed. Fixed same day, in the live n8n
+  workflow — a fresh clip produced a real, non-null `ai_title` for the
+  first time since this feature shipped. Not yet exercised on-device: the
+  `ai_status === 'failed'` Retry row, and `ai_title` rendering in the app
+  UI itself (confirmed at the database level, not yet reloaded in-app).
 
 - **The AI automation layer's weekly recap data + cleanup cron
   (2026-09-19):** `get_weekly_recap_batch()` verified against the live

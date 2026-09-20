@@ -1888,7 +1888,20 @@ malformation but coincidentally still worked, since their literal
 expression text happened to equal the intended field name — cleaned up
 too, for correctness rather than because they were broken.
 
-**Not yet re-verified live**: both fixes need to be applied to the actual
-n8n workflow (not just the committed export) and a fresh clip processed
-end-to-end to confirm `ai_title` populates and the extraction prompt
-receives real caption/duration values.
+**Both fixes confirmed live**, same day, applied directly to the actual n8n
+workflow (not just the committed export) and verified one at a time via the
+SQL re-queue trick:
+
+- **Fix 1**: the first Edit Fields node's output now shows real
+  `caption_text` (`"phew"`, matching the `clips` row) and the Gemini node's
+  input carries it through correctly. `duration_seconds` still showed
+  `null` — traced back to the source row itself genuinely having a null
+  `duration_seconds` (confirmed via direct query), so this is the fix
+  correctly passing through real null data, not a remaining bug.
+- **Fix 2**: the "Edit Fields2" node's title field name box still literally
+  read `ai_field` even after the intended fix — the rename hadn't actually
+  been typed in yet (this node's name field has no separate `fx` toggle
+  like the value fields, easy to think a value-field change covered it).
+  Once corrected to `ai_title` and republished, a fresh re-queue produced a
+  real, non-null `ai_title` on the `clips` row for the first time since
+  this feature shipped.
