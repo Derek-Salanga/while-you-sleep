@@ -1923,3 +1923,27 @@ confirmed `ai_status` returned to `'completed'`. `Edit Fields2`'s branch
 was verified by wiring alone, not a forced failure — there's no easy way
 to make Gemini return malformed JSON in a 200 response on demand, and the
 wiring is structurally identical to every other proven branch.
+
+**A third review pass found one more gap**, different in kind from the
+first two: the AssemblyAI poll loop (`Wait → HTTP Request2 → If → If1 →
+back to Wait`) had no maximum iteration count or timeout. If AssemblyAI
+ever hung in "queued"/"processing" and never explicitly returned
+`completed` or `error`, the workflow would poll forever — same
+stuck-at-`'pending'`-forever, unretryable dead end as the other two, just
+caused by an unbounded business-logic loop rather than a missing `onError`
+flag, so a node-by-node error-handling audit wouldn't have caught it.
+
+Fixed by adding a self-referencing counter ("Increment Poll Count", using
+`$('Increment Poll Count')` with a try/catch fallback for the first pass —
+n8n has no built-in loop-iteration variable for a manually-wired cycle like
+this one) and an IF node capping it at 24 attempts (2 minutes total)
+before routing to `Handle AI Failure` instead of continuing to loop.
+Confirmed non-disruptive on a real run: the new nodes executed cleanly
+(green, no errors) even though this particular clip resolved on the first
+poll and never actually took the loop-back path — so the counter itself
+wasn't exercised by a real multi-poll run. Everything else (the `If2`
+condition, the `Call 'Handle AI Failure'8` input mapping, the
+self-reference name now matching the actual node name) was verified by
+direct inspection instead, same standard as `Edit Fields2`'s branch above
+— there's no practical way to force AssemblyAI into a multi-minute hang on
+demand either.

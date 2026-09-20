@@ -1319,11 +1319,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   (transcript write, extraction-response parse — an original plan-doc gap,
   not an implementation slip) and found on code review 2026-09-19; both
   now wired and the transcript-write one confirmed via the same
-  deliberate-break test. All seven risky nodes in Workflow 1 route to
-  `Handle AI Failure` now. `retry_ai_processing` itself (the client-facing
-  RPC, and the
-  in-app Retry row) is not yet tested — the recovery check so far used the
-  SQL re-queue trick, not the real retry path.
+  deliberate-break test. **A third gap** — the AssemblyAI poll loop had no
+  maximum iteration count, so a hang would strand a clip at `'pending'`
+  forever the same way — was fixed the same day with a self-referencing
+  poll counter capped at 24 attempts, verified non-disruptive on a real
+  run (the loop-back path itself wasn't exercised, since that clip
+  resolved on the first poll). Eight risky spots in Workflow 1 now route
+  to `Handle AI Failure`. `retry_ai_processing` itself (the client-facing
+  RPC, and the in-app Retry row) is not yet tested — the recovery check so
+  far used the SQL re-queue trick, not the real retry path.
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a

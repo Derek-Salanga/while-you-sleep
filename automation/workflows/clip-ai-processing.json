@@ -266,6 +266,114 @@
         "assignments": {
           "assignments": [
             {
+              "id": "c3d4e5f6-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+              "name": "poll_count",
+              "value": "={{ (() => { let prev = 0; try { prev = $('Increment Poll Count').item.json.poll_count || 0; } catch (e) {} return prev + 1; })() }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        280
+      ],
+      "id": "d4e5f6a7-8b9c-4d0e-9f1a-2b3c4d5e6f7a",
+      "name": "Increment Poll Count"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e5f6a7b8-9c0d-4e1f-af2a-3b4c5d6e7f8a",
+              "leftValue": "={{$json.poll_count}}",
+              "rightValue": 24,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1264,
+        280
+      ],
+      "id": "f6a7b8c9-0d1e-4f2a-8b3c-4d5e6f7a8b9c",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5lGIFMNjNz6dJARQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5lGIFMNjNz6dJARQ",
+          "cachedResultName": "Handle AI Failure"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
+            "error_message": "AssemblyAI polling timed out after 24 attempts"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "clip_id",
+              "displayName": "clip_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        360
+      ],
+      "id": "a7b8c9d0-1e2f-4a3b-9c4d-5e6f7a8b9c0d",
+      "name": "Call 'Handle AI Failure'8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
               "id": "6bda7d79-a28e-4feb-a300-8ba627234d58",
               "name": "transcript",
               "value": "={{$json.text}}",
@@ -981,7 +1089,36 @@
         ],
         [
           {
+            "node": "Increment Poll Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Poll Count": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
             "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call 'Handle AI Failure'8",
             "type": "main",
             "index": 0
           }
