@@ -80,10 +80,16 @@ setup (see `supabase/schema.sql`).
 1. In n8n, **Workflows → Import from File** (or paste the JSON) for each
    of the three files. Import `handle-ai-failure.json` first —
    `clip-ai-processing.json` references it by workflow ID via nine
-   "Execute Workflow" nodes (one per risky step), and n8n needs it to
-   exist to resolve those references cleanly. `weekly-recap.json` has no
-   such reference — it alerts failures via its own inline Telegram node
-   instead, so import order doesn't matter for that one.
+   "Execute Workflow" nodes (one per risky step). Importing it first
+   doesn't make those references resolve on its own, though: a fresh
+   import assigns a **new** workflow ID, so each of the nine nodes still
+   points at this repo's original ID (`5lGIFMNjNz6dJARQ`) and will fail
+   at runtime with "workflow not found" until you open each one and
+   re-select `Handle AI Failure` from the dropdown — which is exactly the
+   failure-handling path silently failing when something upstream
+   already has. `weekly-recap.json` has no such reference — it alerts
+   failures via its own inline Telegram node instead, so import order
+   doesn't matter for that one.
 2. Re-create the two proper credentials above, then re-select them on
    the Webhook and Telegram nodes (a fresh import won't have them
    selected).
@@ -121,6 +127,15 @@ setup (see `supabase/schema.sql`).
   output mode with one combining expression. Left as-is rather than
   making the committed export diverge from what's actually live;
   worth doing next time this node is touched for another reason.
+- **`weekly-recap.json` sends every pair's Gemini and Resend calls
+  concurrently, with no batching.** Fine at this app's current scale
+  (one test pair), since n8n's HTTP Request node otherwise fires one
+  request per input item in parallel — but with N pairs that's N
+  simultaneous Resend calls against Resend's 2 req/s rate limit, and
+  failures there just mean a silent missed email plus a Telegram alert.
+  Add `batching: {batch: {batchSize: 1, batchInterval: 600}}` to both
+  the Gemini and Resend HTTP Request nodes' Options before a second
+  couple signs up — not done yet since it's untestable at n=1.
 
 ## Testing
 

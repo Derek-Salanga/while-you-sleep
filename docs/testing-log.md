@@ -1999,3 +1999,45 @@ on a real re-queue now reads `"\nDuration: unknown"`.
 Lower severity than the earlier finds — Gemini still produced a sensible
 title/summary/mood with the garbage duration string, since it's a minor
 detail in the prompt — but same class of bug, and cheap to fix.
+
+**A sixth pass found four more**, all fixed same night:
+
+- **The poll-counter's try/catch fallback masked its own failure mode.**
+  The claim above that "n8n has no built-in loop-iteration variable" was
+  wrong — `$runIndex` (0-based count of how many times the current node
+  has run) does exactly this, natively, no self-reference or try/catch
+  needed. Worse than just being the harder path: if the self-reference
+  ever failed to resolve on a *later* pass (not just the first), the
+  try/catch would silently fall back to `0` every time, `poll_count`
+  would never exceed 1, `If2` would always be true, and the 24-attempt
+  cap this whole fix exists for would quietly become a no-op — the exact
+  unbounded loop being closed. Replaced with `{{ $runIndex + 1 }}`.
+  Confirmed live: config shows the new expression, and a real re-queue
+  still completes normally.
+- **`Handle AI Failure`'s own PATCH node had no error handling**, and
+  under n8n's execution order runs *before* the Telegram node. If
+  Supabase itself is down — plausibly the same reason something upstream
+  already failed — the PATCH throws, the sub-workflow halts, and the one
+  alert this whole system exists to send never sends. Fixed with `On
+  Error: Continue` (regular output, not error output) on that node.
+- **`Call 'Handle AI Failure'7`'s alert also always said "undefined."**
+  Same bug as the one already fixed on `'5`, just missed there because it
+  comes from a Set node's error output (`{error: "<string>"}`) rather
+  than an HTTP node's. Same type-guard fix applied.
+- **A single transient poll failure permanently failed a clip that was
+  seconds from finishing.** `HTTP Request2` (the AssemblyAI poll GET) had
+  no retry, so one 5xx or network blip routed straight to
+  `Handle AI Failure` regardless of how close the actual transcription
+  was to done — and Retry then re-runs the whole pipeline, including a
+  second AssemblyAI charge. Fixed by turning on "Retry On Fail."
+
+Two more were documentation-only, not live bugs: the README's re-import
+step claimed importing `handle-ai-failure.json` first was sufficient for
+the nine `Execute Workflow` references to resolve — it isn't, since a
+fresh import assigns a new workflow ID and each node still points at this
+repo's original one; corrected to say each needs re-selecting after
+import. And `weekly-recap.json` fires every pair's Gemini/Resend calls
+concurrently with no batching, fine at n=1 but worth adding before a
+second couple signs up — documented in `automation/README.md`'s
+Deviations section rather than fixed now, since it's untestable at the
+current scale.

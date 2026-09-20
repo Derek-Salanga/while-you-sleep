@@ -191,7 +191,8 @@
       ],
       "id": "664e6542-780a-448b-a78e-2ad938a41795",
       "name": "HTTP Request2",
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "retryOnFail": true
     },
     {
       "parameters": {
@@ -268,7 +269,7 @@
             {
               "id": "c3d4e5f6-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
               "name": "poll_count",
-              "value": "={{ (() => { let prev = 0; try { prev = $('Increment Poll Count').item.json.poll_count || 0; } catch (e) {} return prev + 1; })() }}",
+              "value": "={{ $runIndex + 1 }}",
               "type": "number"
             }
           ]
@@ -932,7 +933,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
-            "error_message": "={{$json.error.message}}"
+            "error_message": "={{ typeof $json.error === 'object' ? $json.error.message : $json.error }}"
           },
           "matchingColumns": [],
           "schema": [
