@@ -1850,3 +1850,209 @@ single clip to mark failed here, matching the plan's own reasoning.
 Publishing this workflow also activates its schedule — the real weekly
 recap will fire this coming Sunday at 20:00 UTC with no further action
 needed. Not yet observed: an actual scheduled (non-manual) firing.
+
+## 2026-09-19 — AI automation layer, step 9 (export) — two real bugs found on code review
+
+Code review of the exported workflow JSON (PR #124) found two real, live
+bugs that had been running in production since they were introduced, both
+now fixed. Neither was caught by the interactive testing in the 2026-09-16
+through -18 entries above, because that testing checked "did processing
+complete and populate *something*," not "does every field hold the value
+it should."
+
+**`caption_text`/`duration_seconds` never reached the extraction prompt.**
+The 2026-09-16 entry (step 2/3) records adding these two fields to "the
+original Edit Fields node" — they were actually added to **Edit Fields1**
+(the second one, after AssemblyAI's poll) instead, an easy mix-up given the
+near-identical names. Edit Fields1's versions also read `$json.body.*`,
+which doesn't exist at that point in the chain (`$json` there is
+AssemblyAI's response, not the webhook body), and nothing downstream reads
+from Edit Fields1 for these two fields regardless — the extraction node
+explicitly pulls from `$('Edit Fields')`, the first one, by name. Net
+effect: every extraction call since step 4 first went live has sent an
+empty caption and the literal text `"Duration: undefineds"`. Fixed by
+moving the two fields to the actual first Edit Fields node and deleting the
+dead copies.
+
+**`ai_title` was never actually written back.** The **2026-09-18 entry's
+diagnosis above is wrong** — the null title wasn't Gemini omitting a
+schema-required field. The write-back Set node's title field was named
+`=ai_field` instead of `ai_title` (a stray `=`, which puts n8n in
+expression-name mode; with no `{{ }}` inside, it evaluates to the literal
+string `"ai_field"`). The PATCH body reads `$json.ai_title`, always
+undefined, so `ai_title` silently dropped out of every write via
+`JSON.stringify`. Every clip processed by this workflow has a real
+`ai_summary`/`ai_mood` but a permanently null `ai_title`, until this fix.
+Two sibling fields (`ai_summary`, `clip_id`) had the same stray-`=`
+malformation but coincidentally still worked, since their literal
+expression text happened to equal the intended field name — cleaned up
+too, for correctness rather than because they were broken.
+
+**Both fixes confirmed live**, same day, applied directly to the actual n8n
+workflow (not just the committed export) and verified one at a time via the
+SQL re-queue trick:
+
+- **Fix 1**: the first Edit Fields node's output now shows real
+  `caption_text` (`"phew"`, matching the `clips` row) and the Gemini node's
+  input carries it through correctly. `duration_seconds` still showed
+  `null` — traced back to the source row itself genuinely having a null
+  `duration_seconds` (confirmed via direct query), so this is the fix
+  correctly passing through real null data, not a remaining bug.
+- **Fix 2**: the "Edit Fields2" node's title field name box still literally
+  read `ai_field` even after the intended fix — the rename hadn't actually
+  been typed in yet (this node's name field has no separate `fx` toggle
+  like the value fields, easy to think a value-field change covered it).
+  Once corrected to `ai_title` and republished, a fresh re-queue produced a
+  real, non-null `ai_title` on the `clips` row for the first time since
+  this feature shipped.
+
+**A second review pass on the same PR found two more gaps**, this time
+traced back to the original plan doc's own step 11, which only listed
+nodes 3, 4/5, 8, 10 for error handling — never the transcript-write step
+(`HTTP Request3`) or the extraction-response parse (`Edit Fields2`). Either
+failing left a clip stuck at `ai_status = 'pending'` forever: no retry
+possible (`retry_ai_processing()` only accepts `'failed'`), and no failure
+state visible in the app UI (which only renders for `'completed'`/`'failed'`).
+
+Fixed and confirmed live the same day: added `Call 'Handle AI Failure'6`
+(off `HTTP Request3`'s error output) and `'7` (off `Edit Fields2`'s).
+Tested with the usual deliberate-break trick on `HTTP Request3` — corrupted
+its Supabase header, re-queued, confirmed the Telegram alert fired and
+`ai_status` flipped to `'failed'`, restored the key, re-queued again,
+confirmed `ai_status` returned to `'completed'`. `Edit Fields2`'s branch
+was verified by wiring alone, not a forced failure — there's no easy way
+to make Gemini return malformed JSON in a 200 response on demand, and the
+wiring is structurally identical to every other proven branch.
+
+**A third review pass found one more gap**, different in kind from the
+first two: the AssemblyAI poll loop (`Wait → HTTP Request2 → If → If1 →
+back to Wait`) had no maximum iteration count or timeout. If AssemblyAI
+ever hung in "queued"/"processing" and never explicitly returned
+`completed` or `error`, the workflow would poll forever — same
+stuck-at-`'pending'`-forever, unretryable dead end as the other two, just
+caused by an unbounded business-logic loop rather than a missing `onError`
+flag, so a node-by-node error-handling audit wouldn't have caught it.
+
+Fixed by adding a self-referencing counter ("Increment Poll Count", using
+`$('Increment Poll Count')` with a try/catch fallback for the first pass —
+n8n has no built-in loop-iteration variable for a manually-wired cycle like
+this one) and an IF node capping it at 24 attempts (2 minutes total)
+before routing to `Handle AI Failure` instead of continuing to loop.
+Confirmed non-disruptive on a real run: the new nodes executed cleanly
+(green, no errors) even though this particular clip resolved on the first
+poll and never actually took the loop-back path — so the counter itself
+wasn't exercised by a real multi-poll run. Everything else (the `If2`
+condition, the `Call 'Handle AI Failure'8` input mapping, the
+self-reference name now matching the actual node name) was verified by
+direct inspection instead, same standard as `Edit Fields2`'s branch above
+— there's no practical way to force AssemblyAI into a multi-minute hang on
+demand either.
+
+**A fourth review pass on the poll-counter fix itself found three more real
+bugs and one false alarm**, all fixed/resolved the same night:
+
+- **"Increment Poll Count" silently dropped `id`/`status`/`text`.** n8n's
+  Set node only outputs explicitly-assigned fields unless "Include Other
+  Input Fields" is on — it wasn't. Every other Edit Fields node in this
+  workflow works around the same limitation by explicitly re-deriving
+  needed fields via `$('NodeName')` references instead, but that pattern
+  doesn't fit here, since the very next poll needs AssemblyAI's `id`
+  untouched. This was the most serious of the four: any clip needing more
+  than one poll (i.e. most clips with real speech, not just an edge case)
+  would have had its second poll request `.../v2/transcript/undefined`,
+  404, and get incorrectly marked `'failed'` mid-processing. Fixed by
+  turning the toggle on. Verified by direct config inspection (`Include
+  Other Input Fields: All`) — the loop-back path still wasn't exercised by
+  a real run, same limitation as testing the counter itself.
+- **The AssemblyAI-error Telegram alert always showed "undefined."**
+  `Call 'Handle AI Failure'5` (fired when AssemblyAI's poll response body
+  itself says `status: "error"`) read `error_message` as
+  `{{$json.error.message}}`, copied from the pattern used everywhere else
+  — but AssemblyAI's `error` field is a plain string, not an object, so
+  `.message` on it is always `undefined`. The clip still correctly got
+  marked `'failed'`; only the alert's usefulness was degraded. Fixed with
+  a type check: `{{ typeof $json.error === 'object' ? $json.error.message
+  : $json.error }}`.
+- **`If2`'s cap allowed 25 polls, not the documented 24** — an off-by-one
+  (`poll_count <= 24` lets the 24th pass through and only catches the
+  25th). Fixed by changing the operator to "is less than."
+- **False alarm, not a bug**: the `Wait` node's exported `parameters: {}`
+  looked like it meant the "5 second wait" claimed everywhere was never
+  actually configured. Checked directly in n8n: it's genuinely set to
+  5.00 seconds — that value just happens to match n8n's own schema
+  default for this node type, so it's omitted from the export rather than
+  being unset. No change needed.
+
+The doc node-count ("eight" → "nine" `Call 'Handle AI Failure'` nodes,
+after adding the poll-timeout branch) was also stale in both
+`automation/README.md` and `CLAUDE.md` — corrected in the same pass.
+
+**A fifth pass found one more**, the same "silently wrong forever" class:
+the Gemini prompt concatenated `duration_seconds` with no null guard, so a
+clip with a null duration (a real case — this pass's own test clip) sent
+the literal text `"Duration: nulls"` to Gemini on every extraction. The
+sibling `caption_text` on the same line already had a `|| ""` guard; this
+one had been missed. Fixed with a ternary that renders `"Duration:
+unknown"` instead, and confirmed live: the node's resolved request body
+on a real re-queue now reads `"\nDuration: unknown"`.
+
+Lower severity than the earlier finds — Gemini still produced a sensible
+title/summary/mood with the garbage duration string, since it's a minor
+detail in the prompt — but same class of bug, and cheap to fix.
+
+**A sixth pass found four more**, all fixed same night:
+
+- **The poll-counter's try/catch fallback masked its own failure mode.**
+  The claim above that "n8n has no built-in loop-iteration variable" was
+  wrong — `$runIndex` (0-based count of how many times the current node
+  has run) does exactly this, natively, no self-reference or try/catch
+  needed. Worse than just being the harder path: if the self-reference
+  ever failed to resolve on a *later* pass (not just the first), the
+  try/catch would silently fall back to `0` every time, `poll_count`
+  would never exceed 1, `If2` would always be true, and the 24-attempt
+  cap this whole fix exists for would quietly become a no-op — the exact
+  unbounded loop being closed. Replaced with `{{ $runIndex + 1 }}`.
+  Confirmed live: config shows the new expression, and a real re-queue
+  still completes normally.
+- **`Handle AI Failure`'s own PATCH node had no error handling**, and
+  under n8n's execution order runs *before* the Telegram node. If
+  Supabase itself is down — plausibly the same reason something upstream
+  already failed — the PATCH throws, the sub-workflow halts, and the one
+  alert this whole system exists to send never sends. Fixed with `On
+  Error: Continue` (regular output, not error output) on that node.
+- **`Call 'Handle AI Failure'7`'s alert also always said "undefined."**
+  Same bug as the one already fixed on `'5`, just missed there because it
+  comes from a Set node's error output (`{error: "<string>"}`) rather
+  than an HTTP node's. Same type-guard fix applied.
+- **A single transient poll failure permanently failed a clip that was
+  seconds from finishing.** `HTTP Request2` (the AssemblyAI poll GET) had
+  no retry, so one 5xx or network blip routed straight to
+  `Handle AI Failure` regardless of how close the actual transcription
+  was to done — and Retry then re-runs the whole pipeline, including a
+  second AssemblyAI charge. Fixed by turning on "Retry On Fail."
+
+Two more were documentation-only, not live bugs: the README's re-import
+step claimed importing `handle-ai-failure.json` first was sufficient for
+the nine `Execute Workflow` references to resolve — it isn't, since a
+fresh import assigns a new workflow ID and each node still points at this
+repo's original one; corrected to say each needs re-selecting after
+import. And `weekly-recap.json` fires every pair's Gemini/Resend calls
+concurrently with no batching, fine at n=1 but worth adding before a
+second couple signs up — documented in `automation/README.md`'s
+Deviations section rather than fixed now, since it's untestable at the
+current scale.
+
+**A seventh pass found no live-pipeline bugs** — the first pass with none,
+a meaningful signal the workflow logic has converged. Four
+consistency/robustness items instead: the plan doc and CLAUDE.md still
+described the poll counter as the removed self-referencing version
+(someone rebuilding from the plan would reintroduce the masked-failure
+bug — corrected, with an explicit "do not rebuild it this way" note in
+the plan); the README called the workflow "Clip AI Processing" while n8n
+shows it as "AI Clip Tag Workflow" (corrected to match); and
+`Call 'Handle AI Failure'4` was the only one of the nine Execute Workflow
+nodes with "On Error: Continue Using Error Output" set, its error output
+unconnected — so if it ever failed (e.g. not re-selected after a fresh
+import), the error would be swallowed, the execution would show green,
+and the clip would sit at `'pending'` with no alert. Reset to the default
+"Stop Workflow" so it fails visibly like the other eight.

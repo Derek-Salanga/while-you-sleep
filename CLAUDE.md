@@ -88,6 +88,9 @@ src/
   types/index.ts                shared data models
 supabase/
   schema.sql                    tables + RLS policies (source of truth for schema)
+automation/                     n8n workflows for the AI automation layer --
+  workflows/*.json               external to the app, see automation/README.md
+  README.md
 .github/workflows/ci.yml        lint + type-check + test on every push/PR to main
 ```
 
@@ -1312,17 +1315,43 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   chain — the node's error output routes to a shared "Handle AI Failure"
   sub-workflow, which flips that clip's `ai_status` to `'failed'` in
   Supabase and sends a Telegram alert. Restoring the key confirmed the
-  happy path resumes cleanly. Every risky node in Workflow 1 has this
-  wired. `retry_ai_processing` itself (the client-facing RPC, and the
-  in-app Retry row) is not yet tested — the recovery check so far used the
-  SQL re-queue trick, not the real retry path.
+  happy path resumes cleanly. **Two nodes were initially missed**
+  (transcript write, extraction-response parse — an original plan-doc gap,
+  not an implementation slip) and found on code review 2026-09-19; both
+  now wired and the transcript-write one confirmed via the same
+  deliberate-break test. **A third gap** — the AssemblyAI poll loop had no
+  maximum iteration count, so a hang would strand a clip at `'pending'`
+  forever the same way — was fixed the same day with a `$runIndex`-based
+  poll counter capped at 24 attempts, verified non-disruptive on a real
+  run (the loop-back path itself wasn't exercised, since that clip
+  resolved on the first poll). **Building that fix introduced a real bug of
+  its own**, caught on the next review pass: the poll counter's Set node
+  silently dropped AssemblyAI's `id` field (n8n only passes through
+  explicitly-assigned fields by default), which would have broken every
+  clip needing more than one poll. Fixed by enabling "Include Other Input
+  Fields." Two smaller issues fixed in the same pass — an alert that
+  always showed "undefined" for AssemblyAI's own error field, and an
+  off-by-one letting 25 polls happen instead of 24 — see
+  `docs/testing-log.md` for the full account. Nine risky spots in
+  Workflow 1 now route to `Handle AI Failure`. `retry_ai_processing`
+  itself (the client-facing RPC, and the in-app Retry row) is not yet
+  tested — the recovery check so far used the SQL re-queue trick, not the
+  real retry path.
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a
-  partially-populated row (a `null` title from a Gemini response that
-  didn't include every schema-required field) rendering gracefully rather
-  than breaking. Not yet exercised on-device: the `ai_status === 'failed'`
-  Retry row, and a row with a real (non-null) `ai_title`.
+  partially-populated row rendering gracefully rather than breaking. That
+  test row's `null` title was attributed here to Gemini omitting a
+  schema-required field — **wrong, corrected 2026-09-19 on code review of
+  PR #124**: the write-back node's field name had a stray `=` prefix
+  (`=ai_field` instead of `ai_title`), so `ai_title` was silently dropped
+  from every PATCH regardless of what Gemini returned. The graceful
+  degradation this entry confirmed is still real and still the right
+  behavior; the cause was misdiagnosed. Fixed same day, in the live n8n
+  workflow — a fresh clip produced a real, non-null `ai_title` for the
+  first time since this feature shipped. Not yet exercised on-device: the
+  `ai_status === 'failed'` Retry row, and `ai_title` rendering in the app
+  UI itself (confirmed at the database level, not yet reloaded in-app).
 
 - **The AI automation layer's weekly recap data + cleanup cron
   (2026-09-19):** `get_weekly_recap_batch()` verified against the live
@@ -1542,6 +1571,79 @@ xcrun swiftc -typecheck \
   -target arm64-apple-ios17.0-simulator \
   targets/widget/widgets.swift targets/widget/index.swift
 ```
+
+## AI automation layer (started 2026-09-16, shipped 2026-09-19)
+
+An n8n Cloud automation layer, external to the app, that: (1) auto-generates
+a title/summary/mood for each clip from its audio, opt-in per partner, and
+(2) sends a warm weekly recap email to both partners. Full design rationale
+lives in [docs/ai-automation-plan.md](docs/ai-automation-plan.md); the full
+verification history (including every bug found while building) is in
+[docs/testing-log.md](docs/testing-log.md)'s 2026-09-16 through -19 entries.
+The n8n workflows themselves, a README covering credentials/re-import, and
+the deviations from the original plan are in
+[automation/](automation/README.md) — start there for the operational
+picture, this section is the "what and why."
+
+**Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
+"AI summaries" toggle, `Switch` bound with an optimistic update since it's
+the one true binary preference in Settings, unlike Pause's date-range
+picker). Each person's own clips are only queued for AI processing if *they*
+turned it on — a couple where one partner has it on and the other doesn't is
+a normal, supported state.
+
+**Architecture:** a Postgres `after insert` trigger on `clips`
+(`clips_queue_ai`, mirroring `clips_notify_partner`'s shape — an upsert
+re-record must not re-queue) calls `queue_clip_for_ai()`, which
+`net.http_post`s to n8n if the sender opted in. n8n signs the clip's Storage
+URL, transcribes via AssemblyAI (chosen over Whisper for accepting a URL
+directly and stronger Tagalog/Taglish support — see the plan doc's
+comparison table), extracts a title/summary/mood, and `PATCH`es the result
+back onto the `clips` row. A separate scheduled workflow
+(`get_weekly_recap_batch()`, Sunday 20:00 UTC) builds a recap letter and
+emails both partners via Resend. Every risky node routes its error output to
+a shared "Handle AI Failure" sub-workflow (per-clip processing) or a
+lightweight Telegram alert (the recap, which has no single clip to mark
+failed) — both confirmed live via deliberate breaks, not just reasoned
+about.
+
+**Mood is a fixed 10-value enum** (`joyful, loving, calm, nostalgic,
+excited, stressed, sad, tired, grateful, neutral`), mapped to an emoji in
+`src/lib/aiMood.ts`. **Transcripts are not persisted in Postgres** — a
+private `transcripts` Storage bucket with a nightly age-based cleanup cron
+(`cleanup_old_transcripts`, mirroring `cleanup_orphaned_clip_files`'s
+Vault-secret + one-request-per-object shape, including the same
+path-anchoring regex guard against a crafted object name path-traversing
+into the delete URL). **The weekly recap is mutual-reveal-gated** — a day
+only counts if both partners posted that day, matching the app's existing
+reveal-gating everywhere else, and avoiding the recap spoiling an entry by
+email before it would ever unlock in-app.
+
+**App-side UI** (`TimelineScreen`, `ClipViewScreen`): `ai_title`/mood emoji
+render in the card header / above the date line, `ai_summary` below the
+caption, all independently of each other — defensive by design, so a
+partially-populated row degrades gracefully instead of one missing field
+blanking the rest. This got a real workout early on for the wrong reason: a
+null `ai_title` was first attributed to Gemini's structured output
+skipping a schema-required field, but was actually an n8n node-naming typo
+in the write-back step (fixed 2026-09-19, see `automation/README.md`) —
+the graceful degradation still did its job either way. A `failed` clip you
+sent shows a muted "AI summary failed — Retry" row calling
+`retry_ai_processing()`, an RPC mirroring `mark_clip_viewed()`'s
+security-definer shape (only your own clip, only if it's actually
+`failed`).
+
+**Extraction currently runs on Gemini (`gemini-3.6-flash`), not Claude
+Haiku as designed** — Anthropic Console billing rejected every card on hand
+mid-build, with no free tier to fall back on. Gemini's `responseSchema` JSON
+mode does the same structured-output job as Claude's tool-use would have.
+Swapping back once billing is sorted is a single-node change in n8n, not a
+redesign — see `automation/README.md`'s "Deviations from the plan."
+
+**Not yet built:** a UI surface for the weekly recap's content inside the
+app itself (it only exists as the email right now) was never part of this
+scope — the recap is deliberately email-only, matching "a warm weekly recap
+email" from the original ask, not an in-app digest.
 
 ## Explicitly out of scope for now
 
