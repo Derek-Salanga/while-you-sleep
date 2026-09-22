@@ -766,7 +766,7 @@
           "value": {
             "clip_id": "={{$('Edit Fields').item.json.clip_id}}",
             "error_message": "={{ typeof $json.error === 'object' ? $json.error.message : $json.error }}",
-            "ai_status": "unprocessable"
+            "ai_status": "={{ /audio|stream|unsupported|file type|codec/i.test(String($json.error)) ? 'unprocessable' : 'failed' }}"
           },
           "matchingColumns": [],
           "schema": [

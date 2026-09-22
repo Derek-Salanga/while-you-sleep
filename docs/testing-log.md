@@ -2106,7 +2106,18 @@ failure came from one specific branch — AssemblyAI's own poll returning
 `status: "error"` — and that is the only branch where the error is about
 the file rather than our pipeline. So only `Call 'Handle AI Failure'5`
 passes `ai_status: unprocessable`; every other error branch still defaults
-to `failed`. `retry_ai_processing()` already refused anything that isn't
+to `failed`. **Refined on code review of PR #126:** that branch isn't
+purely content errors either — AssemblyAI also returns `status: "error"`
+for "Download error, unable to download <url>" (the signed URL is minted
+with `expiresIn: 600`, so a queue backlog past ten minutes or a
+cold-starting Supabase project produces it on a perfectly good clip) and
+"Server error, developers have been alerted". Stamping those
+`unprocessable` would lock a good clip out of Retry with hand SQL as the
+only way back, and the card's "first sentence" would print the signed URL.
+The node now decides by error text — `unprocessable` only on
+`/audio|stream|unsupported|file type|codec/i`, `failed` otherwise. Not
+exercised live (no way to make AssemblyAI produce a download error on
+demand); the no-audio text still matches, which is the path that was. `retry_ai_processing()` already refused anything that isn't
 `'failed'`, so the server-side half of "no Retry" came for free.
 
 **Live SQL** (`ai_error` column, constraint swap, `queue_clip_for_ai`

@@ -1657,8 +1657,14 @@ recording with no audio track is how this was found) — and the card says
 "AI summary unavailable for this clip" with **no** Retry, since re-running
 would fail identically; `retry_ai_processing()` refuses it too, so the
 gate holds at both layers. Only that AssemblyAI poll-error branch in
-Workflow 1 passes `ai_status: unprocessable` to `Handle AI Failure`;
-everything else defaults to `failed`. `clips.ai_error` stores the full
+Workflow 1 can pass `ai_status: unprocessable` to `Handle AI Failure`,
+and even it decides by matching the error text
+(`/audio|stream|unsupported|file type|codec/i`) — AssemblyAI returns
+`status: "error"` for its own transient problems too ("Download error,
+unable to download <url>" when the 10-minute signed URL expires behind a
+queue backlog, "Server error, developers have been alerted"), and those
+must stay `failed` or a good clip gets locked out of Retry for good.
+Everything else defaults to `failed`. `clips.ai_error` stores the full
 reason on both, and `queue_clip_for_ai()` clears it on every re-queue so a
 stale message can't outlive a retry. The card shows the reason (first
 sentence, one line) **only for unprocessable** — it explains why Retry is

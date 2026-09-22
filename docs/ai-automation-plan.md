@@ -379,7 +379,7 @@ Set the **workflow's timezone to UTC** explicitly (n8n Cloud otherwise defaults 
 
 ## n8n Workflow 3: "Handle AI Failure" (shared sub-workflow)
 
-Called via **Execute Workflow** from Workflow 1's error branches, given `clip_id` and an error message. The AssemblyAI poll-error branch (step 5's `status: "error"`) additionally passes `ai_status: "unprocessable"` — that is the one place the error is about the file rather than the pipeline.
+Called via **Execute Workflow** from Workflow 1's error branches, given `clip_id` and an error message. The AssemblyAI poll-error branch (step 5's `status: "error"`) additionally passes `ai_status`, set to `"unprocessable"` only when the error text matches `/audio|stream|unsupported|file type|codec/i` and `"failed"` otherwise — AssemblyAI uses `status: "error"` for its own download/server errors too, which are transient and must keep Retry.
 
 1. **Execute Workflow Trigger** — inputs `clip_id`, `error_message`, `ai_status` (optional).
 2. **HTTP Request** — `PATCH {SUPABASE_URL}/rest/v1/clips?id=eq.{{clip_id}}`, service_role key, body `{"ai_status": ai_status || "failed", "ai_error": error_message}`.
