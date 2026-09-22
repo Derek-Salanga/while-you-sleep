@@ -1059,8 +1059,16 @@ create trigger clips_notify_partner
 -- service_role key, which bypasses RLS -- same reason
 -- cleanup_orphaned_clip_files needs no clips policy of its own.
 -- clips_update_own_as_sender is untouched.
+--
+-- 'failed' is retryable; 'unprocessable' is not. Only AssemblyAI's own
+-- content rejection (its poll response saying status = "error", e.g. "No
+-- audio stream found in the file") sets the latter -- re-running the same
+-- file would fail identically, so the app hides Retry and
+-- retry_ai_processing() refuses it. Every other failure (HTTP exceptions,
+-- poll timeout, a malformed extraction response) is 'failed'.
 alter table clips
-  add column if not exists ai_status text check (ai_status is null or ai_status in ('pending', 'completed', 'failed')),
+  add column if not exists ai_status text check (ai_status is null or ai_status in ('pending', 'completed', 'failed', 'unprocessable')),
+  add column if not exists ai_error text,
   add column if not exists ai_title text,
   add column if not exists ai_summary text,
   add column if not exists ai_mood text check (
@@ -1069,6 +1077,14 @@ alter table clips
       'stressed', 'sad', 'tired', 'grateful', 'neutral'
     )
   );
+
+-- 'unprocessable' was added after ai_status shipped, and `add column if not
+-- exists` never re-applies an inline check on an existing column, so the
+-- constraint has to be swapped explicitly for the live project. Postgres
+-- names an inline check <table>_<column>_check.
+alter table clips drop constraint if exists clips_ai_status_check;
+alter table clips add constraint clips_ai_status_check
+  check (ai_status is null or ai_status in ('pending', 'completed', 'failed', 'unprocessable'));
 
 -- Transcript storage: private bucket, no schema column -- path is
 -- deterministic (<pair_id>/<clip_id>.txt). n8n writes with the
@@ -1104,7 +1120,9 @@ begin
     return;
   end if;
 
-  update clips set ai_status = 'pending' where id = target_clip_id;
+  -- ai_error is cleared here rather than on success, so a retry that's
+  -- still in flight doesn't keep showing the previous attempt's reason.
+  update clips set ai_status = 'pending', ai_error = null where id = target_clip_id;
 
   -- Real subdomain deliberately not committed -- this is a public
   -- portfolio repo. Set directly on the live function via the SQL

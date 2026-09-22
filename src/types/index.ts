@@ -43,7 +43,10 @@ export interface Clip {
   created_at: string;
   // AI automation layer (see docs/ai-automation-plan.md). null/'pending' both
   // render nothing -- 'pending' just means processing hasn't finished yet.
-  ai_status: 'pending' | 'completed' | 'failed' | null;
+  // 'failed' is retryable; 'unprocessable' is not (the file itself was
+  // rejected, e.g. no audio track) and retry_ai_processing() refuses it.
+  ai_status: 'pending' | 'completed' | 'failed' | 'unprocessable' | null;
+  ai_error: string | null; // why it failed, cleared on re-queue
   ai_title: string | null;
   ai_summary: string | null;
   ai_mood: AiMood | null;

@@ -185,6 +185,28 @@ export default function TimelineScreen({ navigation }: any) {
               </Text>
             </Pressable>
           )}
+          {/* No Retry here: the file itself was rejected (e.g. no audio
+              track), so re-running would fail identically. The RPC refuses
+              it too -- this is the UI half of that same gate. */}
+          {item.ai_status === 'unprocessable' && mine && (
+            <>
+              <Text style={styles.cardAiFailed}>
+                AI summary unavailable for this clip
+              </Text>
+              {/* Only this status shows its reason: it's about the user's
+                  own file ("No audio stream found in the file."), so it
+                  explains why Retry isn't offered. A 'failed' clip's reason
+                  is an HTTP body from our pipeline -- meaningless on a card,
+                  so it stays in the row and the Telegram alert. First
+                  sentence only: AssemblyAI trails off into file-type
+                  detail. */}
+              {item.ai_error && (
+                <Text style={styles.cardAiError} numberOfLines={1}>
+                  {item.ai_error.split('. ')[0]}
+                </Text>
+              )}
+            </>
+          )}
         </Card>
       </Animated.View>
     );
@@ -324,6 +346,12 @@ const makeStyles = (t: Theme) =>
     cardAiRetry: {
       fontFamily: fonts.bodySemiBold,
       color: t.accent,
+    },
+    cardAiError: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      marginTop: 2,
     },
     pressed: {
       opacity: 0.7,
