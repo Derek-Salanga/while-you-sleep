@@ -2079,8 +2079,8 @@ came back `status: "error"`, routed through `If1` → `Call 'Handle AI
 Failure'5`, and the Telegram alert read "No audio stream found in the
 file. File type is video/quicktime (ISO Media, Apple QuickTime movie…)".
 That's the real AssemblyAI error text arriving intact, which doubles as
-live confirmation of the `typeof` guard fix from the sixth review pass
-(it would have read `: undefined` before). Retry can't fix a file with no
+live confirmation of the `typeof` guard fix on `'5` from the fourth
+review pass (it would have read `: undefined` before). Retry can't fix a file with no
 audio, so this clip is correctly stuck at `failed` — but it exposes a UX
 gap: the app keeps offering a Retry that can never succeed, with no way
 to tell a transient failure from a permanent one. Accepted for now; an
