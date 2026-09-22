@@ -26,7 +26,8 @@ alter table profiles
 
 -- === AI automation: per-clip result fields ===
 alter table clips
-  add column ai_status text check (ai_status is null or ai_status in ('pending', 'completed', 'failed')),
+  add column ai_status text check (ai_status is null or ai_status in ('pending', 'completed', 'failed', 'unprocessable')),
+  add column ai_error text, -- why it failed; cleared by queue_clip_for_ai on re-queue
   add column ai_title text,
   add column ai_summary text,
   add column ai_mood text check (
@@ -35,7 +36,10 @@ alter table clips
       'stressed', 'sad', 'tired', 'grateful', 'neutral'
     )
   );
--- ai_status null = never queued (sender had AI off). No new clips RLS
+-- ai_status null = never queued (sender had AI off). 'failed' is retryable;
+-- 'unprocessable' is not (AssemblyAI rejected the file itself, e.g. no audio
+-- track) -- added 2026-09-21 after a real no-audio clip showed a Retry that
+-- could never succeed. No new clips RLS
 -- policy: n8n writes these back with the service_role key, which bypasses
 -- RLS -- same reason cleanup_orphaned_clip_files needs no clips policy.
 -- clips_update_own_as_sender is untouched.
@@ -64,7 +68,7 @@ begin
     return;
   end if;
 
-  update clips set ai_status = 'pending' where id = target_clip_id;
+  update clips set ai_status = 'pending', ai_error = null where id = target_clip_id;
 
   perform net.http_post(
     url := 'https://<your-subdomain>.app.n8n.cloud/webhook/clip-ai',
@@ -126,6 +130,7 @@ begin
     raise exception 'Can only retry your own clip';
   end if;
   if clip_row.ai_status != 'failed' then
+    -- also refuses 'unprocessable' -- the UI hides Retry for it, this is the server half
     raise exception 'Clip is not in a failed state';
   end if;
   perform queue_clip_for_ai(target_clip_id);
@@ -374,10 +379,10 @@ Set the **workflow's timezone to UTC** explicitly (n8n Cloud otherwise defaults 
 
 ## n8n Workflow 3: "Handle AI Failure" (shared sub-workflow)
 
-Called via **Execute Workflow** from Workflow 1's error branches, given `clip_id` and an error message.
+Called via **Execute Workflow** from Workflow 1's error branches, given `clip_id` and an error message. The AssemblyAI poll-error branch (step 5's `status: "error"`) additionally passes `ai_status`, set to `"unprocessable"` only when the error text matches `/audio|stream|unsupported|file type|codec/i` and `"failed"` otherwise — AssemblyAI uses `status: "error"` for its own download/server errors too, which are transient and must keep Retry.
 
-1. **Execute Workflow Trigger** — inputs `clip_id`, `error_message`.
-2. **HTTP Request** — `PATCH {SUPABASE_URL}/rest/v1/clips?id=eq.{{clip_id}}`, service_role key, body `{"ai_status": "failed"}`.
+1. **Execute Workflow Trigger** — inputs `clip_id`, `error_message`, `ai_status` (optional).
+2. **HTTP Request** — `PATCH {SUPABASE_URL}/rest/v1/clips?id=eq.{{clip_id}}`, service_role key, body `{"ai_status": ai_status || "failed", "ai_error": error_message}`.
 3. **Telegram** (n8n's built-in node, bot token + chat ID as credentials) — `sendMessage`: `"AI processing failed for clip {{clip_id}}: {{error_message}}"`.
 
 Set up a Telegram bot via BotFather if one doesn't already exist — that's a build-order step, not a design decision.
@@ -399,11 +404,11 @@ Worth a look later only if AssemblyAI's real-world Taglish accuracy underwhelms:
 
 ## App-side UI changes
 
-- `src/types/index.ts`: add to `Profile`: `ai_enabled: boolean`. Add to `Clip`: `ai_status: 'pending' | 'completed' | 'failed' | null`, `ai_title: string | null`, `ai_summary: string | null`, `ai_mood: string | null`. No query changes needed — `useClips`/`useClip`/`useProfile` already `select('*')`.
+- `src/types/index.ts`: add to `Profile`: `ai_enabled: boolean`. Add to `Clip`: `ai_status: 'pending' | 'completed' | 'failed' | 'unprocessable' | null`, `ai_error: string | null`, `ai_title: string | null`, `ai_summary: string | null`, `ai_mood: string | null`. No query changes needed — `useClips`/`useClip`/`useProfile` already `select('*')`.
 - `src/hooks/mutations.ts`: add `useSetAiEnabled({userId, enabled})` — plain `.update()` on `profiles` (own row, existing `profiles_update_own` policy covers it — no RPC needed, matching the nickname-editing precedent), invalidates `['profile']`. Add `useRetryAiProcessing(clipId)` — `supabase.rpc('retry_ai_processing', ...)`, invalidates `['clips']`, mirroring `useMarkClipViewed`.
 - `src/screens/SettingsScreen.tsx`: new row, "AI summaries" (or similar), using React Native's built-in `<Switch>` — this is a true binary preference, unlike Pause's date-range picker, so `Switch` is the right native fit rather than forcing it into the expand-to-edit-card pattern. Bound to `myProfile.ai_enabled`, calls `useSetAiEnabled`.
 - `src/lib/aiMood.ts` (new, small): a plain object mapping each of the 10 mood strings to an emoji, imported by Timeline and ClipView.
-- `src/screens/TimelineScreen.tsx`: when `ai_status === 'completed'`, render `ai_title` in the card header area and the mood emoji next to the existing reaction/unwatched badges in `cardHeaderRight`; render `ai_summary` below `caption_text` (same non-truncated style). When `ai_status === 'failed'` **and** you're the sender, render a small muted "AI summary failed — Retry" row calling `useRetryAiProcessing`. `ai_status === 'pending'`/`null` render nothing extra (no spinner needed for v1 — processing normally finishes well under a minute).
+- `src/screens/TimelineScreen.tsx`: when `ai_status === 'completed'`, render `ai_title` in the card header area and the mood emoji next to the existing reaction/unwatched badges in `cardHeaderRight`; render `ai_summary` below `caption_text` (same non-truncated style). When `ai_status === 'failed'` **and** you're the sender, render a small muted "AI summary failed — Retry" row calling `useRetryAiProcessing`. When `ai_status === 'unprocessable'` and you're the sender, render "AI summary unavailable for this clip" plus the first sentence of `ai_error` on one line, with no Retry (the reason is shown only here — it explains the missing Retry; a `failed` clip's reason is an HTTP body and stays in the row/Telegram). `ai_status === 'pending'`/`null` render nothing extra (no spinner needed for v1 — processing normally finishes well under a minute).
 - `src/screens/ClipViewScreen.tsx`: same placement logic as `caption_text` — `ai_title`/`ai_summary` above the date line (content above metadata), mood emoji inline.
 
 ---

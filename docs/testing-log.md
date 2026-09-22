@@ -2095,3 +2095,55 @@ video clip is shared with a simple caption marking it as a favorite
 moment.") below the caption. First time the title has been seen rendered
 on a screen rather than in a database row — every earlier on-device pass
 predated the `=ai_field` fix.
+
+## 2026-09-21 — AI automation layer: `unprocessable` status and `ai_error`, real device
+
+Closes the UX gap the entry above left open. Same iPhone, same account,
+same two clips.
+
+**Why a second status rather than a retry cap.** The no-audio clip's
+failure came from one specific branch — AssemblyAI's own poll returning
+`status: "error"` — and that is the only branch where the error is about
+the file rather than our pipeline. So only `Call 'Handle AI Failure'5`
+passes `ai_status: unprocessable`; every other error branch still defaults
+to `failed`. **Refined on code review of PR #126:** that branch isn't
+purely content errors either — AssemblyAI also returns `status: "error"`
+for "Download error, unable to download <url>" (the signed URL is minted
+with `expiresIn: 600`, so a queue backlog past ten minutes or a
+cold-starting Supabase project produces it on a perfectly good clip) and
+"Server error, developers have been alerted". Stamping those
+`unprocessable` would lock a good clip out of Retry with hand SQL as the
+only way back, and the card's "first sentence" would print the signed URL.
+The node now decides by error text — `unprocessable` only on
+`/audio|stream|unsupported|file type|codec/i`, `failed` otherwise. Not
+exercised live (no way to make AssemblyAI produce a download error on
+demand); the no-audio text still matches, which is the path that was. `retry_ai_processing()` already refused anything that isn't
+`'failed'`, so the server-side half of "no Retry" came for free.
+
+**Live SQL** (`ai_error` column, constraint swap, `queue_clip_for_ai`
+clearing `ai_error` on re-queue): the verify query returned three `true`s,
+including a `pg_proc.prosrc` check that the function replace actually
+took.
+
+**Permanent path.** Re-queued the no-audio clip ("yeahh"). The Timeline
+card now reads "AI summary unavailable for this clip" with the reason on
+one line beneath, and no Retry row. The reason was first shown in full
+(two lines, trailing into "File type is video/quicktime (ISO Media…") —
+the user called it too long, so it's cut to the first sentence: "No audio
+stream found in the file".
+
+**Transient path, and clear-on-requeue.** Broke the Gemini key on `HTTP
+Request4`, published, re-queued the good clip ("fave"). The card showed
+"AI summary failed — Retry" with Gemini's raw `401 - "{\n \"error\"…`
+body under it. The user's read: "the error is weird from a users point
+of view" — right, it's an HTTP body from our side and the user can't act
+on it beyond Retry. So `ai_error` is now rendered only on the
+unprocessable row, where it explains *why* Retry is missing. Restored the
+key, published, tapped Retry: the card came back with a fresh title ("A
+Moment with My Favorite"), 🥰, and summary, and no reason line — so the
+re-queue cleared `ai_error` and the write-back completed.
+
+Metro was run detached (`nohup npx expo start --dev-client --tunnel &
+disown`) for this pass — the session's memory watchdog kills a foreground
+background task between turns, which is the same harness snag recorded
+under "EAS Build" in `CLAUDE.md`, just with a different fix.

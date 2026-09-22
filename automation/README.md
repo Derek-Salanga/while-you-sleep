@@ -22,7 +22,8 @@ AI Clip Tag Workflow (clip-ai-processing.json)
        | any risky node's error output
        v
 Handle AI Failure (handle-ai-failure.json)
-  PATCH clips ai_status='failed' + Telegram alert
+  PATCH clips ai_status='failed' (or 'unprocessable' when AssemblyAI
+  rejected the file itself) + ai_error, then Telegram alert
 
 Weekly Recap (weekly-recap.json)  -- runs on its own schedule, not chained
   Sunday 20:00 UTC -> get_weekly_recap_batch() -> drop empty pairs

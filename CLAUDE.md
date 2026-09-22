@@ -1340,11 +1340,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   The test clip happened to be one AssemblyAI can never transcribe
   ("No audio stream found in the file", a genuine content error on an
   old test recording), which also confirmed that AssemblyAI's own error
-  text now reaches Telegram intact via the type-guard fix. Note the UX
-  gap this exposes: a clip that *can't* succeed still shows a Retry row
-  that will fail every time — the app has no way to tell "transient
-  failure, retry" from "this file has no audio, give up." Accepted for
-  now; an `ai_error` column or a retry cap would be the fix.
+  text now reaches Telegram intact via the type-guard fix. That exposed
+  a UX gap — a clip that *can't* succeed kept showing a Retry row that
+  failed every time — **closed the same day with the `'unprocessable'`
+  status + `ai_error` column** (see "AI automation layer"). Both paths
+  confirmed on device: the no-audio clip shows "AI summary unavailable
+  for this clip / No audio stream found in the file" with no Retry, and
+  a deliberately broken Gemini key on a good clip shows "AI summary
+  failed — Retry", which after restoring the key completed and cleared
+  `ai_error`.
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a
@@ -1644,6 +1648,28 @@ sent shows a muted "AI summary failed — Retry" row calling
 `retry_ai_processing()`, an RPC mirroring `mark_clip_viewed()`'s
 security-definer shape (only your own clip, only if it's actually
 `failed`).
+
+**Two failure statuses, not one (2026-09-21).** `'failed'` means the
+pipeline broke (a key, a 503, a timeout) and Retry is offered.
+`'unprocessable'` means AssemblyAI itself rejected the file — the one
+branch where the error is about the clip, not the plumbing (a test
+recording with no audio track is how this was found) — and the card says
+"AI summary unavailable for this clip" with **no** Retry, since re-running
+would fail identically; `retry_ai_processing()` refuses it too, so the
+gate holds at both layers. Only that AssemblyAI poll-error branch in
+Workflow 1 can pass `ai_status: unprocessable` to `Handle AI Failure`,
+and even it decides by matching the error text
+(`/audio|stream|unsupported|file type|codec/i`) — AssemblyAI returns
+`status: "error"` for its own transient problems too ("Download error,
+unable to download <url>" when the 10-minute signed URL expires behind a
+queue backlog, "Server error, developers have been alerted"), and those
+must stay `failed` or a good clip gets locked out of Retry for good.
+Everything else defaults to `failed`. `clips.ai_error` stores the full
+reason on both, and `queue_clip_for_ai()` clears it on every re-queue so a
+stale message can't outlive a retry. The card shows the reason (first
+sentence, one line) **only for unprocessable** — it explains why Retry is
+missing. A `failed` clip's reason is an HTTP body from our side and means
+nothing to a user; it lives in the row and the Telegram alert.
 
 **Extraction currently runs on Gemini (`gemini-3.6-flash`), not Claude
 Haiku as designed** — Anthropic Console billing rejected every card on hand

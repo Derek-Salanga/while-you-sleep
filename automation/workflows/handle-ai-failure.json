@@ -10,6 +10,9 @@
             },
             {
               "name": "error_message"
+            },
+            {
+              "name": "ai_status"
             }
           ]
         }
@@ -44,7 +47,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ ai_status: \"failed\" }) }}",
+        "body": "={{ JSON.stringify({ ai_status: $json.ai_status || \"failed\", ai_error: $json.error_message }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
