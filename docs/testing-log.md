@@ -2056,3 +2056,42 @@ unconnected — so if it ever failed (e.g. not re-selected after a fresh
 import), the error would be swallowed, the execution would show green,
 and the clip would sit at `'pending'` with no alert. Reset to the default
 "Stop Workflow" so it fails visibly like the other eight.
+
+## 2026-09-21 — AI automation layer: in-app Retry and title rendering, real device
+
+The two testing items left open after PR #124 merged, both closed on a
+real iPhone (dev client over tunnel Metro, account `dereksalanga@gmail.com`).
+
+**The in-app Retry row and `retry_ai_processing()` RPC.** Deliberately
+failed one of that account's own clips (broke the Gemini key, re-queued
+that specific clip by id, confirmed `ai_status = 'failed'`), then tapped
+the Timeline card's "AI summary failed — Retry" row. It genuinely re-ran
+the whole pipeline — a fresh n8n execution, fresh signed URL, new
+AssemblyAI submission — twice, not a no-op. So the RPC's
+`sender_id = auth.uid()` / `ai_status = 'failed'` gate and the app's
+invalidate-on-success both work through the real client path, not just
+the SQL re-queue trick used for every earlier recovery check.
+
+It kept failing after the key was restored, which turned out to be a
+**genuine, unrelated content error**: this particular clip (an old test
+recording, caption "yeahh") has no audio track at all — AssemblyAI's poll
+came back `status: "error"`, routed through `If1` → `Call 'Handle AI
+Failure'5`, and the Telegram alert read "No audio stream found in the
+file. File type is video/quicktime (ISO Media, Apple QuickTime movie…)".
+That's the real AssemblyAI error text arriving intact, which doubles as
+live confirmation of the `typeof` guard fix on `'5` from the fourth
+review pass (it would have read `: undefined` before). Retry can't fix a file with no
+audio, so this clip is correctly stuck at `failed` — but it exposes a UX
+gap: the app keeps offering a Retry that can never succeed, with no way
+to tell a transient failure from a permanent one. Accepted for now; an
+`ai_error` column surfaced on the card, or a retry cap, would close it.
+
+**`ai_title` rendering in the app.** Re-queued a different clip of the
+same account with real audio (caption "fave"), watched it complete through
+the write-back, pulled to refresh. The Timeline card shows all three AI
+fields exactly as designed: title "Sharing a Favorite Moment" between the
+sender name and date, 🥰 mood emoji top-right, and the summary ("A quiet
+video clip is shared with a simple caption marking it as a favorite
+moment.") below the caption. First time the title has been seen rendered
+on a screen rather than in a database row — every earlier on-device pass
+predated the `=ai_field` fix.
