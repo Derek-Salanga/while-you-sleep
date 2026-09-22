@@ -1386,6 +1386,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   observed: an actual scheduled (non-manual) firing.
 
 **Not verified:**
+- The reworked Timeline card (see "Timeline card layout"): day headers,
+  full-width cards, the leading unwatched dot, the 16pt caption, the `✦` AI
+  block with its two-line summary cap, and a 20-char nickname truncating
+  rather than pushing reactions off the row — on either platform, in either
+  theme. Type-check, lint and the contrast tests pass; nobody has looked at
+  it on a device yet
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
@@ -1461,6 +1467,48 @@ palette/type proposals:
 - **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
+
+## Timeline card layout (2026-09-21)
+
+Reworked because the cards had grown to nine possible elements with four
+text styles that collapsed into two: the sender label and the AI title
+shared one style, the caption and the AI summary shared another, and a
+reaction, the AI mood emoji and the unwatched dot all sat in one corner at
+emoji size. The crowding was undifferentiated information, not too much of
+it. The full inventory and the before/after are in the plan that drove it;
+what's load-bearing now:
+
+- **Hierarchy, top to bottom:** a muted `● Name` row, the caption in the
+  largest text on the card (Inter 16), then the AI block in muted 14. The
+  caption is the content; the fill and edge already say whose card it is, so
+  the name doesn't need to be loud.
+- **Date is a day header, not a card field.** One `TODAY` / `YESTERDAY` /
+  `AUG 25` line per day, rendered inside `renderItem` when the previous
+  item's `recorded_for_date` differs — no `SectionList`. Both partners'
+  cards sit under it, so a day only one of you posted on is visible as one
+  card instead of two.
+- **Cards are full width.** They used to hang off opposite sides at 80%
+  like chat bubbles; both clips answer the same question, so they're
+  siblings under a day header, not conversational turns, and the lost width
+  was what made captions and nicknames wrap. Ownership is now fill + edge +
+  name (three signals, down from four). The fill carries at a glance, the
+  edge is the ≥3:1 accessible one — see `themes.test.ts`.
+- **The AI block is marked with `✦`** (title line: `✦ {title} {mood}`),
+  the same on `ClipViewScreen`, so the mood emoji can't be mistaken for a
+  reaction and the summary can't be mistaken for the caption. The summary
+  is capped at two lines on the card (full in ClipView); the caption is
+  still never truncated.
+- **The unwatched dot leads the name**, where Mail/Messages put theirs.
+  Reactions are the only thing at header-right.
+- **No legend.** Considered and rejected: every part now self-labels, and
+  the blue/orange code is printed with a name on every card. If one is ever
+  wanted, the safe shape is a root-stack screen like `ClipView` (no Modal),
+  not a sheet or a first-run overlay.
+
+Nothing new on the theme side: the only pairs used are `textPrimary` /
+`textMuted` on `fillYou` / `fillPartner`, all already asserted at ≥4.5:1 in
+both themes. The tightest is `paperMuted` on `nightFillPartner` (~4.5:1),
+which is exactly where the muted name and AI block sit in dark mode.
 
 ## iOS home screen widget (Days together)
 

@@ -207,10 +207,11 @@ export default function ClipViewScreen({ route, navigation }: any) {
           doesn't reliably include every schema-required field, so a row can
           have a mood with no title (or vice versa). Joined rather than two
           separate elements to avoid a stray leading gap when title is
-          missing. */}
+          missing. The ✦ marks it as AI-written, same as on the Timeline
+          card. */}
       {clip.ai_status === 'completed' && (clip.ai_title || clip.ai_mood) && (
         <Text style={styles.aiTitle}>
-          {[clip.ai_title, clip.ai_mood ? AI_MOOD_EMOJI[clip.ai_mood] : null]
+          {['✦', clip.ai_title, clip.ai_mood && AI_MOOD_EMOJI[clip.ai_mood]]
             .filter(Boolean)
             .join('  ')}
         </Text>

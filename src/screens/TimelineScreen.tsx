@@ -116,6 +116,12 @@ export default function TimelineScreen({ navigation }: any) {
   function renderItem({ item, index }: { item: Clip; index: number }) {
     const mine = isMine(item);
     const unwatched = !mine && !item.viewed_at;
+    // The list is ordered by recorded_for_date, so both partners' clips for a
+    // day are adjacent and one header covers them. No SectionList needed.
+    const showDay =
+      index === 0 ||
+      clips[index - 1].recorded_for_date !== item.recorded_for_date;
+    const aiDone = item.ai_status === 'completed';
 
     const entering = entranceDone.current
       ? undefined
@@ -127,16 +133,26 @@ export default function TimelineScreen({ navigation }: any) {
 
     return (
       <Animated.View entering={entering}>
+        {showDay && (
+          <Text
+            style={[styles.dayHeader, index === 0 && styles.dayHeaderFirst]}
+          >
+            {formatClipDate(item.recorded_for_date)}
+          </Text>
+        )}
         <Card
           onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
           style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
         >
           <View style={styles.cardHeader}>
-            <Text style={styles.cardSender}>
-              {mine
-                ? (myProfile?.display_name ?? 'You')
-                : (partnerName ?? 'Your partner')}
-            </Text>
+            <View style={styles.cardHeaderLeft}>
+              {unwatched && <View style={styles.unwatchedDot} />}
+              <Text style={styles.cardSender} numberOfLines={1}>
+                {mine
+                  ? (myProfile?.display_name ?? 'You')
+                  : (partnerName ?? 'Your partner')}
+              </Text>
+            </View>
             <View style={styles.cardHeaderRight}>
               {/* Both sides' reactions, not just the partner's -- on your own
                   card theirs is the reply you want to see, and on theirs it's
@@ -148,25 +164,26 @@ export default function TimelineScreen({ navigation }: any) {
                     {r.emoji}
                   </Text>
                 ))}
-              {item.ai_status === 'completed' && item.ai_mood && (
-                <Text style={styles.cardReaction}>
-                  {AI_MOOD_EMOJI[item.ai_mood]}
-                </Text>
-              )}
-              {unwatched && <View style={styles.unwatchedDot} />}
             </View>
           </View>
-          {item.ai_status === 'completed' && item.ai_title && (
-            <Text style={styles.cardAiTitle}>{item.ai_title}</Text>
-          )}
-          <Text style={styles.cardDate}>
-            {formatClipDate(item.recorded_for_date)}
-          </Text>
           {item.caption_text && (
             <Text style={styles.cardCaption}>{item.caption_text}</Text>
           )}
-          {item.ai_status === 'completed' && item.ai_summary && (
-            <Text style={styles.cardCaption}>{item.ai_summary}</Text>
+          {/* The AI block is one muted group under a ✦, so the mood emoji
+              can't be read as a reaction and the summary can't be read as
+              the caption. Title and mood render independently (a row can
+              have one without the other) but share a line. */}
+          {aiDone && (item.ai_title || item.ai_mood) && (
+            <Text style={styles.cardAiTitle}>
+              {['✦', item.ai_title, item.ai_mood && AI_MOOD_EMOJI[item.ai_mood]]
+                .filter(Boolean)
+                .join(' ')}
+            </Text>
+          )}
+          {aiDone && item.ai_summary && (
+            <Text style={styles.cardAiSummary} numberOfLines={2}>
+              {item.ai_summary}
+            </Text>
           )}
           {item.ai_status === 'failed' && mine && (
             <Pressable
@@ -268,18 +285,41 @@ const makeStyles = (t: Theme) =>
     },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     list: { paddingBottom: 20 },
+    // Once per day, not per card: both partners' clips for a day sit under
+    // it, which is also what makes a day only one of you posted on visible
+    // at a glance (one card under the header instead of two).
+    dayHeader: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginTop: 20,
+      marginBottom: 8,
+    },
+    dayHeaderFirst: {
+      marginTop: 8,
+    },
     card: {
       padding: 18,
-      marginBottom: 12,
+      marginBottom: 8,
     },
-    // Whose card it is has three signals, deliberately: the fill, a 4pt edge
-    // in the full-strength colour, and which side it hangs off. The tints
-    // these used to be filled with sat ~4% off `background`, so at a glance
-    // the whole feed read as one column of white cards.
+    // Whose card it is has two visual signals plus the name: the fill and a
+    // 4pt edge in the full-strength colour. The tints these used to be
+    // filled with sat ~4% off `background`, so at a glance the whole feed
+    // read as one column of white cards.
     //
-    // The edge is what actually carries at a glance; the fill stays soft
-    // rather than saturated so it doesn't compete with HeroCard, which sits
-    // directly above the list already in full-strength primary/secondary.
+    // The fill is what carries at a glance (area beats a line); the edge is
+    // the one that clears 3:1 for anyone the wash doesn't reach. The fill
+    // stays soft rather than saturated so it doesn't compete with HeroCard,
+    // which sits directly above the list already in full-strength
+    // primary/secondary.
+    //
+    // Cards are full width on purpose. They used to hang off opposite sides
+    // at 80% like chat bubbles, but both clips on a day answer the same
+    // question -- siblings under one day header, not turns in a
+    // conversation -- and the lost width was what made captions and
+    // nicknames wrap.
     //
     // borderLeftWidth/Color override the 1pt border Card sets, since this
     // style is merged last (see ui/Card.tsx).
@@ -288,29 +328,35 @@ const makeStyles = (t: Theme) =>
       borderColor: t.fillYou,
       borderLeftWidth: 4,
       borderLeftColor: t.edgeYou,
-      alignSelf: 'flex-end',
-      width: '80%',
     },
     cardPartner: {
       backgroundColor: t.fillPartner,
       borderColor: t.fillPartner,
       borderLeftWidth: 4,
       borderLeftColor: t.edgePartner,
-      alignSelf: 'flex-start',
-      width: '80%',
     },
     cardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: 8,
     },
+    // flexShrink so a 20-char nickname truncates rather than pushing the
+    // reactions off the row.
+    cardHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 1,
+    },
+    // Muted, not primary: the fill and edge already say whose card it is,
+    // and the caption below is meant to be the first thing read.
     cardSender: {
-      fontFamily: fonts.bodySemiBold,
+      fontFamily: fonts.bodyMedium,
       fontSize: fontSizes.sm,
-      color: t.textPrimary,
+      color: t.textMuted,
+      flexShrink: 1,
     },
-    // Groups the reactions with the unwatched dot so cardHeader stays a
-    // two-child space-between row rather than needing per-item spacing.
     cardHeaderRight: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -319,23 +365,29 @@ const makeStyles = (t: Theme) =>
     cardReaction: {
       fontSize: fontSizes.md,
     },
+    // Leads the name, where Mail and Messages put their unread dot -- it
+    // used to trail the reactions at the far end of the row, where an 8pt
+    // dot beside 16pt emoji read as a stray.
     unwatchedDot: {
       width: 8,
       height: 8,
       borderRadius: 4,
       backgroundColor: t.danger,
     },
-    cardDate: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.xs,
-      color: t.textMuted,
-      marginTop: 4,
-    },
     cardAiTitle: {
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.sm,
-      color: t.textPrimary,
-      marginTop: 4,
+      color: t.textMuted,
+      marginTop: 10,
+    },
+    // Capped at two lines here only; ClipViewScreen shows it in full. The
+    // summary is secondary and was what made processed cards tall.
+    cardAiSummary: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.textMuted,
+      lineHeight: 20,
+      marginTop: 2,
     },
     cardAiFailed: {
       fontFamily: fonts.body,
@@ -356,13 +408,15 @@ const makeStyles = (t: Theme) =>
     pressed: {
       opacity: 0.7,
     },
-    // Not truncated: captions are short by design, and ClipViewScreen shows the
-    // same text in full, so the two surfaces stay consistent.
+    // The largest text on the card: the caption is the content, everything
+    // else is about it. Not truncated: captions are short by design, and
+    // ClipViewScreen shows the same text in full, so the two surfaces stay
+    // consistent.
     cardCaption: {
       fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
+      fontSize: fontSizes.md,
       color: t.textPrimary,
-      lineHeight: 20,
+      lineHeight: 22,
       marginTop: 8,
     },
     empty: {
