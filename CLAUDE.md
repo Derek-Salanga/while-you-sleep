@@ -1333,10 +1333,18 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   always showed "undefined" for AssemblyAI's own error field, and an
   off-by-one letting 25 polls happen instead of 24 — see
   `docs/testing-log.md` for the full account. Nine risky spots in
-  Workflow 1 now route to `Handle AI Failure`. `retry_ai_processing`
-  itself (the client-facing RPC, and the in-app Retry row) is not yet
-  tested — the recovery check so far used the SQL re-queue trick, not the
-  real retry path.
+  Workflow 1 now route to `Handle AI Failure`. **The real retry path is
+  confirmed too (2026-09-21):** tapping the in-app Retry row on a `failed`
+  clip calls `retry_ai_processing()` and genuinely re-runs the whole
+  pipeline (fresh signed URL, new AssemblyAI submission) — not a no-op.
+  The test clip happened to be one AssemblyAI can never transcribe
+  ("No audio stream found in the file", a genuine content error on an
+  old test recording), which also confirmed that AssemblyAI's own error
+  text now reaches Telegram intact via the type-guard fix. Note the UX
+  gap this exposes: a clip that *can't* succeed still shows a Retry row
+  that will fail every time — the app has no way to tell "transient
+  failure, retry" from "this file has no audio, give up." Accepted for
+  now; an `ai_error` column or a retry cap would be the fix.
 
 - **The AI automation layer's Timeline/ClipView UI (2026-09-18):**
   `ai_title`/`ai_summary`/mood emoji render on a real device, including a
@@ -1349,9 +1357,13 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   degradation this entry confirmed is still real and still the right
   behavior; the cause was misdiagnosed. Fixed same day, in the live n8n
   workflow — a fresh clip produced a real, non-null `ai_title` for the
-  first time since this feature shipped. Not yet exercised on-device: the
-  `ai_status === 'failed'` Retry row, and `ai_title` rendering in the app
-  UI itself (confirmed at the database level, not yet reloaded in-app).
+  first time since this feature shipped. **Both remaining UI pieces
+  confirmed on-device 2026-09-21:** the `ai_status === 'failed'` Retry row
+  renders on your own failed clip, and a freshly-processed clip shows all
+  three AI fields on its Timeline card exactly as designed — title
+  ("Sharing a Favorite Moment") between the sender name and date, mood
+  emoji (🥰) top-right beside the reaction/unwatched badges, and the
+  summary below the caption.
 
 - **The AI automation layer's weekly recap data + cleanup cron
   (2026-09-19):** `get_weekly_recap_batch()` verified against the live
