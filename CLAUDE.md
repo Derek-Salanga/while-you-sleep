@@ -1463,12 +1463,14 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   a long country name ("British Indian Ocean Territory") wraps to two lines
   on HeroCard's right half, clear of the heart, with the colour split still
   under it
+- **`TripEditScreen` (2026-09-23, iOS):** the trip card opens it, changing
+  country and date then Save updates Home's card, a past date is rejected,
+  and the back link returns to Home. The iOS spinner works on a pushed
+  stack screen
 
 **Not verified:**
-- Home's new layout (2026-09-23): trip as HeroCard at the top, the pet
-  below it, "Today's question" pinned 18pt above the tab bar; and
-  `TripEditScreen` — the spinner inside a pushed stack screen, Save/back,
-  the country list
+- `TripEditScreen` on Android (the tap-to-open date dialog), and Home /
+  the trip page in dark mode
 - Monthly Summary on a smaller iPhone or at large text sizes, where the
   middle block's `ScrollView` fallback should engage
 - The brand-orange `edgePartner` (2026-09-23) on device in light mode:
