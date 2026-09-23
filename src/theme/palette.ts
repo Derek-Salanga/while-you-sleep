@@ -52,10 +52,6 @@ export const palette = {
   // Solved against the cream ground, not white: cream is fractionally
   // darker, and a value tuned on white lands just under 4.5 on it.
   orangeOnLight: '#A26100',
-  // The Timeline card's 4pt edge is what encodes whose clip it is, so it has
-  // to clear the 3:1 UI threshold against the background it sits on. The
-  // base orange manages 1.44 there and orangeDark only 1.87.
-  orangeEdgeOnLight: '#CA7900',
 
   danger: '#ED0000',
   dangerOnDark: '#FF9A9A',

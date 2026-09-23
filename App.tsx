@@ -9,6 +9,7 @@ import {
 } from '@expo-google-fonts/fraunces';
 import {
   Inter_400Regular,
+  Inter_400Regular_Italic,
   Inter_500Medium,
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
@@ -40,6 +41,7 @@ function App() {
     Fraunces_600SemiBold,
     Fraunces_500Medium_Italic,
     Inter_400Regular,
+    Inter_400Regular_Italic,
     Inter_500Medium,
     Inter_600SemiBold,
   });

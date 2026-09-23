@@ -46,8 +46,9 @@ export interface Theme {
   textOnAccent: string;
 
   // Card washes, and the edges that carry the actual meaning. The fills are
-  // decorative and sit at low contrast against the background by design;
-  // the 4pt edge is full-strength and is what tells you whose clip it is.
+  // decorative and sit at low contrast against the background by design.
+  // The 4pt edge is full-strength; on light, edgePartner is the brand orange
+  // and only ~1.44:1 (see below), so it is not a colour-only ownership cue.
   fillYou: string;
   fillPartner: string;
   edgeYou: string;
@@ -84,7 +85,11 @@ export const lightTheme: Theme = {
   fillYou: palette.blueSoft,
   fillPartner: palette.orangeSoft,
   edgeYou: palette.blue,
-  edgePartner: palette.orangeEdgeOnLight,
+  // The brand orange on light too, by choice (2026-09-23): the darkened
+  // #CA7900 that cleared 3:1 against the cream read as muddy. It's ~1.44:1
+  // here, so this token no longer carries ownership alone -- the Timeline's
+  // card side and the Monthly Summary grid's layout do.
+  edgePartner: palette.orange,
   danger: palette.danger,
 };
 

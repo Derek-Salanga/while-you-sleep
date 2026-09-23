@@ -339,12 +339,14 @@ ever requesting camera or microphone permission, since only the
 `camera`/`review` phases need them.
 
 **`caption_text` renders on every surface that shows a clip:** the same-day
-`revealed` card, the Timeline card (under the date), `ClipViewScreen` (above the
+`revealed` card, the Timeline card, `ClipViewScreen` (above the
 date line, below the video) and `MonthlySummaryScreen` (a "What you said" list
 below the reel button). Until 2026-09-02 the reveal card was the only one — the
 column was in `src/types/index.ts` and nowhere else in `src/` — so the text half
 of "answer in both video and text" was written to the DB and then invisible from
 the next day onward. Found while verifying the caption path on Android.
+The Timeline card briefly dropped it on 2026-09-23 and got it back the same
+day: without it most cards were empty coloured bars.
 
 It is deliberately **not** truncated anywhere: captions are short by design and
 every surface shows the same text in full, so they can't disagree. In
@@ -590,8 +592,7 @@ check constraint's lower bound is 1, not 0, and why there's no separate
 Resolution order is `usePartnerName()` (`src/hooks/usePartnerName.ts`),
 the single answer to "what do I call my partner on screen": your private
 nickname → their `display_name` → `null`. It returns `null` rather than a
-built-in fallback so each caller keeps its own wording — Timeline says
-"Your partner", Home drops its clause entirely rather than naming an
+built-in fallback so each caller keeps its own wording — Home drops its clause entirely rather than naming an
 unknown person (a third caller, the story rings, was removed in #104).
 Those sites had already drifted apart because each hand-rolled its own
 `??` ladder. It lives outside
@@ -1269,7 +1270,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - WCAG AA in the light theme (2026-09-07): the record CTA label, HeroCard's
   two halves, `border`, `error` and the pet's line colour all clear AA, and
   `src/theme/themes.test.ts` asserts every pairing so it can't silently
-  regress. The CTA label is `ink` rather than white — white on the gradient's
+  regress — except, since 2026-09-23, the light-theme partner edge, which is
+  the brand orange by choice at ~1.44:1 (see "Timeline card layout"). The CTA label is `ink` rather than white — white on the gradient's
   orange end is 1.55:1, and keeping it would mean amber-ing the brand hue or
   adding a pill inside the button
 
@@ -1395,14 +1397,23 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   sits below it in muted type; a reaction sits alone at header-right; the
   `unprocessable` row keeps its one-line reason and no Retry; a clip with no
   AI data renders as just name + caption. The unwatched dot shows leading
-  the name. A full 20-char nickname fits on the row beside a reaction
-  without truncating at iPhone width, so the truncation path is a narrower
-  screen's concern. Cards don't re-animate on scroll or pull-to-refresh. See "Timeline card
-  layout"
+  the name. Cards don't re-animate on scroll or pull-to-refresh. Name and
+  caption were removed from the card later the same day — see "Timeline
+  card layout"
+
+- **Timeline card, second pass (2026-09-23, iOS, both themes):** no name on
+  the card; cards back at 80% width, yours right and theirs left; one top
+  row of unwatched dot, caption and reactions, with the AI block below; the
+  `unprocessable` row in Inter Italic. Each reaction sits on a circle in
+  its reactor's colour, which told apart a 😂 and 🥺 on the same card. A
+  caption-free version was tried first and reverted on sight — a clip with
+  no AI output was an empty coloured bar
 
 **Not verified:**
-- The reworked Timeline card's remaining pieces: the nickname truncation path on a screen narrow enough to need it, and
-  Android at all
+- The brand-orange `edgePartner` (2026-09-23) on device in light mode:
+  Timeline edges and reaction circles, Monthly Summary's grid pips and
+  `Button`'s secondary border. No screenshot was taken after the switch. Android not seen for any version of the
+  reworked card
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
@@ -1489,37 +1500,59 @@ emoji size. The crowding was undifferentiated information, not too much of
 it. The full inventory and the before/after are in the plan that drove it;
 what's load-bearing now:
 
-- **Hierarchy, top to bottom:** a muted `● Name` row, the caption in the
-  largest text on the card (Inter 16), then the AI block in muted 14. The
-  caption is the content; the fill and edge already say whose card it is, so
-  the name doesn't need to be loud.
+- **No name on the card (2026-09-23, on request).** One top row —
+  unwatched dot, the caption in the largest text on the card (Inter 16,
+  `flex: 1`), reactions at the right — then the AI block in muted 14. The
+  row is top-aligned so a wrapping caption keeps the dot and reactions on
+  its first line. Whose card it is comes from side + fill + edge. Captions were
+  removed in the same change and restored after a device look: with neither
+  name nor caption, a clip with no AI output was a bare coloured bar, which
+  is the normal case when its sender hasn't turned AI summaries on. A clip
+  with no caption, no AI and no reaction still renders that way
 - **Date is a day header, not a card field.** One `TODAY` / `YESTERDAY` /
   `AUG 25` line per day, rendered inside `renderItem` when the previous
   item's `recorded_for_date` differs — no `SectionList`. Both partners'
   cards sit under it, so a day only one of you posted on is visible as one
   card instead of two.
-- **Cards are full width.** They used to hang off opposite sides at 80%
-  like chat bubbles; both clips answer the same question, so they're
-  siblings under a day header, not conversational turns, and the lost width
-  was what made captions and nicknames wrap. Ownership is now fill + edge +
-  name (three signals, down from four). The fill carries at a glance, the
-  edge is the ≥3:1 accessible one — see `themes.test.ts`.
+- **Cards are 80% wide, yours right and theirs left.** Full width was tried
+  2026-09-21 (both clips answer the same question, so siblings rather than
+  chat turns) and reverted 2026-09-23 on request, the same day names came off
+  the card — the side is now the one ownership cue that isn't colour.
+  Ownership is side + fill + edge; the side is the cue that doesn't depend
+  on colour at all.
 - **The AI block is marked with `✦`** (title line: `✦ {title} {mood}`),
   the same on `ClipViewScreen`, so the mood emoji can't be mistaken for a
   reaction and the summary can't be mistaken for the caption. The summary
   is capped at two lines on the card (full in ClipView); the caption is
-  still never truncated.
-- **The unwatched dot leads the name**, where Mail/Messages put theirs.
-  Reactions are the only thing at header-right.
-- **No legend.** Considered and rejected: every part now self-labels, and
-  the blue/orange code is printed with a name on every card. If one is ever
+  never truncated.
+- **The unwatched dot leads the row**, where Mail/Messages put theirs;
+  reactions end it, each on a 26pt circle in its reactor's colour
+  (`edgeYou` / `edgePartner`), so two emoji on one card say who left
+  which.
+- **`edgePartner` is the brand orange (`#FFC670`, HeroCard's) in both
+  themes** as of 2026-09-23. On light it used to be a darkened `#CA7900`
+  so the 4pt edge cleared 3:1 against the cream; the user found it too dark
+  and chose the brand hue knowing it's ~1.44:1 there. Applies to every use
+  of the token: Timeline edges and reaction circles, Monthly Summary's grid
+  pips, and `Button`'s secondary border. `themes.test.ts` no longer asserts
+  the partner edge. Ownership on the Timeline still reads from which side
+  the card hangs off, which doesn't depend on colour.
+- **The unavailable row is italic** (`fonts.bodyItalic`, Inter 400 Italic,
+  loaded in `App.tsx`) — a real italic face rather than `fontStyle`, which
+  iOS won't synthesise for a custom font family.
+- **No legend.** Considered and rejected 2026-09-21, when a name was printed
+  on every card. With the name gone the blue/orange code is no longer
+  labelled on the Timeline itself; revisit if that turns out to confuse. If one is ever
   wanted, the safe shape is a root-stack screen like `ClipView` (no Modal),
   not a sheet or a first-run overlay.
 
-Nothing new on the theme side: the only pairs used are `textPrimary` /
-`textMuted` on `fillYou` / `fillPartner`, all already asserted at ≥4.5:1 in
-both themes. The tightest is `paperMuted` on `nightFillPartner` (~4.5:1),
-which is exactly where the muted name and AI block sit in dark mode.
+Text on the cards is only `textPrimary` / `textMuted` on `fillYou` /
+`fillPartner`, all asserted at ≥4.5:1 in both themes. The reaction circles
+(`edgeYou` / `edgePartner` on those fills) are not asserted: on light the
+orange circle is ~1.2–1.3:1 on either fill, so the emoji carries it and the
+circle is a hue hint. With no name on screen, the caption and each reaction
+carry an `accessibilityLabel` saying whose they are. The tightest is `paperMuted` on `nightFillPartner` (~4.5:1),
+which is exactly where the muted AI block sits in dark mode.
 
 ## iOS home screen widget (Days together)
 

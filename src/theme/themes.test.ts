@@ -46,10 +46,18 @@ function combinations(t: Theme): [string, string, number, string][] {
     // is the only thing saying where the field is.
     [t.border, t.surface, LARGE, 'card / input border'],
     [t.border, t.background, LARGE, 'border against the background'],
-    // The 4pt edge is what actually encodes whose clip a card is, so it has
-    // to survive against the background even though the fill need not.
+    // The "you" edge still clears 3:1. The partner edge is the brand orange
+    // in both themes by choice and does not on light (~1.44) -- see
+    // edgePartner in themes.ts -- so it's asserted on dark only.
     [t.edgeYou, t.background, LARGE, '"you" card edge'],
-    [t.edgePartner, t.background, LARGE, '"partner" card edge'],
+    ...(t.name === 'dark'
+      ? ([[t.edgePartner, t.background, LARGE, '"partner" card edge']] as [
+          string,
+          string,
+          number,
+          string,
+        ][])
+      : []),
   ];
 }
 
