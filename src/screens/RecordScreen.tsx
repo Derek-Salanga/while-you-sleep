@@ -357,7 +357,11 @@ export default function RecordScreen({ navigation }: any) {
           editable={!uploading}
         />
         <Pressable
-          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.button,
+            styles.sendButton,
+            pressed && styles.pressed,
+          ]}
           onPress={handleSend}
           disabled={uploading}
         >
@@ -597,6 +601,11 @@ const makeStyles = (t: Theme) =>
       minHeight: 100,
       textAlignVertical: 'top',
       marginBottom: 16,
+    },
+    // Same 24pt inset as the caption box and Retake. The shared `button`
+    // style has none, so Send ran edge to edge under an inset field.
+    sendButton: {
+      marginHorizontal: 24,
     },
     retakeButton: {
       marginHorizontal: 24,
