@@ -2169,6 +2169,11 @@ HeroCard read 1386 days in the 12:00 screenshot and 1385 at 12:02 — local
 midnight passed between them, and 1385 is the correct count from
 2026-09-23 to 2030-07-09. Not a bug.
 
-**Not exercised:** the leading unwatched dot (every clip on the pair was
-already watched), 20-char nickname truncation (longest name on screen is
-short), pull-to-refresh re-animation, and Android.
+**Follow-up, same session:** the unwatched dot was seen leading the name on a
+new clip (not screenshotted). The partner's private nickname was set to a
+full 20 characters (`tqtqtwtqttqtqtqtqyqy`): it fits on one line beside the
+🔥 with room to spare at iPhone width, so `numberOfLines`/`flexShrink` never
+engage here. They remain the guard for narrower screens.
+
+**Not exercised:** the truncation path itself, pull-to-refresh behaviour, and
+Android.

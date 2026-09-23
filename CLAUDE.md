@@ -1391,14 +1391,16 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   largest text on the card; the `✦ Title 🥰` block with its two-line summary
   sits below it in muted type; a reaction sits alone at header-right; the
   `unprocessable` row keeps its one-line reason and no Retry; a clip with no
-  AI data renders as just name + caption. Cards don't re-animate on scroll.
-  See "Timeline card layout"
+  AI data renders as just name + caption. The unwatched dot shows leading
+  the name. A full 20-char nickname fits on the row beside a reaction
+  without truncating at iPhone width, so the truncation path is a narrower
+  screen's concern. Cards don't re-animate on scroll. See "Timeline card
+  layout"
 
 **Not verified:**
-- The reworked Timeline card's remaining pieces: the leading unwatched dot
-  (every clip on the test pair was already watched), a 20-char nickname
-  truncating rather than pushing reactions off the row, cards not
-  re-animating on pull-to-refresh, and Android at all
+- The reworked Timeline card's remaining pieces: pull-to-refresh behaviour,
+  the nickname truncation path on a screen narrow enough to need it, and
+  Android at all
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
