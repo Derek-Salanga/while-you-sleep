@@ -34,21 +34,16 @@ import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
-// What the pet card says. Every line is phrased as a state of the pair, not
-// an instruction to the reader -- "it's been quiet" rather than "you haven't
-// posted". A shared pet that nags is just a streak counter with a face, and
-// the guilt dynamic is the thing this feature exists to avoid.
-const PET_COPY: Record<PetMood, { title: string; body: string }> = {
-  thriving: { title: 'Thriving', body: "You've both been showing up." },
-  content: { title: 'Doing well', body: 'Keep it going.' },
-  sleepy: {
-    title: 'Getting sleepy',
-    body: "It's been a quiet couple of days.",
-  },
-  withdrawn: {
-    title: 'Waiting for you both',
-    body: 'A day from each of you brings it back.',
-  },
+// What the pet says under itself. Each is phrased as a state of the pair,
+// not an instruction to the reader. A shared pet that nags is just a streak
+// counter with a face, and the guilt dynamic is the thing this feature
+// exists to avoid. One line only since the pet became the centre of Home
+// (2026-09-23): the face carries the rest.
+const PET_TITLE: Record<PetMood, string> = {
+  thriving: 'Thriving',
+  content: 'Doing well',
+  sleepy: 'Getting sleepy',
+  withdrawn: 'Waiting for you both',
 };
 
 export default function HomeScreen({ navigation }: any) {
@@ -147,14 +142,9 @@ export default function HomeScreen({ navigation }: any) {
         {mood && (
           <View style={styles.petCard}>
             <SharedPet mood={mood} size={petSize} resting={petResting} />
-            <View style={styles.petCopy}>
-              <Text style={styles.petTitle}>
-                {petResting ? 'Resting' : PET_COPY[mood].title}
-              </Text>
-              <Text style={styles.petBody}>
-                {petResting ? "Paused while you're away." : PET_COPY[mood].body}
-              </Text>
-            </View>
+            <Text style={styles.petTitle}>
+              {petResting ? 'Resting' : PET_TITLE[mood]}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -210,19 +200,12 @@ const makeStyles = (t: Theme) =>
       justifyContent: 'center',
       paddingVertical: 8,
     },
-    petCopy: { alignItems: 'center', marginTop: 8 },
     petTitle: {
       fontFamily: fonts.display,
       fontSize: fontSizes.lg,
       color: t.textPrimary,
       textAlign: 'center',
-    },
-    petBody: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-      marginTop: 4,
-      textAlign: 'center',
+      marginTop: 8,
     },
     entryCard: {
       flexDirection: 'row',
