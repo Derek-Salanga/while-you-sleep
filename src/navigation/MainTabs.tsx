@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import NavIcon, { NavIconKey } from '@/components/NavIcon';
 import {
+  HomeStackParamList,
   MainTabParamList,
   MonthlyStackParamList,
   SettingsStackParamList,
@@ -13,6 +14,7 @@ import HomeScreen from '@/screens/HomeScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
 import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 import MonthListScreen from '@/screens/MonthListScreen';
+import TripEditScreen from '@/screens/TripEditScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import AccountSettingsScreen from '@/screens/AccountSettingsScreen';
 import AppearanceSettingsScreen from '@/screens/AppearanceSettingsScreen';
@@ -37,6 +39,19 @@ function SettingsNavigator() {
         component={AppearanceSettingsScreen}
       />
     </SettingsStack.Navigator>
+  );
+}
+
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
+
+// Same shape as SettingsNavigator: the trip editor is pushed inside the tab
+// so the tab bar stays, and unmountOnBlur reopens the tab on Home.
+function HomeNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="TripEdit" component={TripEditScreen} />
+    </HomeStack.Navigator>
   );
 }
 
@@ -97,7 +112,7 @@ export default function MainTabs() {
         };
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="Timeline" component={TimelineScreen} />
       <Tab.Screen name="MonthlySummary" component={MonthlyNavigator} />
       <Tab.Screen name="Settings" component={SettingsNavigator} />
