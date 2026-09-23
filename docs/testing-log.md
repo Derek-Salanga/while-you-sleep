@@ -2267,3 +2267,12 @@ non-bouncing `ScrollView` fallback is back for small screens.
 phone (iOS): opening it from the card, changing country and date, Save
 updating Home, a past date rejected, and the back link. All good. Android's
 tap-to-open date dialog and dark mode remain unchecked.
+
+## 2026-09-23 — Shared BackLink and Android date-dialog change
+
+#135 replaced four copied back links with `ui/BackLink` (plus a 12pt
+`hitSlop`); #136 moved both Android date pickers to
+`DateTimePickerAndroid.open()` from a tappable row, rendering the component
+on iOS only. The user checked on iOS: all four back links, and both
+spinners, unchanged. The Android side of #136 is still unverified — no
+Android device in this pass.
