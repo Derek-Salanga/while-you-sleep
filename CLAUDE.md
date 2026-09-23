@@ -505,8 +505,13 @@ anniversary, which Home already states in its subtitle line.
 
 **Home layout (2026-09-23):** title and "N days together" line, the trip
 card, the pet card, then "Today's question" pinned 18pt above the tab bar
-(`marginTop: 'auto'`) — the same gap as Monthly Summary's action row. The
-editor still replaces the trip card in place.
+— the same gap as Monthly Summary's action row. Everything above it is a
+non-bouncing `ScrollView`, which only scrolls when the trip editor is open
+(its 216pt iOS spinner doesn't fit otherwise). The editor still replaces the
+trip card in place, and for a past trip it starts from today. Whether the
+trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
+and the Timeline share one rule; while the trip query is loading, Home holds
+HeroCard's height so the pet card doesn't jump.
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -1270,8 +1275,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The pet on Home (2026-09-06): renders with the mood matching
   `pair_pet.score`, and a tab-away-and-back picks up a score change with no
-  manual refresh. `withdrawn` is legible on a white card. Home stays a plain
-  `View` — the pet card makes five blocks and they fit without scrolling
+  manual refresh. `withdrawn` is legible on a white card. (Home's body is a
+  non-bouncing `ScrollView` since 2026-09-23, only so the open trip editor
+  can scroll above the pinned "Today's question".)
 
 - Pause mode (2026-09-06): three presets in Settings, the row reads back the
   date, Home shows the resting overlay, "Resume now" clears it, and the daily

@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  ScrollView,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ import {
   usePetState,
 } from '@/hooks/queries';
 import SharedPet from '@/components/SharedPet';
-import HeroCard from '@/components/HeroCard';
+import HeroCard, { isTripUpcoming } from '@/components/HeroCard';
 import { petMood, PetMood } from '@/types';
 import {
   todayDateString,
@@ -89,8 +90,7 @@ export default function HomeScreen({ navigation }: any) {
             c.sender_id === session?.user.id &&
             c.recorded_for_date === sharedTodayDateString()
         );
-  const tripUpcoming =
-    !!trip && daysBetween(todayDateString(), trip.target_date) >= 0;
+  const tripUpcoming = isTripUpcoming(trip);
   const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(
@@ -118,7 +118,11 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const startEditingTrip = () => {
-    setPickerDate(parseDateString(trip?.target_date));
+    // A past trip shows "Plan your next visit", so the editor starts from
+    // today rather than the stale date, which Save would reject.
+    setPickerDate(
+      tripUpcoming ? parseDateString(trip?.target_date) : new Date()
+    );
     setPickerCountryCode(trip?.country_code ?? null);
     setEditingTrip(true);
   };
@@ -167,106 +171,116 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
-      <Text style={styles.title}>Home</Text>
-      {anniversary && (
-        <Text style={styles.anniversaryText}>
-          {daysBetween(anniversary.anniversary_date, todayDateString())} days
-          together
-          {partnerName ? ` with ${partnerName}` : ''}
-        </Text>
-      )}
-      {editingTrip ? (
-        <View style={styles.editCard}>
-          <Text style={styles.tripCardTitle}>Our next trip</Text>
-          <Text style={styles.pickerLabel}>Where are you meeting?</Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.pickerInput,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => setCountryPickerVisible(true)}
-          >
-            <Text
-              style={
-                pickerCountryCode
-                  ? styles.pickerInputText
-                  : styles.pickerInputPlaceholder
-              }
+      {/* Scrolls only when it has to -- the trip editor with its 216pt
+          spinner doesn't fit above the pinned question otherwise. */}
+      <ScrollView
+        style={styles.body}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Home</Text>
+        {anniversary && (
+          <Text style={styles.anniversaryText}>
+            {daysBetween(anniversary.anniversary_date, todayDateString())} days
+            together
+            {partnerName ? ` with ${partnerName}` : ''}
+          </Text>
+        )}
+        {editingTrip ? (
+          <View style={styles.editCard}>
+            <Text style={styles.tripCardTitle}>Our next trip</Text>
+            <Text style={styles.pickerLabel}>Where are you meeting?</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.pickerInput,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => setCountryPickerVisible(true)}
             >
-              {pickerCountryCode
-                ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
-                : 'Select a country'}
-            </Text>
-          </Pressable>
-          {/* No minimumDate: see the matching comment in SettingsScreen.tsx.
-              A past trip date already renders sensibly ("N days ago"), so
-              there's nothing to validate on save here. */}
-          <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
-            <DateTimePicker
-              // Follows the OS appearance by default, not the app's -- so a
-              // user on System=dark with the app forced Light would get a
-              // dark picker on a light sheet.
-              themeVariant={t.name}
-              value={pickerDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => date && setPickerDate(date)}
-            />
-          </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.pickerSave,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleSaveTrip}
-          >
-            <Text style={styles.pickerSaveText}>Save</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.pickerClose,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => setEditingTrip(false)}
-          >
-            <Text style={styles.pickerCloseText}>Cancel</Text>
-          </Pressable>
-        </View>
-      ) : (
-        // An upcoming trip shows as the Timeline's HeroCard (same component,
-        // so the two can't drift). No trip, or one already past, shows the
-        // plain prompt -- HeroCard would fall back to the anniversary there,
-        // which Home already states in the line above.
-        <Pressable
-          style={({ pressed }) => pressed && styles.pressed}
-          onPress={startEditingTrip}
-          accessibilityRole="button"
-          accessibilityLabel="Edit your next trip"
-        >
-          {tripUpcoming ? (
-            <HeroCard />
-          ) : (
-            <View style={styles.entryCard}>
-              <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+              <Text
+                style={
+                  pickerCountryCode
+                    ? styles.pickerInputText
+                    : styles.pickerInputPlaceholder
+                }
+              >
+                {pickerCountryCode
+                  ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
+                  : 'Select a country'}
+              </Text>
+            </Pressable>
+            {/* No minimumDate: see the matching comment in SettingsScreen.tsx.
+              The range is enforced on Save instead (handleSaveTrip). */}
+            <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+              <DateTimePicker
+                // Follows the OS appearance by default, not the app's -- so a
+                // user on System=dark with the app forced Light would get a
+                // dark picker on a light sheet.
+                themeVariant={t.name}
+                value={pickerDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, date) => date && setPickerDate(date)}
+              />
             </View>
-          )}
-        </Pressable>
-      )}
-      {/* Above the record CTA on purpose: the pet's state is the reason to
-          tap it, so it should be read first. */}
-      {mood && (
-        <View style={styles.petCard}>
-          <SharedPet mood={mood} size={72} resting={petResting} />
-          <View style={styles.petCopy}>
-            <Text style={styles.petTitle}>
-              {petResting ? 'Resting' : PET_COPY[mood].title}
-            </Text>
-            <Text style={styles.petBody}>
-              {petResting ? "Paused while you're away." : PET_COPY[mood].body}
-            </Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.pickerSave,
+                pressed && styles.pressed,
+              ]}
+              onPress={handleSaveTrip}
+            >
+              <Text style={styles.pickerSaveText}>Save</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.pickerClose,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => setEditingTrip(false)}
+            >
+              <Text style={styles.pickerCloseText}>Cancel</Text>
+            </Pressable>
           </View>
-        </View>
-      )}
+        ) : (
+          // An upcoming trip shows as the Timeline's HeroCard (same component,
+          // so the two can't drift). No trip, or one already past, shows the
+          // plain prompt -- HeroCard would fall back to the anniversary there,
+          // which Home already states in the line above.
+          <Pressable
+            style={({ pressed }) => pressed && styles.pressed}
+            onPress={startEditingTrip}
+            accessibilityRole="button"
+            accessibilityHint="Edits your next trip"
+          >
+            {trip === undefined ? (
+              <View style={styles.tripPlaceholder} />
+            ) : tripUpcoming ? (
+              <HeroCard />
+            ) : (
+              <View style={styles.entryCard}>
+                <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
+        {/* Above the record CTA on purpose: the pet's state is the reason to
+          tap it, so it should be read first. */}
+        {mood && (
+          <View style={styles.petCard}>
+            <SharedPet mood={mood} size={72} resting={petResting} />
+            <View style={styles.petCopy}>
+              <Text style={styles.petTitle}>
+                {petResting ? 'Resting' : PET_COPY[mood].title}
+              </Text>
+              <Text style={styles.petBody}>
+                {petResting ? "Paused while you're away." : PET_COPY[mood].body}
+              </Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
       {/* The daily clip IS the daily question's answer now -- RecordScreen
           shows the question, records the (video) answer, and reveals both
           partners' answers once submitted. See "Video daily question" in
@@ -418,8 +432,16 @@ const makeStyles = (t: Theme) =>
     // Pinned above the tab bar, 18pt clear of it like Monthly Summary's
     // action row.
     recordCtaPinned: {
-      marginTop: 'auto',
+      marginTop: 12,
       marginBottom: 18,
+    },
+    body: {
+      flex: 1,
+    },
+    // HeroCard's footprint (120 + its 20 margin), held while the trip query
+    // is still loading so the pet card doesn't jump when it resolves.
+    tripPlaceholder: {
+      height: 140,
     },
     recordCtaLabel: {
       fontFamily: fonts.bodySemiBold,

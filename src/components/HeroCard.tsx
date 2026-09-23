@@ -19,6 +19,14 @@ function formatLongDate(dateString: string): string {
   });
 }
 
+// Shared with HomeScreen, which shows HeroCard only for an upcoming trip --
+// one rule in one place, so the two screens can't disagree about it.
+export function isTripUpcoming(
+  trip: { target_date: string } | null | undefined
+) {
+  return !!trip && daysBetween(todayDateString(), trip.target_date) >= 0;
+}
+
 // Everything here comes from rows the pair has actually set. This card used
 // to show a hardcoded "Day 14" and literal "Your city"/"Partner's city",
 // which read as real data at a glance -- there is no "days apart" concept in
@@ -39,7 +47,7 @@ export default function HeroCard() {
   // A trip already in the past is skipped rather than counted upward, so the
   // card doesn't sit on a stale date once the visit has happened.
   const daysToTrip = trip ? daysBetween(today, trip.target_date) : null;
-  const showTrip = daysToTrip !== null && daysToTrip >= 0;
+  const showTrip = isTripUpcoming(trip);
 
   let count: string | null = null;
   let caption: string | null = null;
