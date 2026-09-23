@@ -74,7 +74,9 @@ src/
     RecordScreen.tsx            shows today's question, captures the video
                                 answer (+ optional caption), reveal state
                                 once both partners have posted
-    TimelineScreen.tsx          card feed of clips + question/summary entry cards
+    TimelineScreen.tsx          HeroCard + card feed of clips (the daily
+                                question lives on Home, the summary is its
+                                own tab; the story rings were removed in #104)
     ClipViewScreen.tsx          expo-video playback; optional `queue` param
                                 plays a sequential reel (Monthly Summary) instead
                                 of a single clip
@@ -589,9 +591,10 @@ Resolution order is `usePartnerName()` (`src/hooks/usePartnerName.ts`),
 the single answer to "what do I call my partner on screen": your private
 nickname → their `display_name` → `null`. It returns `null` rather than a
 built-in fallback so each caller keeps its own wording — Timeline says
-"Your partner", StoryRings says "Partner", Home drops its clause entirely
-rather than naming an unknown person. Those three had already drifted
-apart because each site hand-rolled its own `??` ladder. It lives outside
+"Your partner", Home drops its clause entirely rather than naming an
+unknown person (a third caller, the story rings, was removed in #104).
+Those sites had already drifted apart because each hand-rolled its own
+`??` ladder. It lives outside
 `hooks/queries.ts` because it reads `PairingContext`, which imports from
 there.
 
@@ -1086,8 +1089,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   value after a tab-away-and-back (no live sync — focus/remount refetch only)
 - Save-time range rejection: both alerts fire (trip before today, anniversary
   after today), and today itself saves on both — the boundary is inclusive
-- HeroCard on real trip data; story rings track any unwatched clip, not just
-  today's
+- HeroCard on real trip data (the story rings verified alongside it were
+  removed in #104)
 - HeroCard's anniversary branch ("N days / together", "since <date>") and its
   "neither set" state (bare split card, heart only, no text)
 - HeroCard's past-trip fallthrough: a `pair_trips` row dated in the past
