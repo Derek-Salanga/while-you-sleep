@@ -448,7 +448,7 @@ and there is no spinner.
 months:** title; then, centred in the remaining space, the month arrows
 (SVG chevrons — the `‹ ›` glyphs sat low in their circles), the three stat
 tiles, and a real Sunday-first calendar with a weekday header, always
-padded to six week rows (42 cells). An icon-only action row is pinned above
+padded to six week rows (42 cells). An icon-only action row is pinned 18pt above
 the tab bar: chat bubble ("What you said"), clapper (the reel), star
 ("Favorite moments"), each dimmed and disabled when it would open nothing.
 The page doesn't scroll on a normal phone. The middle block is a
@@ -496,11 +496,22 @@ trip (date + meeting country), either partner can set/edit it, shown
 as a card on Home. Tapping the card reveals an inline edit form (a
 country picker + native date picker,
 `@react-native-community/datetimepicker`) in place of the card; saving
-is one upsert on `pair_id`. The set-state card reads top to bottom:
-country/date line, the countdown, then a muted "until we see each
-other again" label at the bottom — per user request, deliberately not
-the more literal "Our next trip" (still used as the edit form's own
-header, a different context, unchanged).
+is one upsert on `pair_id`. An upcoming trip renders as `HeroCard` — the
+Timeline's split card ("N days / until we meet", flag + country + date) —
+reused rather than restyled so the two can't drift (2026-09-23; it was a
+plain text card before). No trip, or one already past, shows a plain "Plan
+your next visit" card instead, since HeroCard would fall back to the
+anniversary, which Home already states in its subtitle line.
+
+**Home layout (2026-09-23):** title and "N days together" line, the trip
+card, the pet card, then "Today's question" pinned 18pt above the tab bar
+— the same gap as Monthly Summary's action row. Everything above it is a
+non-bouncing `ScrollView`, which only scrolls when the trip editor is open
+(its 216pt iOS spinner doesn't fit otherwise). The editor still replaces the
+trip card in place, and for a past trip it starts from today. Whether the
+trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
+and the Timeline share one rule; while the trip query is loading, Home holds
+HeroCard's height so the pet card doesn't jump.
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -1264,8 +1275,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The pet on Home (2026-09-06): renders with the mood matching
   `pair_pet.score`, and a tab-away-and-back picks up a score change with no
-  manual refresh. `withdrawn` is legible on a white card. Home stays a plain
-  `View` — the pet card makes five blocks and they fit without scrolling
+  manual refresh. `withdrawn` is legible on a white card. (Home's body is a
+  non-bouncing `ScrollView` since 2026-09-23, only so the open trip editor
+  can scroll above the pinned "Today's question".)
 
 - Pause mode (2026-09-06): three presets in Settings, the row reads back the
   date, Home shows the resting overlay, "Resume now" clears it, and the daily
@@ -1439,6 +1451,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   and read correctly
 
 **Not verified:**
+- Home's new layout (2026-09-23): trip as HeroCard at the top, the pet
+  below it, "Today's question" pinned 18pt above the tab bar — and whether
+  the trip editor's date spinner still fits above the pinned button
 - Monthly Summary on a smaller iPhone or at large text sizes, where the
   middle block's `ScrollView` fallback should engage
 - The brand-orange `edgePartner` (2026-09-23) on device in light mode:

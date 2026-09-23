@@ -390,7 +390,7 @@ const makeStyles = (t: Theme) =>
     },
     // Pinned to the bottom, above the tab bar: `middle` takes the rest.
     actionRow: {
-      marginBottom: 36,
+      marginBottom: 18,
     },
     // A ScrollView only as a fallback: on a normal phone the content fits
     // and it doesn't move (no bounce); on an iPhone SE or at large text
