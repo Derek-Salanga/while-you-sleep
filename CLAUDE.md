@@ -1385,13 +1385,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   confirming the two sends are independent parallel branches. Not yet
   observed: an actual scheduled (non-manual) firing.
 
+- **The reworked Timeline card (2026-09-23, iOS, both themes):** day headers
+  group both partners' cards under one `SEP 17`-style line; cards are full
+  width with ownership read from fill + edge + name; the caption is the
+  largest text on the card; the `✦ Title 🥰` block with its two-line summary
+  sits below it in muted type; a reaction sits alone at header-right; the
+  `unprocessable` row keeps its one-line reason and no Retry; a clip with no
+  AI data renders as just name + caption. Cards don't re-animate on scroll.
+  See "Timeline card layout"
+
 **Not verified:**
-- The reworked Timeline card (see "Timeline card layout"): day headers,
-  full-width cards, the leading unwatched dot, the 16pt caption, the `✦` AI
-  block with its two-line summary cap, and a 20-char nickname truncating
-  rather than pushing reactions off the row — on either platform, in either
-  theme. Type-check, lint and the contrast tests pass; nobody has looked at
-  it on a device yet
+- The reworked Timeline card's remaining pieces: the leading unwatched dot
+  (every clip on the test pair was already watched), a 20-char nickname
+  truncating rather than pushing reactions off the row, cards not
+  re-animating on pull-to-refresh, and Android at all
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
 - The pet's scoring constants (`+20 / −2 / −10`) as a *feel*. They are
