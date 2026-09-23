@@ -451,13 +451,19 @@ tiles, and a real Sunday-first calendar with a weekday header, always
 padded to six week rows (42 cells). An icon-only action row is pinned above
 the tab bar: chat bubble ("What you said"), clapper (the reel), star
 ("Favorite moments"), each dimmed and disabled when it would open nothing.
-The screen does not scroll. The two lists are one `MonthListScreen` pushed
-inside the tab's own small stack (`MonthlyNavigator` in `MainTabs.tsx`,
-the same shape as Settings), receiving the month's clips as a route param;
-favorites are still read live, so un-starring in ClipView updates the list.
-The back arrow stops at the pair's first month, taken from
-`pairs.created_at` — the invite's creation, not the join, since there is no
-joined-at column; at worst that allows one empty month.
+The page doesn't scroll on a normal phone. The middle block is a
+non-bouncing `ScrollView` only as a fallback for an iPhone SE or large
+text, where six rows can't fit and would otherwise overlap the title and
+action row. The two lists are one `MonthListScreen` pushed inside the
+tab's own small stack (`MonthlyNavigator` in `MainTabs.tsx`, the same
+shape as Settings). It gets only the month (`monthPrefix`) as a param and
+reads `useClips`/`useFavorites` itself, so it stays live. The back arrow
+stops at the pair's first month, from `pairs.created_at` — the invite's
+creation, not the join, since there is no joined-at column. It is compared
+as a UTC `YYYY-MM`, because clips are filed under the UTC day: a local
+comparison could lock out a creation-day clip filed in the previous UTC
+month. A failed clips fetch shows an error line rather than reading as an
+empty month.
 
 The clapper tile navigates to
 `ClipView` with a `queue` of chronologically-ordered clip ids;

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { usePairing } from '@/lib/PairingContext';
-import { useFavorites } from '@/hooks/queries';
+import { useClips, useFavorites } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import Screen from '@/components/ui/Screen';
 import { Clip } from '@/types';
@@ -13,13 +13,13 @@ import { fonts, fontSizes } from '@/theme/typography';
 // own page so the summary itself fits without scrolling. One screen for both:
 // they are the same list of clip rows with a different filter and label.
 //
-// `clips` is the month the summary already fetched, passed in rather than
-// re-queried. Favorites are still read live from the shared query, so
-// un-starring a clip in ClipView and coming back drops it from the list.
+// Reads the same cached clip and favorite queries as the summary, filtered
+// by the month passed in, so it stays live: un-starring a clip in ClipView
+// and coming back drops it from the list.
 export default function MonthListScreen({ navigation, route }: any) {
-  const { kind, clips, monthLabel } = route.params as {
+  const { kind, monthPrefix, monthLabel } = route.params as {
     kind: 'favorites' | 'captions';
-    clips: Clip[];
+    monthPrefix: string;
     monthLabel: string;
   };
   const t = useTheme();
@@ -27,13 +27,19 @@ export default function MonthListScreen({ navigation, route }: any) {
   const { session, pair, myProfile } = usePairing();
   const partnerName = usePartnerName();
   const { data: favorites } = useFavorites(pair?.id);
+  const { data: allClips } = useClips(pair?.id);
+  const favoritedIds = new Set(favorites?.map((f) => f.clip_id));
+  // Oldest first, like the reel.
+  const clips = (allClips ?? [])
+    .filter((c) => c.recorded_for_date.startsWith(monthPrefix))
+    .reverse();
 
   const me = myProfile?.display_name ?? 'You';
   const them = partnerName ?? 'Your partner';
 
   const rows =
     kind === 'favorites'
-      ? clips.filter((c) => favorites?.some((f) => f.clip_id === c.id))
+      ? clips.filter((c) => favoritedIds.has(c.id))
       : clips.filter((c) => c.caption_text);
 
   function who(clip: Clip): string {

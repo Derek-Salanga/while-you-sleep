@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import NavIcon from '@/components/NavIcon';
@@ -53,11 +53,6 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   });
 
   const isCurrentMonth = isSameMonth(refDate, new Date());
-  // Nothing to show before the pair existed. pairs.created_at is when the
-  // invite was made, not when the partner joined -- there's no joined-at
-  // column -- but both nearly always land in the same month, and at worst
-  // this allows one empty month rather than hiding a real one.
-  const isFirstMonth = pair ? refDate <= new Date(pair.created_at) : true;
   const monthLabel = refDate.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
@@ -67,8 +62,16 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // filtered to the viewed month here. Switching months is then a filter,
   // not a fetch: no loading gap, nothing flashing from 0 to its real value.
   // (It used to fetch per month, and each change blanked the screen first.)
-  const { data: allClips } = useClips(pair?.id);
+  const { data: allClips, isError } = useClips(pair?.id);
   const monthPrefix = formatDateString(refDate).slice(0, 7);
+  // Nothing to show before the pair existed. pairs.created_at is when the
+  // invite was made, not when the partner joined -- there's no joined-at
+  // column -- but both nearly always land in the same month, and at worst
+  // this allows one empty month rather than hiding a real one. Compared as
+  // UTC YYYY-MM strings, because clips are filed under the shared UTC day:
+  // a local comparison could lock out a creation-day clip filed in the
+  // previous UTC month.
+  const isFirstMonth = pair ? monthPrefix <= pair.created_at.slice(0, 7) : true;
   const clips = useMemo(
     () =>
       (allClips ?? [])
@@ -110,7 +113,7 @@ export default function MonthlySummaryScreen({ navigation }: any) {
 
   // Counts for the two list buttons; the lists themselves live on
   // MonthListScreen so this screen fits without scrolling.
-  const captioned = clips.filter((c) => c.caption_text);
+  const captionedCount = clips.filter((c) => c.caption_text).length;
 
   // Favorites come from the shared query (also used by ClipViewScreen)
   // rather than this screen's own inline style -- clip_favorites_select_
@@ -118,17 +121,27 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // screen's already-visible `clips` array against it needs no extra fetch
   // logic of its own.
   const { data: favorites } = useFavorites(pair?.id);
-  const favorited = clips.filter((c) =>
-    favorites?.some((f) => f.clip_id === c.id)
-  );
+  const favoritedIds = new Set(favorites?.map((f) => f.clip_id));
+  const favoritedCount = clips.filter((c) => favoritedIds.has(c.id)).length;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Monthly Summary</Text>
+      {/* Otherwise a failed fetch reads as a month with no clips. */}
+      {isError && (
+        <Text style={styles.error}>
+          Couldn't load your clips. Try again in a moment.
+        </Text>
+      )}
 
       {/* Month nav, stats and calendar sit centred in whatever height is
           left between the title and the pinned action row. */}
-      <View style={styles.middle}>
+      <ScrollView
+        style={styles.middle}
+        contentContainerStyle={styles.middleContent}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.monthNav}>
           <Pressable
             style={({ pressed }) => [
@@ -140,6 +153,8 @@ export default function MonthlySummaryScreen({ navigation }: any) {
               setRefDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
             }
             disabled={isFirstMonth}
+            accessibilityRole="button"
+            accessibilityLabel="Previous month"
           >
             <Chevron direction="left" color={t.textPrimary} />
           </Pressable>
@@ -154,6 +169,8 @@ export default function MonthlySummaryScreen({ navigation }: any) {
               setRefDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
             }
             disabled={isCurrentMonth}
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
           >
             <Chevron direction="right" color={t.textPrimary} />
           </Pressable>
@@ -211,16 +228,16 @@ export default function MonthlySummaryScreen({ navigation }: any) {
             )
           )}
         </View>
-      </View>
+      </ScrollView>
 
       {/* Icon-only, equal tiles like the stats row above. Each is
               disabled (dimmed) when it would open nothing this month. */}
       <View style={[styles.statsRow, styles.actionRow]}>
         {(
           [
-            ['captions', 'What you said', captioned.length],
+            ['captions', 'What you said', captionedCount],
             ['reel', "Watch this month's clips", queueIds.length],
-            ['favorites', 'Favorite moments', favorited.length],
+            ['favorites', 'Favorite moments', favoritedCount],
           ] as const
         ).map(([kind, label, count]) => (
           <Pressable
@@ -241,7 +258,7 @@ export default function MonthlySummaryScreen({ navigation }: any) {
                   })
                 : navigation.navigate('MonthList', {
                     kind,
-                    clips,
+                    monthPrefix,
                     monthLabel,
                   })
             }
@@ -307,6 +324,8 @@ const makeStyles = (t: Theme) =>
       borderColor: t.border,
       paddingVertical: 16,
       alignItems: 'center',
+      // Shared by the stat and action rows so they stay the same height.
+      minHeight: 88,
     },
     statValue: {
       fontFamily: fonts.display,
@@ -373,13 +392,26 @@ const makeStyles = (t: Theme) =>
     actionRow: {
       marginBottom: 36,
     },
+    // A ScrollView only as a fallback: on a normal phone the content fits
+    // and it doesn't move (no bounce); on an iPhone SE or at large text
+    // sizes six calendar rows don't fit, and this beats overlapping the
+    // title and action row.
     middle: {
       flex: 1,
+    },
+    middleContent: {
+      flexGrow: 1,
       justifyContent: 'center',
     },
-    // Padded to the stat tiles' height (~88pt) so the two rows match.
     actionTile: {
-      paddingVertical: 29,
+      justifyContent: 'center',
+    },
+    error: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.danger,
+      marginTop: -8,
+      marginBottom: 12,
     },
     actionTileDisabled: {
       opacity: 0.4,

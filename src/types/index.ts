@@ -132,7 +132,8 @@ export type MonthlyStackParamList = {
   MonthlyHome: undefined;
   MonthList: {
     kind: 'favorites' | 'captions';
-    clips: Clip[];
+    // YYYY-MM, matched against recorded_for_date.
+    monthPrefix: string;
     monthLabel: string;
   };
 };
