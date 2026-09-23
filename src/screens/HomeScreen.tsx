@@ -29,6 +29,7 @@ import {
   usePetState,
 } from '@/hooks/queries';
 import SharedPet from '@/components/SharedPet';
+import HeroCard from '@/components/HeroCard';
 import { petMood, PetMood } from '@/types';
 import {
   todayDateString,
@@ -59,21 +60,6 @@ const PET_COPY: Record<PetMood, { title: string; body: string }> = {
   },
 };
 
-function tripCountdownLabel(targetDate: string): string {
-  const diffDays = daysBetween(todayDateString(), targetDate);
-  if (diffDays === 0) return 'Today';
-  if (diffDays < 0) return `${-diffDays} days ago`;
-  return `${diffDays} days`;
-}
-
-function formatLongDate(dateString: string): string {
-  return new Date(dateString + 'T00:00:00').toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
 export default function HomeScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
@@ -103,6 +89,8 @@ export default function HomeScreen({ navigation }: any) {
             c.sender_id === session?.user.id &&
             c.recorded_for_date === sharedTodayDateString()
         );
+  const tripUpcoming =
+    !!trip && daysBetween(todayDateString(), trip.target_date) >= 0;
   const [editingTrip, setEditingTrip] = useState(false);
   const [pickerDate, setPickerDate] = useState(new Date());
   const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(
@@ -187,36 +175,6 @@ export default function HomeScreen({ navigation }: any) {
           {partnerName ? ` with ${partnerName}` : ''}
         </Text>
       )}
-      {/* Above the record CTA on purpose: the pet's state is the reason to
-          tap it, so it should be read first. */}
-      {mood && (
-        <View style={styles.petCard}>
-          <SharedPet mood={mood} size={72} resting={petResting} />
-          <View style={styles.petCopy}>
-            <Text style={styles.petTitle}>
-              {petResting ? 'Resting' : PET_COPY[mood].title}
-            </Text>
-            <Text style={styles.petBody}>
-              {petResting ? "Paused while you're away." : PET_COPY[mood].body}
-            </Text>
-          </View>
-        </View>
-      )}
-      {/* The daily clip IS the daily question's answer now -- RecordScreen
-          shows the question, records the (video) answer, and reveals both
-          partners' answers once submitted. See "Video daily question" in
-          CLAUDE.md; replaces the old separate text-answer + generic-clip
-          entry points. */}
-      <Pressable
-        onPress={() => navigation.navigate('Record')}
-        onPressIn={handleRecordCtaPressIn}
-        onPressOut={handleRecordCtaPressOut}
-      >
-        <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
-          <Text style={styles.recordCtaLabel}>Today's question</Text>
-          {answeredToday === false && <View style={styles.unwatchedDot} />}
-        </Animated.View>
-      </Pressable>
       {editingTrip ? (
         <View style={styles.editCard}>
           <Text style={styles.tripCardTitle}>Our next trip</Text>
@@ -275,30 +233,56 @@ export default function HomeScreen({ navigation }: any) {
           </Pressable>
         </View>
       ) : (
+        // An upcoming trip shows as the Timeline's HeroCard (same component,
+        // so the two can't drift). No trip, or one already past, shows the
+        // plain prompt -- HeroCard would fall back to the anniversary there,
+        // which Home already states in the line above.
         <Pressable
-          style={({ pressed }) => [styles.entryCard, pressed && styles.pressed]}
+          style={({ pressed }) => pressed && styles.pressed}
           onPress={startEditingTrip}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your next trip"
         >
-          {trip ? (
-            <View>
-              <Text style={styles.tripDate}>
-                {trip.country_code
-                  ? `${flagEmoji(trip.country_code)} ${countryName(trip.country_code)} · `
-                  : ''}
-                {formatLongDate(trip.target_date)}
-              </Text>
-              <Text style={styles.tripCountdown}>
-                {tripCountdownLabel(trip.target_date)}
-              </Text>
-              <Text style={styles.tripCardTitle}>
-                until we see each other again
-              </Text>
-            </View>
+          {tripUpcoming ? (
+            <HeroCard />
           ) : (
-            <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+            <View style={styles.entryCard}>
+              <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+            </View>
           )}
         </Pressable>
       )}
+      {/* Above the record CTA on purpose: the pet's state is the reason to
+          tap it, so it should be read first. */}
+      {mood && (
+        <View style={styles.petCard}>
+          <SharedPet mood={mood} size={72} resting={petResting} />
+          <View style={styles.petCopy}>
+            <Text style={styles.petTitle}>
+              {petResting ? 'Resting' : PET_COPY[mood].title}
+            </Text>
+            <Text style={styles.petBody}>
+              {petResting ? "Paused while you're away." : PET_COPY[mood].body}
+            </Text>
+          </View>
+        </View>
+      )}
+      {/* The daily clip IS the daily question's answer now -- RecordScreen
+          shows the question, records the (video) answer, and reveals both
+          partners' answers once submitted. See "Video daily question" in
+          CLAUDE.md; replaces the old separate text-answer + generic-clip
+          entry points. */}
+      <Pressable
+        style={styles.recordCtaPinned}
+        onPress={() => navigation.navigate('Record')}
+        onPressIn={handleRecordCtaPressIn}
+        onPressOut={handleRecordCtaPressOut}
+      >
+        <Animated.View style={[styles.recordCta, recordCtaAnimatedStyle]}>
+          <Text style={styles.recordCtaLabel}>Today's question</Text>
+          {answeredToday === false && <View style={styles.unwatchedDot} />}
+        </Animated.View>
+      </Pressable>
       <Modal
         visible={countryPickerVisible}
         animationType="slide"
@@ -357,7 +341,13 @@ export default function HomeScreen({ navigation }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background, padding: 20 },
+    container: {
+      flex: 1,
+      backgroundColor: t.background,
+      padding: 20,
+      // The pinned CTA sets its own gap to the tab bar.
+      paddingBottom: 0,
+    },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
@@ -423,8 +413,13 @@ const makeStyles = (t: Theme) =>
       borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 18,
-      marginBottom: 16,
       overflow: 'hidden',
+    },
+    // Pinned above the tab bar, 18pt clear of it like Monthly Summary's
+    // action row.
+    recordCtaPinned: {
+      marginTop: 'auto',
+      marginBottom: 18,
     },
     recordCtaLabel: {
       fontFamily: fonts.bodySemiBold,
@@ -436,17 +431,6 @@ const makeStyles = (t: Theme) =>
       fontSize: fontSizes.sm,
       color: t.textMuted,
       marginTop: 4,
-    },
-    tripCountdown: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: fontSizes.md,
-      color: t.textPrimary,
-    },
-    tripDate: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-      marginBottom: 2,
     },
     // White, not t.danger: this dot sits on the record CTA's blue-to-orange
     // gradient, and salmon on the amber end was effectively invisible, so the
