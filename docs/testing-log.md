@@ -2211,3 +2211,24 @@ arriving and no bundle GET at all — iOS ATS blocks plain http to a
 non-local host. Entering the `https://` URL manually (or the
 `exp+while-you-sleep://expo-development-client/?url=https%3A%2F%2F…` deep
 link) fixed it.
+
+## 2026-09-23 — Monthly Summary: pages, icons, fixed layout
+
+iOS dev client, dark theme, changes made iteratively against the device.
+
+- "Favorite moments" and "What you said" moved off the summary onto their
+  own page (`MonthListScreen`), reached from icon tiles; the summary no
+  longer scrolls.
+- Back arrow stops at the pair's first month (`pairs.created_at`).
+- Grid became a real Sunday-first calendar with a weekday header. On
+  device, August 2026 (1st on a Saturday) rendered as six rows with the 29th
+  carrying both dots.
+- Two shift bugs seen and fixed: the centred block moved between five- and
+  six-week months (now always six rows), and every month change flashed
+  zeros because the screen fetched per month and showed a spinner (now
+  filtered from the cached `useClips` list, no spinner). Those two fixes
+  were not re-checked on device before the PR.
+- Month arrows were `‹ ›` text glyphs that sat low in their circles;
+  replaced with SVG chevrons.
+- Tab bar icons replaced with stroked line icons matching the new action
+  row; the hand-drawn `theme/navIcons.ts` was deleted.

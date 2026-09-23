@@ -128,10 +128,20 @@ export type SettingsStackParamList = {
   AppearanceSettings: undefined;
 };
 
+export type MonthlyStackParamList = {
+  MonthlyHome: undefined;
+  MonthList: {
+    kind: 'favorites' | 'captions';
+    // YYYY-MM, matched against recorded_for_date.
+    monthPrefix: string;
+    monthLabel: string;
+  };
+};
+
 export type MainTabParamList = {
   Home: undefined;
   Timeline: undefined;
-  MonthlySummary: undefined;
+  MonthlySummary: NavigatorScreenParams<MonthlyStackParamList> | undefined;
   Settings: undefined;
 };
 

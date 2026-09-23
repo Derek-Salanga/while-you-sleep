@@ -1,22 +1,40 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase } from '@/lib/supabase';
+import Svg, { Path } from 'react-native-svg';
+import NavIcon from '@/components/NavIcon';
 import { usePairing } from '@/lib/PairingContext';
-import { useFavorites } from '@/hooks/queries';
-import { usePartnerName } from '@/hooks/usePartnerName';
+import { useClips, useFavorites } from '@/hooks/queries';
 import { formatDateString } from '@/lib/date';
 import { Clip } from '@/types';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
+
+// The month arrows. SVG rather than the ‹ › glyphs, which sit on the font's
+// baseline and so render low and off-centre inside the 40pt circle.
+function Chevron({
+  direction,
+  color,
+}: {
+  direction: 'left' | 'right';
+  color: string;
+}) {
+  return (
+    <Svg width={16} height={16} viewBox="0 0 100 100">
+      <Path
+        d={
+          direction === 'left' ? 'M64 14 L28 50 L64 86' : 'M36 14 L72 50 L36 86'
+        }
+        stroke={color}
+        strokeWidth={12}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
 
 function isSameMonth(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
@@ -25,8 +43,7 @@ function isSameMonth(a: Date, b: Date): boolean {
 export default function MonthlySummaryScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
-  const { session, pair, myProfile } = usePairing();
-  const partnerName = usePartnerName();
+  const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
 
   // The 1st of the month currently being viewed.
@@ -34,48 +51,34 @@ export default function MonthlySummaryScreen({ navigation }: any) {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [clips, setClips] = useState<Clip[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const isCurrentMonth = isSameMonth(refDate, new Date());
+  const monthLabel = refDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
 
-  const loadMonth = useCallback(async () => {
-    // Clearing the flag matters: `loading` initialises to true, so returning
-    // ahead of the setLoading(false) calls below would leave the screen
-    // spinning forever. Defensive rather than observed -- MainTabs only
-    // mounts once a pair exists -- but the guard sat on the wrong side of it.
-    if (!pair) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    const monthStart = formatDateString(
-      new Date(refDate.getFullYear(), refDate.getMonth(), 1)
-    );
-    const monthEnd = formatDateString(
-      new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0)
-    );
-    const { data, error } = await supabase
-      .from('clips')
-      .select('*')
-      .eq('pair_id', pair.id)
-      .gte('recorded_for_date', monthStart)
-      .lte('recorded_for_date', monthEnd)
-      .order('recorded_for_date', { ascending: true });
-
-    if (error) {
-      console.error('Failed to load monthly clips:', error.message);
-      setClips([]);
-      setLoading(false);
-      return;
-    }
-    setClips(data ?? []);
-    setLoading(false);
-  }, [pair, refDate]);
-
-  useEffect(() => {
-    loadMonth();
-  }, [loadMonth]);
+  // Every clip for the pair, from the same cached query the Timeline uses,
+  // filtered to the viewed month here. Switching months is then a filter,
+  // not a fetch: no loading gap, nothing flashing from 0 to its real value.
+  // (It used to fetch per month, and each change blanked the screen first.)
+  const { data: allClips, isError } = useClips(pair?.id);
+  const monthPrefix = formatDateString(refDate).slice(0, 7);
+  // Nothing to show before the pair existed. pairs.created_at is when the
+  // invite was made, not when the partner joined -- there's no joined-at
+  // column -- but both nearly always land in the same month, and at worst
+  // this allows one empty month rather than hiding a real one. Compared as
+  // UTC YYYY-MM strings, because clips are filed under the shared UTC day:
+  // a local comparison could lock out a creation-day clip filed in the
+  // previous UTC month.
+  const isFirstMonth = pair ? monthPrefix <= pair.created_at.slice(0, 7) : true;
+  const clips = useMemo(
+    () =>
+      (allClips ?? [])
+        .filter((c) => c.recorded_for_date.startsWith(monthPrefix))
+        .reverse(),
+    [allClips, monthPrefix]
+  );
 
   function isMine(clip: Clip): boolean {
     return clip.sender_id === session?.user.id;
@@ -108,9 +111,9 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // ascending-ordered from the query.
   const queueIds = clips.map((c) => c.id);
 
-  // The reel plays every clip; this list is only the ones that carry text,
-  // so a month with no captions renders nothing rather than an empty heading.
-  const captioned = clips.filter((c) => c.caption_text);
+  // Counts for the two list buttons; the lists themselves live on
+  // MonthListScreen so this screen fits without scrolling.
+  const captionedCount = clips.filter((c) => c.caption_text).length;
 
   // Favorites come from the shared query (also used by ClipViewScreen)
   // rather than this screen's own inline style -- clip_favorites_select_
@@ -118,188 +121,154 @@ export default function MonthlySummaryScreen({ navigation }: any) {
   // screen's already-visible `clips` array against it needs no extra fetch
   // logic of its own.
   const { data: favorites } = useFavorites(pair?.id);
-  const favorited = clips.filter((c) =>
-    favorites?.some((f) => f.clip_id === c.id)
-  );
+  const favoritedIds = new Set(favorites?.map((f) => f.clip_id));
+  const favoritedCount = clips.filter((c) => favoritedIds.has(c.id)).length;
 
   return (
-    <ScrollView
-      style={[styles.container, { paddingTop: insets.top + 20 }]}
-      contentContainerStyle={styles.content}
-    >
+    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <Text style={styles.title}>Monthly Summary</Text>
-
-      <View style={styles.monthNav}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.monthNavButton,
-            pressed && styles.pressed,
-          ]}
-          onPress={() =>
-            setRefDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
-          }
-        >
-          <Text style={styles.monthNavButtonText}>‹</Text>
-        </Pressable>
-        <Text style={styles.monthLabel}>
-          {refDate.toLocaleDateString('en-US', {
-            month: 'long',
-            year: 'numeric',
-          })}
+      {/* Otherwise a failed fetch reads as a month with no clips. */}
+      {isError && (
+        <Text style={styles.error}>
+          Couldn't load your clips. Try again in a moment.
         </Text>
-        <Pressable
-          style={({ pressed }) => [
-            styles.monthNavButton,
-            pressed && styles.pressed,
-            isCurrentMonth && styles.monthNavButtonDisabled,
-          ]}
-          onPress={() =>
-            setRefDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
-          }
-          disabled={isCurrentMonth}
-        >
-          <Text style={styles.monthNavButtonText}>›</Text>
-        </Pressable>
-      </View>
+      )}
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={t.accent} size="large" />
-        </View>
-      ) : (
-        <>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{mineCount}</Text>
-              <Text style={styles.statLabel}>You</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{partnerCount}</Text>
-              <Text style={styles.statLabel}>Partner</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statValue}>{bothDaysCount}</Text>
-              <Text style={styles.statLabel}>Both days</Text>
-            </View>
-          </View>
-
-          <View style={styles.grid}>
-            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-              const status = dayStatus.get(day);
-              return (
-                <View key={day} style={styles.dayCell}>
-                  <Text style={styles.dayNumber}>{day}</Text>
-                  <View style={styles.dayDots}>
-                    {status?.mine && (
-                      <View style={[styles.dot, styles.dotMine]} />
-                    )}
-                    {status?.partner && (
-                      <View style={[styles.dot, styles.dotPartner]} />
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-
+      {/* Month nav, stats and calendar sit centred in whatever height is
+          left between the title and the pinned action row. */}
+      <ScrollView
+        style={styles.middle}
+        contentContainerStyle={styles.middleContent}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.monthNav}>
           <Pressable
             style={({ pressed }) => [
-              styles.watchButton,
-              queueIds.length === 0 && styles.watchButtonDisabled,
+              styles.monthNavButton,
+              pressed && styles.pressed,
+              isFirstMonth && styles.monthNavButtonDisabled,
+            ]}
+            onPress={() =>
+              setRefDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+            }
+            disabled={isFirstMonth}
+            accessibilityRole="button"
+            accessibilityLabel="Previous month"
+          >
+            <Chevron direction="left" color={t.textPrimary} />
+          </Pressable>
+          <Text style={styles.monthLabel}>{monthLabel}</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.monthNavButton,
+              pressed && styles.pressed,
+              isCurrentMonth && styles.monthNavButtonDisabled,
+            ]}
+            onPress={() =>
+              setRefDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+            }
+            disabled={isCurrentMonth}
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
+          >
+            <Chevron direction="right" color={t.textPrimary} />
+          </Pressable>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{mineCount}</Text>
+            <Text style={styles.statLabel}>You</Text>
+          </View>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{partnerCount}</Text>
+            <Text style={styles.statLabel}>Partner</Text>
+          </View>
+          <View style={styles.statTile}>
+            <Text style={styles.statValue}>{bothDaysCount}</Text>
+            <Text style={styles.statLabel}>Both days</Text>
+          </View>
+        </View>
+
+        {/* A real calendar: Sunday-first weekday header, and the 1st
+              offset to its actual weekday by blank cells. */}
+        <View style={styles.grid}>
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <Text key={i} style={[styles.dayCell, styles.weekday]}>
+              {d}
+            </Text>
+          ))}
+          {Array.from({ length: refDate.getDay() }, (_, i) => (
+            <View key={`blank-${i}`} style={styles.dayCell} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+            const status = dayStatus.get(day);
+            return (
+              <View key={day} style={styles.dayCell}>
+                <Text style={styles.dayNumber}>{day}</Text>
+                <View style={styles.dayDots}>
+                  {status?.mine && (
+                    <View style={[styles.dot, styles.dotMine]} />
+                  )}
+                  {status?.partner && (
+                    <View style={[styles.dot, styles.dotPartner]} />
+                  )}
+                </View>
+              </View>
+            );
+          })}
+          {/* Always six week rows (42 cells), so a five-week month is
+                  the same height as a six-week one and nothing below the
+                  calendar moves when you change month. */}
+          {Array.from(
+            { length: 42 - refDate.getDay() - daysInMonth },
+            (_, i) => (
+              <View key={`tail-${i}`} style={styles.dayCell} />
+            )
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Icon-only, equal tiles like the stats row above. Each is
+              disabled (dimmed) when it would open nothing this month. */}
+      <View style={[styles.statsRow, styles.actionRow]}>
+        {(
+          [
+            ['captions', 'What you said', captionedCount],
+            ['reel', "Watch this month's clips", queueIds.length],
+            ['favorites', 'Favorite moments', favoritedCount],
+          ] as const
+        ).map(([kind, label, count]) => (
+          <Pressable
+            key={kind}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            style={({ pressed }) => [
+              styles.statTile,
+              styles.actionTile,
+              count === 0 && styles.actionTileDisabled,
               pressed && styles.pressed,
             ]}
             onPress={() =>
-              navigation.navigate('ClipView', {
-                clipId: queueIds[0],
-                queue: queueIds,
-              })
+              kind === 'reel'
+                ? navigation.navigate('ClipView', {
+                    clipId: queueIds[0],
+                    queue: queueIds,
+                  })
+                : navigation.navigate('MonthList', {
+                    kind,
+                    monthPrefix,
+                    monthLabel,
+                  })
             }
-            disabled={queueIds.length === 0}
+            disabled={count === 0}
           >
-            <Text style={styles.watchButtonText}>
-              {queueIds.length === 0
-                ? 'No clips this month'
-                : `Watch this month's clips (${queueIds.length})`}
-            </Text>
+            <NavIcon name={kind} size={30} color={t.accent} />
           </Pressable>
-
-          {favorited.length > 0 && (
-            <View style={styles.captions}>
-              <Text style={styles.captionsHeading}>Favorite moments</Text>
-              {favorited.map((clip) => {
-                const clipFavorites =
-                  favorites?.filter((f) => f.clip_id === clip.id) ?? [];
-                const mineFavorited = clipFavorites.some(
-                  (f) => f.user_id === session?.user.id
-                );
-                const partnerFavorited = clipFavorites.some(
-                  (f) => f.user_id !== session?.user.id
-                );
-                const who =
-                  mineFavorited && partnerFavorited
-                    ? `${myProfile?.display_name ?? 'You'} & ${partnerName ?? 'your partner'}`
-                    : mineFavorited
-                      ? (myProfile?.display_name ?? 'You')
-                      : (partnerName ?? 'Your partner');
-                return (
-                  <Pressable
-                    key={clip.id}
-                    style={({ pressed }) => [
-                      styles.captionRow,
-                      pressed && styles.pressed,
-                    ]}
-                    onPress={() =>
-                      navigation.navigate('ClipView', { clipId: clip.id })
-                    }
-                  >
-                    <Text style={styles.captionMeta}>
-                      ★ {Number(clip.recorded_for_date.split('-')[2])}
-                      {'  ·  '}
-                      {who}
-                    </Text>
-                    {clip.caption_text && (
-                      <Text style={styles.captionText}>
-                        {clip.caption_text}
-                      </Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-
-          {captioned.length > 0 && (
-            <View style={styles.captions}>
-              <Text style={styles.captionsHeading}>What you said</Text>
-              {captioned.map((clip) => (
-                // No `queue`: opening one row plays that clip on its own, with
-                // manual controls and no auto-advance. The reel button above
-                // is what plays the month through.
-                <Pressable
-                  key={clip.id}
-                  style={({ pressed }) => [
-                    styles.captionRow,
-                    pressed && styles.pressed,
-                  ]}
-                  onPress={() =>
-                    navigation.navigate('ClipView', { clipId: clip.id })
-                  }
-                >
-                  <Text style={styles.captionMeta}>
-                    {Number(clip.recorded_for_date.split('-')[2])}
-                    {'  ·  '}
-                    {isMine(clip)
-                      ? (myProfile?.display_name ?? 'You')
-                      : (partnerName ?? 'Your partner')}
-                  </Text>
-                  <Text style={styles.captionText}>{clip.caption_text}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </>
-      )}
-    </ScrollView>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -310,10 +279,7 @@ const makeStyles = (t: Theme) =>
     container: {
       flex: 1,
       backgroundColor: t.background,
-    },
-    content: {
       paddingHorizontal: 24,
-      paddingBottom: 40,
     },
     title: {
       fontFamily: fonts.display,
@@ -340,17 +306,11 @@ const makeStyles = (t: Theme) =>
     monthNavButtonDisabled: {
       opacity: 0.3,
     },
-    monthNavButtonText: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: fontSizes.lg,
-      color: t.textPrimary,
-    },
     monthLabel: {
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
       color: t.textPrimary,
     },
-    centered: { paddingVertical: 60, alignItems: 'center' },
     statsRow: {
       flexDirection: 'row',
       gap: 12,
@@ -364,6 +324,8 @@ const makeStyles = (t: Theme) =>
       borderColor: t.border,
       paddingVertical: 16,
       alignItems: 'center',
+      // Shared by the stat and action rows so they stay the same height.
+      minHeight: 88,
     },
     statValue: {
       fontFamily: fonts.display,
@@ -387,21 +349,29 @@ const makeStyles = (t: Theme) =>
       justifyContent: 'center',
       alignItems: 'center',
     },
-    dayNumber: {
-      fontFamily: fonts.body,
+    weekday: {
+      aspectRatio: undefined,
+      paddingBottom: 6,
+      textAlign: 'center',
+      fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.xs,
       color: t.textMuted,
     },
+    dayNumber: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.md,
+      color: t.textPrimary,
+    },
     dayDots: {
       flexDirection: 'row',
-      gap: 3,
-      marginTop: 3,
-      height: 6,
+      gap: 4,
+      marginTop: 4,
+      height: 7,
     },
     dot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
     },
     // edgeYou/edgePartner, not the accent tokens. These pips mean "you" and
     // "your partner" (on light the partner pip is only ~1.44:1 against the
@@ -415,45 +385,35 @@ const makeStyles = (t: Theme) =>
     dotPartner: {
       backgroundColor: t.edgePartner,
     },
-    watchButton: {
-      backgroundColor: t.accent,
-      borderRadius: 16,
-      paddingVertical: 16,
-      alignItems: 'center',
-    },
-    watchButtonDisabled: {
-      opacity: 0.5,
-    },
-    watchButtonText: {
-      fontFamily: fonts.bodySemiBold,
-      color: t.surface,
-      fontSize: fontSizes.md,
-    },
     pressed: {
       opacity: 0.7,
     },
-    captions: {
-      marginTop: 28,
+    // Pinned to the bottom, above the tab bar: `middle` takes the rest.
+    actionRow: {
+      marginBottom: 36,
     },
-    captionsHeading: {
-      fontFamily: fonts.bodySemiBold,
+    // A ScrollView only as a fallback: on a normal phone the content fits
+    // and it doesn't move (no bounce); on an iPhone SE or at large text
+    // sizes six calendar rows don't fit, and this beats overlapping the
+    // title and action row.
+    middle: {
+      flex: 1,
+    },
+    middleContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+    },
+    actionTile: {
+      justifyContent: 'center',
+    },
+    error: {
+      fontFamily: fonts.body,
       fontSize: fontSizes.sm,
-      color: t.textPrimary,
+      color: t.danger,
+      marginTop: -8,
       marginBottom: 12,
     },
-    captionRow: {
-      marginBottom: 16,
-    },
-    captionMeta: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.xs,
-      color: t.textMuted,
-      marginBottom: 2,
-    },
-    captionText: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textPrimary,
-      lineHeight: 20,
+    actionTileDisabled: {
+      opacity: 0.4,
     },
   });
