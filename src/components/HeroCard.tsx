@@ -84,7 +84,7 @@ export default function HeroCard() {
           </Text>
         )}
         {detailBottom && (
-          <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.detail} numberOfLines={2} ellipsizeMode="tail">
             {detailBottom}
           </Text>
         )}
@@ -124,8 +124,10 @@ const makeStyles = (t: Theme) =>
       backgroundColor: brand.youDeep,
       alignItems: 'flex-start',
     },
-    // The heart overlaps each half by HEART_SIZE / 2, so text here starts
-    // past it instead of running under it.
+    // The heart overlaps each half by HEART_SIZE / 2. This half's text is
+    // right-aligned and wraps, so it's padded to start past the heart. The
+    // left half isn't: its count is short and left-aligned, and padding it
+    // would wrap a four-digit "1779 days".
     rightHalf: {
       backgroundColor: brand.partner,
       alignItems: 'flex-end',

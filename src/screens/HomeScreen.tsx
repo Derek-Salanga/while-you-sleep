@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -94,49 +94,61 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
-      <Text style={styles.title}>Home</Text>
-      {anniversary && (
-        <Text style={styles.anniversaryText}>
-          {daysBetween(anniversary.anniversary_date, todayDateString())} days
-          together
-          {partnerName ? ` with ${partnerName}` : ''}
-        </Text>
-      )}
-      {/* An upcoming trip shows as the Timeline's HeroCard (same component,
+      {/* Scrolls only if it must (iPhone SE, large text), so the pinned
+          question below can never be pushed under the tab bar. Doesn't
+          bounce, so on a normal phone it's inert. */}
+      <ScrollView
+        style={styles.body}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.title}>Home</Text>
+        {anniversary && (
+          <Text style={styles.anniversaryText}>
+            {daysBetween(anniversary.anniversary_date, todayDateString())} days
+            together
+            {partnerName ? ` with ${partnerName}` : ''}
+          </Text>
+        )}
+        {/* An upcoming trip shows as the Timeline's HeroCard (same component,
           so the two can't drift). No trip, or one already past, shows the
           plain prompt -- HeroCard would fall back to the anniversary there,
           which Home already states in the line above. */}
-      <Pressable
-        style={({ pressed }) => pressed && styles.pressed}
-        onPress={() => navigation.navigate('TripEdit')}
-        accessibilityRole="button"
-        accessibilityHint="Edits your next trip"
-      >
-        {trip === undefined ? (
-          <View style={styles.tripPlaceholder} />
-        ) : tripUpcoming ? (
-          <HeroCard />
-        ) : (
-          <View style={styles.entryCard}>
-            <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+        <Pressable
+          style={({ pressed }) => pressed && styles.pressed}
+          onPress={() => navigation.navigate('TripEdit')}
+          // TripEdit seeds its form from the cached trip once, on mount;
+          // opening it before that loads would save blanks over a real trip.
+          disabled={trip === undefined}
+          accessibilityRole="button"
+          accessibilityHint="Edits your next trip"
+        >
+          {trip === undefined ? (
+            <View style={styles.tripPlaceholder} />
+          ) : tripUpcoming ? (
+            <HeroCard />
+          ) : (
+            <View style={styles.entryCard}>
+              <Text style={styles.entryCardLabel}>Plan your next visit</Text>
+            </View>
+          )}
+        </Pressable>
+        {/* Above the record CTA on purpose: the pet's state is the reason to
+          tap it, so it should be read first. */}
+        {mood && (
+          <View style={styles.petCard}>
+            <SharedPet mood={mood} size={72} resting={petResting} />
+            <View style={styles.petCopy}>
+              <Text style={styles.petTitle}>
+                {petResting ? 'Resting' : PET_COPY[mood].title}
+              </Text>
+              <Text style={styles.petBody}>
+                {petResting ? "Paused while you're away." : PET_COPY[mood].body}
+              </Text>
+            </View>
           </View>
         )}
-      </Pressable>
-      {/* Above the record CTA on purpose: the pet's state is the reason to
-          tap it, so it should be read first. */}
-      {mood && (
-        <View style={styles.petCard}>
-          <SharedPet mood={mood} size={72} resting={petResting} />
-          <View style={styles.petCopy}>
-            <Text style={styles.petTitle}>
-              {petResting ? 'Resting' : PET_COPY[mood].title}
-            </Text>
-            <Text style={styles.petBody}>
-              {petResting ? "Paused while you're away." : PET_COPY[mood].body}
-            </Text>
-          </View>
-        </View>
-      )}
+      </ScrollView>
       {/* The daily clip IS the daily question's answer now -- RecordScreen
           shows the question, records the (video) answer, and reveals both
           partners' answers once submitted. See "Video daily question" in
@@ -238,8 +250,11 @@ const makeStyles = (t: Theme) =>
     // Pinned above the tab bar, 18pt clear of it like Monthly Summary's
     // action row.
     recordCtaPinned: {
-      marginTop: 'auto',
+      marginTop: 12,
       marginBottom: 18,
+    },
+    body: {
+      flex: 1,
     },
     // HeroCard's footprint (120 + its 20 margin), held while the trip query
     // is still loading so the pet card doesn't jump when it resolves.

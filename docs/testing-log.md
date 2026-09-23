@@ -2237,3 +2237,28 @@ iOS dev client, dark theme, changes made iteratively against the device.
 remaining items on the phone and all looked right: switching August ↔
 September with no layout shift or zero flash, light mode, and both list
 pages. Still unexercised: the small-screen `ScrollView` fallback.
+
+## 2026-09-23 — Home layout, trip editor page, HeroCard wrapping
+
+iOS dev client, light theme. Home now reads: title and days-together line,
+the trip as HeroCard, the pet, then "Today's question" pinned 18pt above the
+tab bar. Tapping the trip card pushes `TripEditScreen` inside a new Home tab
+stack; it had been an in-place form whose 216pt spinner pushed the rest of
+Home off-screen.
+
+Seen on device: the layout, and a long country ("British Indian Ocean
+Territory") first truncating to "British Indian O…", then — after allowing
+two lines — shifting the colour split off the heart, because `flex: 1`
+halves widened with the padded, wrapped text. Fixed by fixing both halves at
+50%, after which the split sat under the heart again.
+
+A `// comment` left as bare JSX text after the in-place editor's ternary was
+removed crashed Home with "Text strings must be rendered within a <Text>
+component". Type-check and lint don't catch that — it's valid TSX.
+
+Code review then fixed, not yet re-checked on device: the trip card is
+disabled while its query loads (the form seeds once from the cache), Save
+guards against double taps via `Button`'s `loading`, the Android date dialog
+opens from a tappable row rather than being always mounted, the date line on
+HeroCard may wrap too, notification taps to Home name `HomeMain`, and Home's
+non-bouncing `ScrollView` fallback is back for small screens.

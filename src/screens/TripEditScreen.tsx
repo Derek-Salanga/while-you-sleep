@@ -18,6 +18,7 @@ import { usePairing } from '@/lib/PairingContext';
 import { usePairTrip } from '@/hooks/queries';
 import { isTripUpcoming } from '@/components/HeroCard';
 import Screen from '@/components/ui/Screen';
+import Button from '@/components/ui/Button';
 import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
@@ -50,9 +51,14 @@ export default function TripEditScreen({ navigation }: any) {
   );
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
+  const [saving, setSaving] = useState(false);
+  // Android's picker is a dialog, not an inline view: shown on demand from
+  // the date row below. Rendering it unconditionally reopens it on every
+  // re-render, since the library opens it from an effect.
+  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
 
   const handleSave = async () => {
-    if (!pair || !session?.user) return;
+    if (!pair || !session?.user || saving) return;
     // Enforced here rather than via the picker's minimumDate prop -- passing
     // a bound to the native date picker is what caused the Dec 31, 1969
     // display bug. Today itself is allowed ("Today" is a valid countdown).
@@ -63,6 +69,7 @@ export default function TripEditScreen({ navigation }: any) {
       );
       return;
     }
+    setSaving(true);
     const { data, error } = await supabase
       .from('pair_trips')
       .upsert(
@@ -78,6 +85,7 @@ export default function TripEditScreen({ navigation }: any) {
       .single();
 
     if (error) {
+      setSaving(false);
       Alert.alert("Couldn't save your trip", error.message);
       return;
     }
@@ -118,25 +126,46 @@ export default function TripEditScreen({ navigation }: any) {
       </Pressable>
 
       <Text style={styles.label}>When?</Text>
-      <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
-        <DateTimePicker
-          // Follows the OS appearance by default, not the app's -- so a user
-          // on System=dark with the app forced Light would get a dark picker
-          // on a light sheet.
-          themeVariant={t.name}
-          value={pickerDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, date) => date && setPickerDate(date)}
+      {Platform.OS === 'android' && (
+        <Pressable
+          style={({ pressed }) => [styles.input, pressed && styles.pressed]}
+          onPress={() => setAndroidPickerOpen(true)}
+        >
+          <Text style={styles.inputText}>
+            {pickerDate.toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </Text>
+        </Pressable>
+      )}
+      {(Platform.OS === 'ios' || androidPickerOpen) && (
+        <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+          <DateTimePicker
+            // Follows the OS appearance by default, not the app's -- so a user
+            // on System=dark with the app forced Light would get a dark picker
+            // on a light sheet.
+            themeVariant={t.name}
+            value={pickerDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_, date) => {
+              setAndroidPickerOpen(false);
+              if (date) setPickerDate(date);
+            }}
+          />
+        </View>
+      )}
+
+      <View style={styles.save}>
+        <Button
+          title="Save"
+          onPress={handleSave}
+          loading={saving}
+          disabled={saving}
         />
       </View>
-
-      <Pressable
-        style={({ pressed }) => [styles.save, pressed && styles.pressed]}
-        onPress={handleSave}
-      >
-        <Text style={styles.saveText}>Save</Text>
-      </Pressable>
 
       <Modal
         visible={countryPickerVisible}
@@ -240,16 +269,7 @@ const makeStyles = (t: Theme) =>
       height: 216,
     },
     save: {
-      backgroundColor: t.accent,
-      borderRadius: 16,
-      paddingVertical: 14,
-      alignItems: 'center',
       marginTop: 20,
-    },
-    saveText: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: fontSizes.md,
-      color: t.textOnAccent,
     },
     cancel: {
       alignItems: 'center',
