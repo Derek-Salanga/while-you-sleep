@@ -75,13 +75,16 @@ export default function HeroCard() {
         {caption && <Text style={styles.caption}>{caption}</Text>}
       </View>
       <View style={[styles.half, styles.rightHalf]}>
+        {/* Two lines, not one: long country names ("British Indian Ocean
+            Territory") were cut to "British Indian O...". Two lines of 14pt
+            plus the date still fit the 120pt card. */}
         {detailTop && (
-          <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.detail} numberOfLines={2} ellipsizeMode="tail">
             {detailTop}
           </Text>
         )}
         {detailBottom && (
-          <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.detail} numberOfLines={2} ellipsizeMode="tail">
             {detailBottom}
           </Text>
         )}
@@ -106,8 +109,11 @@ const makeStyles = (t: Theme) =>
       overflow: 'hidden',
       marginBottom: 20,
     },
+    // A fixed 50%, not flex: 1. With flex, the right half's extra padding
+    // plus a long wrapped country name made it wider, so the colour split
+    // drifted off the heart, which is pinned to the card's centre.
     half: {
-      flex: 1,
+      width: '50%',
       justifyContent: 'center',
       paddingHorizontal: 20,
     },
@@ -118,9 +124,14 @@ const makeStyles = (t: Theme) =>
       backgroundColor: brand.youDeep,
       alignItems: 'flex-start',
     },
+    // The heart overlaps each half by HEART_SIZE / 2. This half's text is
+    // right-aligned and wraps, so it's padded to start past the heart. The
+    // left half isn't: its count is short and left-aligned, and padding it
+    // would wrap a four-digit "1779 days".
     rightHalf: {
       backgroundColor: brand.partner,
       alignItems: 'flex-end',
+      paddingLeft: HEART_SIZE / 2 + 8,
     },
     count: {
       fontFamily: fonts.display,

@@ -100,7 +100,12 @@ export default function RootNavigator() {
         } else if (destination.screen === 'ClipView') {
           navigationRef.navigate('ClipView', { clipId: destination.clipId });
         } else {
-          navigationRef.navigate('MainTabs', { screen: 'Home' });
+          // Name the nested screen: Home is a stack now, and without it this
+          // resumes whatever it shows, e.g. a half-edited TripEdit.
+          navigationRef.navigate('MainTabs', {
+            screen: 'Home',
+            params: { screen: 'HomeMain' },
+          });
         }
       }
     );

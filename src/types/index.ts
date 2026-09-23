@@ -128,6 +128,11 @@ export type SettingsStackParamList = {
   AppearanceSettings: undefined;
 };
 
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  TripEdit: undefined;
+};
+
 export type MonthlyStackParamList = {
   MonthlyHome: undefined;
   MonthList: {
@@ -139,7 +144,7 @@ export type MonthlyStackParamList = {
 };
 
 export type MainTabParamList = {
-  Home: undefined;
+  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
   Timeline: undefined;
   MonthlySummary: NavigatorScreenParams<MonthlyStackParamList> | undefined;
   Settings: undefined;

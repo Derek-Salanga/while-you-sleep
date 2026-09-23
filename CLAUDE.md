@@ -493,10 +493,13 @@ Scoped as a single shared "next visit" countdown, not multiple/past
 trips — the least-defined item on the original feature backlog, so the
 mechanic was picked via AskUserQuestion before building: one active
 trip (date + meeting country), either partner can set/edit it, shown
-as a card on Home. Tapping the card reveals an inline edit form (a
-country picker + native date picker,
-`@react-native-community/datetimepicker`) in place of the card; saving
-is one upsert on `pair_id`. An upcoming trip renders as `HeroCard` — the
+as a card on Home. Tapping the card pushes `TripEditScreen` (a country
+picker + native date picker, `@react-native-community/datetimepicker`)
+inside the Home tab's own small stack (`HomeNavigator` in `MainTabs.tsx`,
+same shape as Settings and Monthly), so the tab bar stays; saving is one
+upsert on `pair_id`, written back with `setQueryData`, then back to Home.
+Until 2026-09-23 the form replaced the card in place, and its 216pt spinner
+pushed the rest of Home off-screen. An upcoming trip renders as `HeroCard` — the
 Timeline's split card ("N days / until we meet", flag + country + date) —
 reused rather than restyled so the two can't drift (2026-09-23; it was a
 plain text card before). No trip, or one already past, shows a plain "Plan
@@ -506,9 +509,13 @@ anniversary, which Home already states in its subtitle line.
 **Home layout (2026-09-23):** title and "N days together" line, the trip
 card, the pet card, then "Today's question" pinned 18pt above the tab bar
 — the same gap as Monthly Summary's action row. Everything above it is a
-non-bouncing `ScrollView`, which only scrolls when the trip editor is open
-(its 216pt iOS spinner doesn't fit otherwise). The editor still replaces the
-trip card in place, and for a past trip it starts from today. Whether the
+non-bouncing `ScrollView` that only scrolls on a screen too small for it
+(iPhone SE, large text), so the question can't be pushed under the tab bar.
+The trip card is disabled while the trip query is still loading, because
+`TripEditScreen` seeds its form once from the cache; notification taps
+that route to Home name `HomeMain` so they don't resume a half-edited
+`TripEdit`. The trip editor is its own page, and for a past trip it
+starts from today. Whether the
 trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
 and the Timeline share one rule; while the trip query is loading, Home holds
 HeroCard's height so the pet card doesn't jump.
@@ -530,8 +537,7 @@ key — there's nothing else to key on since it's a singleton value, not
 a per-day record like `clips`/`daily_answers`). RLS reuses
 `is_pair_member`, same read/write-by-either-partner shape as `clips`'
 policies — no reveal-gating, since there's nothing to hide here.
-`HomeScreen.tsx` fetches/saves it inline (matching the rest of the
-codebase's per-screen query style, no data-layer file). `set_by` is
+It's read through `usePairTrip` and saved inline from `TripEditScreen.tsx`. `set_by` is
 overwritten on every edit, so it just tracks who set it most recently,
 not a history.
 
@@ -552,10 +558,14 @@ reusable lesson in [[feedback_datetimepicker_no_modal]] in memory.
 
 Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the tab
 navigator, `display="spinner"` on iOS in a fixed-height container,
-`display="default"` on Android, dates always parsed through
+`display="default"` on Android (in `TripEditScreen` the Android dialog is
+rendered only after tapping a date row, and unmounted on change — the
+library opens it from an effect, so an always-mounted one reopens on every
+re-render; `SettingsScreen`'s anniversary picker still has the
+always-mounted shape), dates always parsed through
 `parseDateString()`, **neither picker has `minimumDate`/`maximumDate`** —
 date-range rules are enforced on Save via a plain string compare instead
-(`handleSaveTrip` in `HomeScreen.tsx`, `handleSaveAnniversary` in
+(`handleSave` in `TripEditScreen.tsx`, `handleSaveAnniversary` in
 `SettingsScreen.tsx`).
 
 ### Anniversary day-counter
@@ -573,8 +583,8 @@ Same RLS shape as `pair_trips`, same local-calendar-day math.
 Originally saved on every `onChange` (i.e. every wheel-stop), with no
 way to review before it took effect — changed to stage the picked date
 locally and only save on an explicit Save button (Cancel discards),
-mirroring the trip form's existing Save/Cancel pattern in
-`HomeScreen.tsx`, per user request.
+mirroring the trip form's Save pattern (now `TripEditScreen.tsx`), per user
+request.
 
 ### Partner nicknames
 
@@ -1275,9 +1285,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The pet on Home (2026-09-06): renders with the mood matching
   `pair_pet.score`, and a tab-away-and-back picks up a score change with no
-  manual refresh. `withdrawn` is legible on a white card. (Home's body is a
-  non-bouncing `ScrollView` since 2026-09-23, only so the open trip editor
-  can scroll above the pinned "Today's question".)
+  manual refresh. `withdrawn` is legible on a white card.
 
 - Pause mode (2026-09-06): three presets in Settings, the row reads back the
   date, Home shows the resting overlay, "Resume now" clears it, and the daily
@@ -1450,10 +1458,17 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   shifts the layout nor flashes zeros, and both `MonthListScreen` pages open
   and read correctly
 
+- **Trip edit page + HeroCard wrap (2026-09-23, iOS, light):** Home renders
+  the trip as HeroCard with the pet below and "Today's question" pinned;
+  a long country name ("British Indian Ocean Territory") wraps to two lines
+  on HeroCard's right half, clear of the heart, with the colour split still
+  under it
+
 **Not verified:**
 - Home's new layout (2026-09-23): trip as HeroCard at the top, the pet
-  below it, "Today's question" pinned 18pt above the tab bar — and whether
-  the trip editor's date spinner still fits above the pinned button
+  below it, "Today's question" pinned 18pt above the tab bar; and
+  `TripEditScreen` — the spinner inside a pushed stack screen, Save/back,
+  the country list
 - Monthly Summary on a smaller iPhone or at large text sizes, where the
   middle block's `ScrollView` fallback should engage
 - The brand-orange `edgePartner` (2026-09-23) on device in light mode:
