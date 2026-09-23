@@ -2262,3 +2262,8 @@ guards against double taps via `Button`'s `loading`, the Android date dialog
 opens from a tappable row rather than being always mounted, the date line on
 HeroCard may wrap too, notification taps to Home name `HomeMain`, and Home's
 non-bouncing `ScrollView` fallback is back for small screens.
+
+**Follow-up, after #133 merged:** the user checked the trip page on the
+phone (iOS): opening it from the card, changing country and date, Save
+updating Home, a past date rejected, and the back link. All good. Android's
+tap-to-open date dialog and dark mode remain unchecked.
