@@ -4,6 +4,7 @@ import { usePairing } from '@/lib/PairingContext';
 import { useClips, useFavorites } from '@/hooks/queries';
 import { usePartnerName } from '@/hooks/usePartnerName';
 import Screen from '@/components/ui/Screen';
+import BackLink from '@/components/ui/BackLink';
 import { Clip } from '@/types';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
@@ -54,14 +55,7 @@ export default function MonthListScreen({ navigation, route }: any) {
 
   return (
     <Screen padding={20} topInset>
-      <Pressable
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="Back to Monthly Summary"
-      >
-        <Text style={styles.backText}>‹ {monthLabel}</Text>
-      </Pressable>
+      <BackLink label={monthLabel} />
       <Text style={styles.title}>
         {kind === 'favorites' ? 'Favorite moments' : 'What you said'}
       </Text>
@@ -99,16 +93,6 @@ export default function MonthListScreen({ navigation, route }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    back: {
-      alignSelf: 'flex-start',
-      paddingVertical: 4,
-      marginBottom: 4,
-    },
-    backText: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.md,
-      color: t.accent,
-    },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
