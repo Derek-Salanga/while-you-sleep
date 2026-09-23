@@ -1,5 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -80,6 +87,10 @@ export default function HomeScreen({ navigation }: any) {
   const petResting =
     !!pet?.paused_until && pet.paused_until >= sharedTodayDateString();
   const mood = pet ? petMood(pet.score) : null;
+  // Big, but capped so a small phone still fits the trip card, the pet's
+  // copy and the pinned question without scrolling.
+  const { width, height } = useWindowDimensions();
+  const petSize = Math.min(width - 80, height * 0.36, 300);
 
   const recordCtaScale = useSharedValue(1);
   const recordCtaAnimatedStyle = useAnimatedStyle(() => ({
@@ -99,6 +110,7 @@ export default function HomeScreen({ navigation }: any) {
           bounce, so on a normal phone it's inert. */}
       <ScrollView
         style={styles.body}
+        contentContainerStyle={styles.bodyContent}
         alwaysBounceVertical={false}
         showsVerticalScrollIndicator={false}
       >
@@ -134,7 +146,7 @@ export default function HomeScreen({ navigation }: any) {
           tap it, so it should be read first. */}
         {mood && (
           <View style={styles.petCard}>
-            <SharedPet mood={mood} size={72} resting={petResting} />
+            <SharedPet mood={mood} size={petSize} resting={petResting} />
             <View style={styles.petCopy}>
               <Text style={styles.petTitle}>
                 {petResting ? 'Resting' : PET_COPY[mood].title}
@@ -189,28 +201,28 @@ const makeStyles = (t: Theme) =>
       color: t.textMuted,
       marginBottom: 16,
     },
+    // The pet is the centre of Home: no card, it fills whatever height is
+    // left between the trip card and the pinned question, with its mood
+    // copy centred underneath.
     petCard: {
-      flexDirection: 'row',
+      flex: 1,
       alignItems: 'center',
-      gap: 14,
-      backgroundColor: t.surface,
-      borderWidth: 1,
-      borderColor: t.border,
-      borderRadius: 16,
-      padding: 14,
-      marginBottom: 16,
+      justifyContent: 'center',
+      paddingVertical: 8,
     },
-    petCopy: { flex: 1 },
+    petCopy: { alignItems: 'center', marginTop: 8 },
     petTitle: {
       fontFamily: fonts.display,
-      fontSize: fontSizes.md,
+      fontSize: fontSizes.lg,
       color: t.textPrimary,
+      textAlign: 'center',
     },
     petBody: {
       fontFamily: fonts.body,
       fontSize: fontSizes.sm,
       color: t.textMuted,
-      marginTop: 2,
+      marginTop: 4,
+      textAlign: 'center',
     },
     entryCard: {
       flexDirection: 'row',
@@ -252,6 +264,11 @@ const makeStyles = (t: Theme) =>
     },
     body: {
       flex: 1,
+    },
+    // flexGrow so the pet can take the leftover height; the ScrollView only
+    // actually scrolls when there isn't any.
+    bodyContent: {
+      flexGrow: 1,
     },
     // HeroCard's footprint (120 + its 20 margin), held while the trip query
     // is still loading so the pet card doesn't jump when it resolves.

@@ -5,7 +5,11 @@ import { useTheme } from '@/theme/ThemeContext';
 import { PetMood } from '@/types';
 import {
   PET_BODY,
+  PET_HEAD,
+  PET_INNER_EARS,
   PET_BELLY,
+  PET_NOSE,
+  PET_WHISKERS,
   PET_EYES,
   PET_MOUTH,
   PET_LINE,
@@ -21,7 +25,7 @@ interface SharedPetProps {
   leftColor?: string;
   rightColor?: string;
   // The silhouette holds without it, but the outline is what separates the
-  // ears and paws from the body mass -- without it they melt into a blob.
+  // head, ears and paws from the body mass -- without it they melt together.
   showOutline?: boolean;
   // Pause, drawn over the current mood rather than replacing it.
   resting?: boolean;
@@ -53,9 +57,10 @@ export default function SharedPet({
         </ClipPath>
       </Defs>
 
+      {/* Body first, head over it: each layer is split, filled, then
+          outlined, so the body's top edge never strokes across the face. */}
       <Path d={PET_BODY} fill={leftColor} clipPath="url(#petLeft)" />
       <Path d={PET_BODY} fill={rightColor} clipPath="url(#petRight)" />
-
       {/* Under the body outline so it reads as fur rather than a sticker. */}
       <Path
         d={PET_BELLY}
@@ -63,7 +68,6 @@ export default function SharedPet({
         stroke={showOutline ? PET_LINE : 'none'}
         strokeWidth={1.8}
       />
-
       {showOutline && (
         <Path
           d={PET_BODY}
@@ -74,6 +78,27 @@ export default function SharedPet({
         />
       )}
 
+      <Path d={PET_HEAD} fill={leftColor} clipPath="url(#petLeft)" />
+      <Path d={PET_HEAD} fill={rightColor} clipPath="url(#petRight)" />
+      <Path d={PET_INNER_EARS} fill={t.fillPartner} />
+      {showOutline && (
+        <Path
+          d={PET_HEAD}
+          fill="none"
+          stroke={PET_LINE}
+          strokeWidth={2.2}
+          strokeLinejoin="round"
+        />
+      )}
+
+      <Path
+        d={PET_WHISKERS}
+        stroke={PET_LINE}
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path d={PET_NOSE} fill={PET_LINE} />
       <G
         stroke={PET_LINE}
         strokeWidth={2.4}

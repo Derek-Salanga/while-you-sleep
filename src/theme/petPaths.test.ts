@@ -1,4 +1,11 @@
-import { PET_BODY, PET_BELLY } from './petPaths';
+import {
+  PET_BODY,
+  PET_BELLY,
+  PET_HEAD,
+  PET_INNER_EARS,
+  PET_NOSE,
+  PET_WHISKERS,
+} from './petPaths';
 
 // The body is clipped into halves at exactly x=50 to colour each partner's
 // side, so asymmetry hands one partner a visibly larger half -- and it would
@@ -14,13 +21,18 @@ function points(d: string): [number, number][] {
 
 describe('pet geometry', () => {
   it.each([
-    ['PET_BODY', PET_BODY],
-    ['PET_BELLY', PET_BELLY],
-  ])('%s is symmetric about x=50', (_name, d) => {
+    // [name, path, minimum point count]
+    ['PET_BODY', PET_BODY, 40],
+    ['PET_HEAD', PET_HEAD, 24],
+    ['PET_BELLY', PET_BELLY, 12],
+    ['PET_INNER_EARS', PET_INNER_EARS, 6],
+    ['PET_WHISKERS', PET_WHISKERS, 8],
+    ['PET_NOSE', PET_NOSE, 3],
+  ] as const)('%s is symmetric about x=50', (_name, d, min) => {
     const pts = points(d);
     // Guards against an empty or mangled path silently passing the
     // mirror check below, which is vacuously true for zero points.
-    expect(pts.length).toBeGreaterThan(8);
+    expect(pts.length).toBeGreaterThanOrEqual(min);
     const key = (x: number, y: number) => `${x.toFixed(1)},${y.toFixed(1)}`;
     const seen = new Set(pts.map(([x, y]) => key(x, y)));
     const unmirrored = pts.filter(([x, y]) => !seen.has(key(100 - x, y)));
@@ -30,6 +42,8 @@ describe('pet geometry', () => {
   it('uses only absolute commands', () => {
     // Relative commands would silently break the reflection above, since a
     // mirrored relative delta is not the mirror of the point it lands on.
-    expect(PET_BODY).not.toMatch(/[mcqlzsvhta]/);
+    for (const d of [PET_BODY, PET_HEAD, PET_INNER_EARS]) {
+      expect(d).not.toMatch(/[mcqlzsvhta]/);
+    }
   });
 });
