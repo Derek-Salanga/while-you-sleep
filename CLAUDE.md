@@ -1468,6 +1468,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   and the back link returns to Home. The iOS spinner works on a pushed
   stack screen
 
+- **`BackLink` and the iOS date spinners after #135/#136 (2026-09-23, iOS):**
+  the shared back link on Account, Appearance, a Monthly list and the trip
+  page looks and behaves as before, and both spinners (anniversary, trip)
+  still work now that the component renders on iOS only
+
 **Not verified:**
 - Both date pickers on Android since the switch to
   `DateTimePickerAndroid.open()` from a tappable row (Settings anniversary,
