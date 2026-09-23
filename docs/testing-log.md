@@ -2147,3 +2147,33 @@ Metro was run detached (`nohup npx expo start --dev-client --tunnel &
 disown`) for this pass — the session's memory watchdog kills a foreground
 background task between turns, which is the same harness snag recorded
 under "EAS Build" in `CLAUDE.md`, just with a different fix.
+
+## 2026-09-23 — Timeline card rework (#128), real device
+
+iOS dev client against Metro, same Timeline viewed in dark then light theme
+(Settings → Appearance), on the live test pair.
+
+**Confirmed, both themes:** day headers (`SEP 17`, `SEP 16`, `SEP 12`) each
+appear once, with both partners' SEP 17 cards grouped under one. Cards are
+full width; the orange/blue left edge and fill both read in either theme.
+Hierarchy reads as designed: muted name, caption ("yeahh", "fave") as the
+largest text, then the muted AI block. A processed clip shows
+`✦ A Moment with My Favorite 🥰` and a two-line summary; the partner's 🔥
+reaction sits alone at header-right and can't be confused with the mood
+emoji. The `unprocessable` clip keeps "AI summary unavailable for this clip /
+No audio stream found in the file" with no Retry. The partner's clip with no
+AI data is a compact name + caption card. Scrolling down does not
+re-trigger the entrance motion.
+
+HeroCard read 1386 days in the 12:00 screenshot and 1385 at 12:02 — local
+midnight passed between them, and 1385 is the correct count from
+2026-09-23 to 2030-07-09. Not a bug.
+
+**Follow-up, same session:** the unwatched dot was seen leading the name on a
+new clip (not screenshotted). The partner's private nickname was set to a
+full 20 characters (`tqtqtwtqttqtqtqtqyqy`): it fits on one line beside the
+🔥 with room to spare at iPhone width, so `numberOfLines`/`flexShrink` never
+engage here. They remain the guard for narrower screens. Pull-to-refresh
+does not re-trigger the entrance motion either.
+
+**Not exercised:** the truncation path itself, and Android.
