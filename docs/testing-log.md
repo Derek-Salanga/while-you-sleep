@@ -2177,3 +2177,37 @@ engage here. They remain the guard for narrower screens. Pull-to-refresh
 does not re-trigger the entrance motion either.
 
 **Not exercised:** the truncation path itself, and Android.
+
+## 2026-09-23 — Timeline card, second pass: no names, 80% width, reaction colours
+
+iOS dev client over a Metro tunnel, dark then light theme. Changes made
+iteratively against the device, in this order:
+
+1. **Name and caption removed from the card**, unavailable row italicised
+   (`Inter_400Regular_Italic`, newly loaded — `fontStyle: 'italic'` isn't
+   synthesised for a custom family on iOS). Seen on device: the italic row
+   rendered correctly, but a watched clip with no AI output and no reaction
+   was an empty coloured bar (SEP 12), and SEP 17's partner card was a bar
+   with only a 🔥. The user asked for captions back.
+2. **Width reverted to 80%**, yours right / theirs left. With names gone the
+   side is the one ownership cue that isn't colour.
+3. **Caption restored**, then **moved onto one row with the reactions**
+   (dot, caption `flex: 1`, reactions). Seen: `fave 😂`, `yes ❤️`,
+   `solo dev 😂`, `2 😂 🥺` all on one line, AI block below.
+4. **Reaction circles** in the reactor's colour so two emoji on a card say
+   who left which. Seen in light mode: on the partner's "2" card, 😂 on
+   orange and 🥺 on blue.
+5. **`edgePartner` changed to the brand orange** (`#FFC670`) in light mode,
+   from `#CA7900`, at the user's request — it read too dark next to
+   HeroCard. That drops the partner edge to ~1.44:1 against the cream, so
+   the 3:1 assertion for it in `themes.test.ts` was removed deliberately.
+   Applies to the Timeline edge and circles, Monthly Summary's pips and the
+   secondary button border. Not looked at on device after this change.
+
+**Dev-client snag worth keeping:** the launcher requested the tunnel bundle
+over `http://…exp.direct` and failed with "Could not connect to development
+server" while the tunnel log showed the phone's `/message` websocket
+arriving and no bundle GET at all — iOS ATS blocks plain http to a
+non-local host. Entering the `https://` URL manually (or the
+`exp+while-you-sleep://expo-development-client/?url=https%3A%2F%2F…` deep
+link) fixed it.

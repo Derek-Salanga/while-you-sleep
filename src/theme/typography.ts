@@ -5,6 +5,7 @@ export const fonts = {
   display: 'Fraunces_600SemiBold',
   displayItalic: 'Fraunces_500Medium_Italic',
   body: 'Inter_400Regular',
+  bodyItalic: 'Inter_400Regular_Italic',
   bodyMedium: 'Inter_500Medium',
   bodySemiBold: 'Inter_600SemiBold',
 };

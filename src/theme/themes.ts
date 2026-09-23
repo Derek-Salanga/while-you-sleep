@@ -84,7 +84,11 @@ export const lightTheme: Theme = {
   fillYou: palette.blueSoft,
   fillPartner: palette.orangeSoft,
   edgeYou: palette.blue,
-  edgePartner: palette.orangeEdgeOnLight,
+  // The brand orange on light too, by choice (2026-09-23): the darkened
+  // #CA7900 that cleared 3:1 against the cream read as muddy. It's ~1.44:1
+  // here, so this token no longer carries ownership alone -- the Timeline's
+  // card side and the Monthly Summary grid's layout do.
+  edgePartner: palette.orange,
   danger: palette.danger,
 };
 

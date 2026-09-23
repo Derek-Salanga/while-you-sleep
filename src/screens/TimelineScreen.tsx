@@ -19,7 +19,6 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { usePairing } from '@/lib/PairingContext';
 import { useClips, useReactions } from '@/hooks/queries';
 import { useRetryAiProcessing } from '@/hooks/mutations';
-import { usePartnerName } from '@/hooks/usePartnerName';
 import { sharedTodayDateString, sharedYesterdayDateString } from '@/lib/date';
 import { AI_MOOD_EMOJI } from '@/lib/aiMood';
 import { Clip } from '@/types';
@@ -64,8 +63,7 @@ function formatClipDate(dateStr: string): string {
 export default function TimelineScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
-  const { session, pair, myProfile } = usePairing();
-  const partnerName = usePartnerName();
+  const { session, pair } = usePairing();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
@@ -122,6 +120,11 @@ export default function TimelineScreen({ navigation }: any) {
       index === 0 ||
       clips[index - 1].recorded_for_date !== item.recorded_for_date;
     const aiDone = item.ai_status === 'completed';
+    const cardReactions = reactions.filter((r) => r.clip_id === item.id);
+    const hasAiRow =
+      (aiDone && (item.ai_title || item.ai_mood || item.ai_summary)) ||
+      (mine &&
+        (item.ai_status === 'failed' || item.ai_status === 'unprocessable'));
 
     const entering = entranceDone.current
       ? undefined
@@ -144,30 +147,32 @@ export default function TimelineScreen({ navigation }: any) {
           onPress={() => navigation.navigate('ClipView', { clipId: item.id })}
           style={[styles.card, mine ? styles.cardMine : styles.cardPartner]}
         >
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
+          {/* One row: unwatched dot, caption, reactions. No name -- the
+              side, fill and edge say whose card it is. The row only renders
+              when it has something in it. */}
+          {(unwatched || cardReactions.length > 0 || item.caption_text) && (
+            <View
+              style={[styles.cardTopRow, hasAiRow && styles.cardTopRowAbove]}
+            >
               {unwatched && <View style={styles.unwatchedDot} />}
-              <Text style={styles.cardSender} numberOfLines={1}>
-                {mine
-                  ? (myProfile?.display_name ?? 'You')
-                  : (partnerName ?? 'Your partner')}
-              </Text>
-            </View>
-            <View style={styles.cardHeaderRight}>
+              <Text style={styles.cardCaption}>{item.caption_text}</Text>
               {/* Both sides' reactions, not just the partner's -- on your own
                   card theirs is the reply you want to see, and on theirs it's
                   a reminder of what you sent back. At most two. */}
-              {reactions
-                .filter((r) => r.clip_id === item.id)
-                .map((r) => (
-                  <Text key={r.user_id} style={styles.cardReaction}>
-                    {r.emoji}
-                  </Text>
-                ))}
+              {cardReactions.map((r) => (
+                <View
+                  key={r.user_id}
+                  style={[
+                    styles.cardReaction,
+                    r.user_id === session?.user.id
+                      ? styles.cardReactionYou
+                      : styles.cardReactionPartner,
+                  ]}
+                >
+                  <Text style={styles.cardReactionEmoji}>{r.emoji}</Text>
+                </View>
+              ))}
             </View>
-          </View>
-          {item.caption_text && (
-            <Text style={styles.cardCaption}>{item.caption_text}</Text>
           )}
           {/* The AI block is one muted group under a ✦, so the mood emoji
               can't be read as a reaction and the summary can't be read as
@@ -207,7 +212,7 @@ export default function TimelineScreen({ navigation }: any) {
               it too -- this is the UI half of that same gate. */}
           {item.ai_status === 'unprocessable' && mine && (
             <>
-              <Text style={styles.cardAiFailed}>
+              <Text style={[styles.cardAiFailed, styles.italic]}>
                 AI summary unavailable for this clip
               </Text>
               {/* Only this status shows its reason: it's about the user's
@@ -218,7 +223,10 @@ export default function TimelineScreen({ navigation }: any) {
                   sentence only: AssemblyAI trails off into file-type
                   detail. */}
               {item.ai_error && (
-                <Text style={styles.cardAiError} numberOfLines={1}>
+                <Text
+                  style={[styles.cardAiError, styles.italic]}
+                  numberOfLines={1}
+                >
                   {item.ai_error.split('. ')[0]}
                 </Text>
               )}
@@ -272,9 +280,9 @@ export default function TimelineScreen({ navigation }: any) {
 // to be rebuilt when the theme changes.
 //
 // The 4pt left edges take edgeYou/edgePartner rather than the accent
-// tokens: the soft fills sit at low contrast against the background by
-// design, so the edge is the only thing actually saying whose clip a card
-// is, and it has to clear 3:1 to do that job.
+// tokens, which flip hue with the theme. edgePartner is the brand orange in
+// both themes and only ~1.44:1 on the light background (see themes.ts), so
+// the edge isn't the accessible cue here: the side the card hangs off is.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
     title: {
@@ -304,8 +312,8 @@ const makeStyles = (t: Theme) =>
       padding: 18,
       marginBottom: 8,
     },
-    // Whose card it is has two visual signals plus the name: the fill and a
-    // 4pt edge in the full-strength colour. The tints these used to be
+    // Whose card it is has three signals: the side it hangs off, the fill
+    // and a 4pt edge in the full-strength colour. The tints these used to be
     // filled with sat ~4% off `background`, so at a glance the whole feed
     // read as one column of white cards.
     //
@@ -315,11 +323,9 @@ const makeStyles = (t: Theme) =>
     // which sits directly above the list already in full-strength
     // primary/secondary.
     //
-    // Cards are full width on purpose. They used to hang off opposite sides
-    // at 80% like chat bubbles, but both clips on a day answer the same
-    // question -- siblings under one day header, not turns in a
-    // conversation -- and the lost width was what made captions and
-    // nicknames wrap.
+    // 80% width, yours right and theirs left. Full width was tried on
+    // 2026-09-21 and reverted two days later, once names came off the card
+    // and the side became the only non-colour cue for whose clip it is.
     //
     // borderLeftWidth/Color override the 1pt border Card sets, since this
     // style is merged last (see ui/Card.tsx).
@@ -328,47 +334,52 @@ const makeStyles = (t: Theme) =>
       borderColor: t.fillYou,
       borderLeftWidth: 4,
       borderLeftColor: t.edgeYou,
+      alignSelf: 'flex-end',
+      width: '80%',
     },
     cardPartner: {
       backgroundColor: t.fillPartner,
       borderColor: t.fillPartner,
       borderLeftWidth: 4,
       borderLeftColor: t.edgePartner,
+      alignSelf: 'flex-start',
+      width: '80%',
     },
-    cardHeader: {
+    // flex-start so a multi-line caption keeps the dot and reactions on its
+    // first line; the dot's marginTop centres it on that line.
+    cardTopRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      alignItems: 'flex-start',
       gap: 8,
     },
-    // flexShrink so a 20-char nickname truncates rather than pushing the
-    // reactions off the row.
-    cardHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      flexShrink: 1,
+    cardTopRowAbove: {
+      marginBottom: 10,
     },
-    // Muted, not primary: the fill and edge already say whose card it is,
-    // and the caption below is meant to be the first thing read.
-    cardSender: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-      flexShrink: 1,
-    },
-    cardHeaderRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
+    // A circle in the reactor's colour -- blue you, orange partner, the
+    // same code as the card edges -- so each emoji says who left it. The
+    // negative margin centres the 26pt circle on the caption's 22pt line.
     cardReaction: {
-      fontSize: fontSizes.md,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      marginVertical: -2,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    // Leads the name, where Mail and Messages put their unread dot -- it
+    cardReactionYou: {
+      backgroundColor: t.edgeYou,
+    },
+    cardReactionPartner: {
+      backgroundColor: t.edgePartner,
+    },
+    cardReactionEmoji: {
+      fontSize: 14,
+    },
+    // Leads the row, where Mail and Messages put their unread dot -- it
     // used to trail the reactions at the far end of the row, where an 8pt
     // dot beside 16pt emoji read as a stray.
     unwatchedDot: {
+      marginTop: 7,
       width: 8,
       height: 8,
       borderRadius: 4,
@@ -378,7 +389,6 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.sm,
       color: t.textMuted,
-      marginTop: 10,
     },
     // Capped at two lines here only; ClipViewScreen shows it in full. The
     // summary is secondary and was what made processed cards tall.
@@ -393,7 +403,6 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.body,
       fontSize: fontSizes.xs,
       color: t.textMuted,
-      marginTop: 8,
     },
     cardAiRetry: {
       fontFamily: fonts.bodySemiBold,
@@ -410,14 +419,17 @@ const makeStyles = (t: Theme) =>
     },
     // The largest text on the card: the caption is the content, everything
     // else is about it. Not truncated: captions are short by design, and
-    // ClipViewScreen shows the same text in full, so the two surfaces stay
-    // consistent.
+    // ClipViewScreen shows the same text in full.
     cardCaption: {
       fontFamily: fonts.body,
       fontSize: fontSizes.md,
       color: t.textPrimary,
       lineHeight: 22,
-      marginTop: 8,
+      // Fills the row even when empty, which pushes the reactions right.
+      flex: 1,
+    },
+    italic: {
+      fontFamily: fonts.bodyItalic,
     },
     empty: {
       fontFamily: fonts.body,
