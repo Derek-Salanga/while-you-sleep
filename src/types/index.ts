@@ -126,6 +126,7 @@ export type SettingsStackParamList = {
   SettingsHome: undefined;
   AccountSettings: undefined;
   AppearanceSettings: undefined;
+  AnniversaryEdit: undefined;
 };
 
 export type HomeStackParamList = {

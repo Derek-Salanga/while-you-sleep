@@ -4,21 +4,15 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Platform,
   Alert,
   TextInput,
   Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker, {
-  DateTimePickerAndroid,
-} from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import {
-  formatDateString,
   parseDateString,
-  todayDateString,
   sharedTodayDateString,
   sharedDatePlusDays,
 } from '@/lib/date';
@@ -63,7 +57,6 @@ export default function SettingsScreen({ navigation }: any) {
   // and the row rendered "Not set" while loading -- indistinguishable from
   // genuinely unset. The cache serves the previous value on remount instead.
   const { data: anniversary } = usePairAnniversary(pair?.id);
-  const [editingAnniversary, setEditingAnniversary] = useState(false);
   const { data: pet } = usePetState(pair?.id);
   const setPetPause = useSetPetPause();
   const [editingPause, setEditingPause] = useState(false);
@@ -71,7 +64,6 @@ export default function SettingsScreen({ navigation }: any) {
     pet?.paused_until && pet.paused_until >= sharedTodayDateString()
       ? pet.paused_until
       : null;
-  const [pickerDate, setPickerDate] = useState(new Date());
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
   const queryClient = useQueryClient();
@@ -80,42 +72,6 @@ export default function SettingsScreen({ navigation }: any) {
   const [editingPartnerNickname, setEditingPartnerNickname] = useState(false);
   const [partnerNicknameInput, setPartnerNicknameInput] = useState('');
   const setAiEnabled = useSetAiEnabled();
-
-  const startEditingAnniversary = () => {
-    setPickerDate(parseDateString(anniversary?.anniversary_date));
-    setEditingAnniversary(true);
-  };
-
-  const handleSaveAnniversary = async () => {
-    if (!pair || !session?.user) return;
-    // Replaces the picker's old maximumDate bound -- a future anniversary
-    // would render a negative "N days together" on Home.
-    if (formatDateString(pickerDate) > todayDateString()) {
-      Alert.alert("That's in the future", 'Pick a date on or before today.');
-      return;
-    }
-    const { data, error } = await supabase
-      .from('pair_anniversary')
-      .upsert(
-        {
-          pair_id: pair.id,
-          anniversary_date: formatDateString(pickerDate),
-          set_by: session.user.id,
-        },
-        { onConflict: 'pair_id' }
-      )
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Failed to save anniversary:', error.message);
-      return;
-    }
-    // The upsert already returned the saved row, so write it straight into
-    // the cache rather than invalidating and going back for it.
-    queryClient.setQueryData(['pairAnniversary', pair.id], data);
-    setEditingAnniversary(false);
-  };
 
   const startEditingNickname = () => {
     setNicknameInput(myProfile?.display_name ?? '');
@@ -263,88 +219,26 @@ export default function SettingsScreen({ navigation }: any) {
           <Text style={styles.rowValue}>{partnerName ?? '...'}</Text>
         </Pressable>
       )}
-      {editingAnniversary ? (
-        <View style={styles.editCard}>
-          {/* No minimumDate/maximumDate: passing a `new Date()` (which carries
-              a time component) as a bound to a mode="date" picker is the
-              suspected cause of the Dec 31, 1969 display bug. Range is
-              validated on save instead. */}
-          {Platform.OS === 'android' && (
-            <Pressable
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              onPress={() =>
-                // The imperative API rather than a mounted <DateTimePicker>:
-                // the component opens Android's dialog from an effect keyed
-                // on its onChange, so any re-render while mounted reopens it.
-                DateTimePickerAndroid.open({
-                  value: pickerDate,
-                  mode: 'date',
-                  onChange: (_, date) => date && setPickerDate(date),
-                })
-              }
-            >
-              <Text style={styles.rowLabel}>Date</Text>
-              <Text style={styles.rowValue}>
-                {pickerDate.toLocaleDateString('en-US', {
+      <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() => navigation.navigate('AnniversaryEdit')}
+      >
+        <Text style={styles.rowLabel}>Anniversary</Text>
+        <Text style={styles.rowValue}>
+          {anniversary
+            ? parseDateString(anniversary.anniversary_date).toLocaleDateString(
+                'en-US',
+                {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
-                })}
-              </Text>
-            </Pressable>
-          )}
-          {Platform.OS === 'ios' && (
-            <View style={styles.spinnerBox}>
-              <DateTimePicker
-                // Follows the OS appearance by default, not the app's -- so a
-                // user on System=dark with the app forced Light would get a
-                // dark picker on a light sheet.
-                themeVariant={t.name}
-                value={pickerDate}
-                mode="date"
-                display="spinner"
-                onChange={(_, date) => date && setPickerDate(date)}
-              />
-            </View>
-          )}
-          <Pressable
-            style={({ pressed }) => [
-              styles.pickerSave,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleSaveAnniversary}
-          >
-            <Text style={styles.pickerSaveText}>Save</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.pickerClose,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => setEditingAnniversary(false)}
-          >
-            <Text style={styles.pickerCloseText}>Cancel</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          onPress={startEditingAnniversary}
-        >
-          <Text style={styles.rowLabel}>Anniversary</Text>
-          <Text style={styles.rowValue}>
-            {anniversary
-              ? parseDateString(
-                  anniversary.anniversary_date
-                ).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
+                }
+              )
+            : anniversary === undefined
+              ? '...'
               : 'Not set'}
-          </Text>
-        </Pressable>
-      )}
+        </Text>
+      </Pressable>
       {editingPause ? (
         <View style={styles.editCard}>
           <Text style={styles.rowLabel}>Pause the pet</Text>
@@ -534,12 +428,6 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.body,
       fontSize: fontSizes.md,
       color: t.textPrimary,
-    },
-    // Fixed height so the native spinner never lays out with a zero-size
-    // frame mid-transition -- iOS's UIDatePicker can reset its displayed
-    // value to the Unix epoch if that happens.
-    spinnerBox: {
-      height: 216,
     },
     pickerSave: {
       backgroundColor: t.accent,

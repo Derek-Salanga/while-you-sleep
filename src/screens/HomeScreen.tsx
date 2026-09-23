@@ -117,9 +117,6 @@ export default function HomeScreen({ navigation }: any) {
         <Pressable
           style={({ pressed }) => pressed && styles.pressed}
           onPress={() => navigation.navigate('TripEdit')}
-          // TripEdit seeds its form from the cached trip once, on mount;
-          // opening it before that loads would save blanks over a real trip.
-          disabled={trip === undefined}
           accessibilityRole="button"
           accessibilityHint="Edits your next trip"
         >
