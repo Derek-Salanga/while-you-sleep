@@ -15,6 +15,7 @@ import TimelineScreen from '@/screens/TimelineScreen';
 import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
 import MonthListScreen from '@/screens/MonthListScreen';
 import TripEditScreen from '@/screens/TripEditScreen';
+import AnniversaryEditScreen from '@/screens/AnniversaryEditScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import AccountSettingsScreen from '@/screens/AccountSettingsScreen';
 import AppearanceSettingsScreen from '@/screens/AppearanceSettingsScreen';
@@ -37,6 +38,10 @@ function SettingsNavigator() {
       <SettingsStack.Screen
         name="AppearanceSettings"
         component={AppearanceSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="AnniversaryEdit"
+        component={AnniversaryEditScreen}
       />
     </SettingsStack.Navigator>
   );

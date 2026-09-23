@@ -565,26 +565,28 @@ re-render reopens it (changed 2026-09-23, from reading the library source;
 not yet verified on Android). Dates always parsed through
 `parseDateString()`, **neither picker has `minimumDate`/`maximumDate`** —
 date-range rules are enforced on Save via a plain string compare instead
-(`handleSave` in `TripEditScreen.tsx`, `handleSaveAnniversary` in
-`SettingsScreen.tsx`).
+(`handleSave` in `TripEditScreen.tsx` and in `AnniversaryEditScreen.tsx`).
 
 ### Anniversary day-counter
 
 A separate, independent feature sharing the same shape: a single
 shared "together since" date per pair, in its own `pair_anniversary`
 table (not a column on `pair_trips` — deliberately kept separate since
-it's a distinct feature with a different entry point). Set from a row
-on `SettingsScreen.tsx` (native date picker; future dates are rejected
-on Save rather than via a picker `maximumDate` — see "Date picker setup"
-above), shown read-only on Home as "N days
+it's a distinct feature with a different entry point). Settings' Anniversary
+row pushes `AnniversaryEditScreen` inside the Settings tab's stack — the same
+shape as the trip editor, since 2026-09-23; it was an inline card before. The
+row is disabled until the anniversary query has loaded, because the page
+seeds its picker once from the cache. Future dates are rejected on Save
+rather than via a picker `maximumDate` (see "Date picker setup" above). Shown
+read-only on Home as "N days
 together" under the title.
 Same RLS shape as `pair_trips`, same local-calendar-day math.
 
 Originally saved on every `onChange` (i.e. every wheel-stop), with no
 way to review before it took effect — changed to stage the picked date
-locally and only save on an explicit Save button (Cancel discards),
-mirroring the trip form's Save pattern (now `TripEditScreen.tsx`), per user
-request.
+locally and only save on an explicit Save button, per user request. On
+its own page, backing out discards (there's no Cancel button), and Save
+uses the shared `Button` with `loading` so a double tap can't save twice.
 
 ### Partner nicknames
 
@@ -1474,6 +1476,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- `AnniversaryEditScreen` (2026-09-23): opens from Settings, Save updates
+  the row and Home's days-together line, a future date is rejected, back
+  discards
 - Both date pickers on Android since the switch to
   `DateTimePickerAndroid.open()` from a tappable row (Settings anniversary,
   trip editor)
