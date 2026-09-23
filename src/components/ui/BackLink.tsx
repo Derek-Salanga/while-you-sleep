@@ -5,9 +5,9 @@ import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
-// The "‹ Settings"-style link at the top of every pushed sub-screen (Account,
-// Appearance, the Monthly lists, the trip editor). One copy so they can't
-// drift in padding, colour or accessibility wiring.
+// The "‹ Label" link at the top of a pushed sub-screen. One copy so they
+// can't drift in padding, colour or accessibility wiring. hitSlop brings the
+// ~30pt-tall text up to a comfortable tap target without moving the layout.
 export default function BackLink({ label }: { label: string }) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
@@ -17,6 +17,7 @@ export default function BackLink({ label }: { label: string }) {
     <Pressable
       style={({ pressed }) => [styles.back, pressed && styles.pressed]}
       onPress={() => navigation.goBack()}
+      hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={`Back to ${label}`}
     >
