@@ -10,7 +10,9 @@ import {
   Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
 import {
@@ -267,18 +269,44 @@ export default function SettingsScreen({ navigation }: any) {
               a time component) as a bound to a mode="date" picker is the
               suspected cause of the Dec 31, 1969 display bug. Range is
               validated on save instead. */}
-          <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
-            <DateTimePicker
-              // Follows the OS appearance by default, not the app's -- so a
-              // user on System=dark with the app forced Light would get a
-              // dark picker on a light sheet.
-              themeVariant={t.name}
-              value={pickerDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => date && setPickerDate(date)}
-            />
-          </View>
+          {Platform.OS === 'android' && (
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              onPress={() =>
+                // The imperative API rather than a mounted <DateTimePicker>:
+                // the component opens Android's dialog from an effect keyed
+                // on its onChange, so any re-render while mounted reopens it.
+                DateTimePickerAndroid.open({
+                  value: pickerDate,
+                  mode: 'date',
+                  onChange: (_, date) => date && setPickerDate(date),
+                })
+              }
+            >
+              <Text style={styles.rowLabel}>Date</Text>
+              <Text style={styles.rowValue}>
+                {pickerDate.toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </Text>
+            </Pressable>
+          )}
+          {Platform.OS === 'ios' && (
+            <View style={styles.spinnerBox}>
+              <DateTimePicker
+                // Follows the OS appearance by default, not the app's -- so a
+                // user on System=dark with the app forced Light would get a
+                // dark picker on a light sheet.
+                themeVariant={t.name}
+                value={pickerDate}
+                mode="date"
+                display="spinner"
+                onChange={(_, date) => date && setPickerDate(date)}
+              />
+            </View>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.pickerSave,

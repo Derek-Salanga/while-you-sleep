@@ -558,11 +558,11 @@ reusable lesson in [[feedback_datetimepicker_no_modal]] in memory.
 
 Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the tab
 navigator, `display="spinner"` on iOS in a fixed-height container,
-`display="default"` on Android (in `TripEditScreen` the Android dialog is
-rendered only after tapping a date row, and unmounted on change — the
-library opens it from an effect, so an always-mounted one reopens on every
-re-render; `SettingsScreen`'s anniversary picker still has the
-always-mounted shape), dates always parsed through
+no `<DateTimePicker>` on Android at all: both show a tappable date row that
+calls `DateTimePickerAndroid.open()`. The component form opens Android's
+dialog from an effect keyed on its `onChange`, so while mounted any
+re-render reopens it (changed 2026-09-23, from reading the library source;
+not yet verified on Android). Dates always parsed through
 `parseDateString()`, **neither picker has `minimumDate`/`maximumDate`** —
 date-range rules are enforced on Save via a plain string compare instead
 (`handleSave` in `TripEditScreen.tsx`, `handleSaveAnniversary` in
@@ -1129,7 +1129,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   tab switch (reopens on Settings, not Account), and the anniversary
   spinner still opens and saves with a navigator now between the tab and
   the screen that owns it
-- Trip + anniversary pickers: epoch-display bug fixed, values persist and reload
+- Trip + anniversary pickers: epoch-display bug fixed, values persist and reload (iOS spinner; the Android interaction changed on 2026-09-23 — see Not verified)
 - Trips + anniversary two-account pass: either partner sets, both see the same
   value after a tab-away-and-back (no live sync — focus/remount refetch only)
 - Save-time range rejection: both alerts fire (trip before today, anniversary
@@ -1469,6 +1469,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   stack screen
 
 **Not verified:**
+- Both date pickers on Android since the switch to
+  `DateTimePickerAndroid.open()` from a tappable row (Settings anniversary,
+  trip editor)
 - `TripEditScreen` on Android (the tap-to-open date dialog), and Home /
   the trip page in dark mode
 - Monthly Summary on a smaller iPhone or at large text sizes, where the

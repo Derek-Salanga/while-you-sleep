@@ -11,7 +11,9 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
@@ -53,10 +55,6 @@ export default function TripEditScreen({ navigation }: any) {
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const [saving, setSaving] = useState(false);
-  // Android's picker is a dialog, not an inline view: shown on demand from
-  // the date row below. Rendering it unconditionally reopens it on every
-  // re-render, since the library opens it from an effect.
-  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
 
   const handleSave = async () => {
     if (!pair || !session?.user || saving) return;
@@ -123,7 +121,16 @@ export default function TripEditScreen({ navigation }: any) {
       {Platform.OS === 'android' && (
         <Pressable
           style={({ pressed }) => [styles.input, pressed && styles.pressed]}
-          onPress={() => setAndroidPickerOpen(true)}
+          onPress={() =>
+            // The imperative API rather than a mounted <DateTimePicker>:
+            // the component opens Android's dialog from an effect keyed
+            // on its onChange, so any re-render while mounted reopens it.
+            DateTimePickerAndroid.open({
+              value: pickerDate,
+              mode: 'date',
+              onChange: (_, date) => date && setPickerDate(date),
+            })
+          }
         >
           <Text style={styles.inputText}>
             {pickerDate.toLocaleDateString('en-US', {
@@ -134,8 +141,8 @@ export default function TripEditScreen({ navigation }: any) {
           </Text>
         </Pressable>
       )}
-      {(Platform.OS === 'ios' || androidPickerOpen) && (
-        <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+      {Platform.OS === 'ios' && (
+        <View style={styles.spinnerBox}>
           <DateTimePicker
             // Follows the OS appearance by default, not the app's -- so a user
             // on System=dark with the app forced Light would get a dark picker
@@ -143,11 +150,8 @@ export default function TripEditScreen({ navigation }: any) {
             themeVariant={t.name}
             value={pickerDate}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(_, date) => {
-              setAndroidPickerOpen(false);
-              if (date) setPickerDate(date);
-            }}
+            display="spinner"
+            onChange={(_, date) => date && setPickerDate(date)}
           />
         </View>
       )}
