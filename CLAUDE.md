@@ -340,8 +340,8 @@ ever requesting camera or microphone permission, since only the
 
 **`caption_text` renders on every surface that shows a clip:** the same-day
 `revealed` card, the Timeline card, `ClipViewScreen` (above the
-date line, below the video) and `MonthlySummaryScreen` (a "What you said" list
-below the reel button). Until 2026-09-02 the reveal card was the only one — the
+date line, below the video) and Monthly Summary's "What you said" page
+(`MonthListScreen`, opened from the summary's chat-bubble tile). Until 2026-09-02 the reveal card was the only one — the
 column was in `src/types/index.ts` and nowhere else in `src/` — so the text half
 of "answer in both video and text" was written to the DB and then invisible from
 the next day onward. Found while verifying the caption path on Android.
@@ -437,12 +437,29 @@ video-processing tooling (e.g. ffmpeg-kit) that Expo Go doesn't
 support, meaning a move to a custom EAS Dev Client build. Asked the
 user explicitly before building; they chose to stay in Expo Go.
 
-No new table — computed entirely from `clips` by querying
-`recorded_for_date` within the viewed month's range. `MonthlySummaryScreen`
-shows: counts (yours/partner's/days both posted), a per-day calendar
-grid (a dot per person who posted that day, not aligned to actual
-weekdays — a simple wrapped grid, not a literal calendar layout), and a
-"watch this month's clips" button. That button navigates to
+No new table — computed entirely from `clips`. `MonthlySummaryScreen` reads
+the pair's whole clip list from `useClips` (the same `['clips', pairId]`
+cache the Timeline fills) and filters it to the viewed month by
+`recorded_for_date`'s `YYYY-MM`. It used to fetch per month, which blanked
+the stats and calendar on every month change; a filter has no loading gap,
+and there is no spinner.
+
+**Layout (2026-09-23), fixed-height on purpose so nothing moves between
+months:** title; then, centred in the remaining space, the month arrows
+(SVG chevrons — the `‹ ›` glyphs sat low in their circles), the three stat
+tiles, and a real Sunday-first calendar with a weekday header, always
+padded to six week rows (42 cells). An icon-only action row is pinned above
+the tab bar: chat bubble ("What you said"), clapper (the reel), star
+("Favorite moments"), each dimmed and disabled when it would open nothing.
+The screen does not scroll. The two lists are one `MonthListScreen` pushed
+inside the tab's own small stack (`MonthlyNavigator` in `MainTabs.tsx`,
+the same shape as Settings), receiving the month's clips as a route param;
+favorites are still read live, so un-starring in ClipView updates the list.
+The back arrow stops at the pair's first month, taken from
+`pairs.created_at` — the invite's creation, not the join, since there is no
+joined-at column; at worst that allows one empty month.
+
+The clapper tile navigates to
 `ClipView` with a `queue` of chronologically-ordered clip ids;
 `ClipViewScreen` auto-advances on `playToEnd` when a queue is present,
 otherwise behaves exactly as before (single clip, manual controls,
@@ -666,8 +683,8 @@ schema but is still unused, and there's no UI to set one).
    reminded after the boundary had already rolled, pointing them at the
    next day's question. The cost is that the reminder's local hour now
    varies by timezone rather than always being an evening nudge.
-2. `MonthlySummaryScreen` still builds its month bounds from local
-   components while clips are now UTC-stamped, so a clip recorded near
+2. `MonthlySummaryScreen` still picks its month from local components
+   (`refDate`) while clips are now UTC-stamped, so a clip recorded near
    a month edge can land in the adjacent month's summary. Left alone —
    it's a month-granularity stats view that isn't verified against real
    multi-day data yet, and fixing it properly means deciding whether
@@ -756,7 +773,7 @@ and errors also falls through to `PairingScreen`, same as before.
 **Partially adopted, on purpose.** Migrated: `TimelineScreen`,
 `ClipViewScreen`, `PairingContext`, `RecordScreen`'s upload, and — as of
 2026-08-29 — `HomeScreen`'s and `SettingsScreen`'s reads.
-Still querying Supabase inline: `MonthlySummaryScreen`, `PairingScreen`,
+Still querying Supabase inline: `PairingScreen`,
 and `RecordScreen`'s `loadTodayClips` (+ its 15s partner-reveal poll).
 Those still rely on `useFocusEffect` refetching, so `unmountOnBlur` must
 stay — and the migrated screens now depend on it too, for the opposite
@@ -1409,7 +1426,16 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   caption-free version was tried first and reverted on sight — a clip with
   no AI output was an empty coloured bar
 
+- **Monthly Summary rework (2026-09-23, iOS, dark):** weekday-aligned
+  calendar, stat tiles, the pinned icon row and the line-icon tab bar seen
+  on device
+
 **Not verified:**
+- Monthly Summary in light mode, on a smaller iPhone (whether six week
+  rows plus the pinned row still clear the tab bar), and the two
+  `MonthListScreen` pages after the icon-row change, and the last two
+  fixes (always-six-rows, filter-from-cache) re-checked on device for no
+  shift or flash between months
 - The brand-orange `edgePartner` (2026-09-23) on device in light mode:
   Timeline edges and reaction circles, Monthly Summary's grid pips and
   `Button`'s secondary border. No screenshot was taken after the switch. Android not seen for any version of the
@@ -1487,6 +1513,9 @@ palette/type proposals:
   `secondaryTint` also backs `Button`'s secondary variant, which is a
   different semantic and shouldn't move with the Timeline.
 - **Typography:** Fraunces/Inter pairing (`src/theme/typography.ts`).
+- **UI icons:** one stroked line set in `src/components/NavIcon.tsx`
+  (tab bar plus Monthly Summary's action row), replacing the hand-drawn
+  filled paths on 2026-09-23 on request.
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
   comment and the original project brief).
 

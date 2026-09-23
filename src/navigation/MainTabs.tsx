@@ -1,14 +1,18 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import NavIcon from '@/components/NavIcon';
-import { NavIconKey } from '@/theme/navIcons';
-import { MainTabParamList, SettingsStackParamList } from '@/types';
+import NavIcon, { NavIconKey } from '@/components/NavIcon';
+import {
+  MainTabParamList,
+  MonthlyStackParamList,
+  SettingsStackParamList,
+} from '@/types';
 import { useTheme } from '@/theme/ThemeContext';
 
 import HomeScreen from '@/screens/HomeScreen';
 import TimelineScreen from '@/screens/TimelineScreen';
 import MonthlySummaryScreen from '@/screens/MonthlySummaryScreen';
+import MonthListScreen from '@/screens/MonthListScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import AccountSettingsScreen from '@/screens/AccountSettingsScreen';
 import AppearanceSettingsScreen from '@/screens/AppearanceSettingsScreen';
@@ -33,6 +37,22 @@ function SettingsNavigator() {
         component={AppearanceSettingsScreen}
       />
     </SettingsStack.Navigator>
+  );
+}
+
+const MonthlyStack = createNativeStackNavigator<MonthlyStackParamList>();
+
+// Same shape as SettingsNavigator: the lists are pushed inside the tab so
+// the tab bar stays, and unmountOnBlur reopens the tab on the summary.
+function MonthlyNavigator() {
+  return (
+    <MonthlyStack.Navigator screenOptions={{ headerShown: false }}>
+      <MonthlyStack.Screen
+        name="MonthlyHome"
+        component={MonthlySummaryScreen}
+      />
+      <MonthlyStack.Screen name="MonthList" component={MonthListScreen} />
+    </MonthlyStack.Navigator>
   );
 }
 
@@ -79,7 +99,7 @@ export default function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Timeline" component={TimelineScreen} />
-      <Tab.Screen name="MonthlySummary" component={MonthlySummaryScreen} />
+      <Tab.Screen name="MonthlySummary" component={MonthlyNavigator} />
       <Tab.Screen name="Settings" component={SettingsNavigator} />
     </Tab.Navigator>
   );
