@@ -2173,7 +2173,7 @@ midnight passed between them, and 1385 is the correct count from
 new clip (not screenshotted). The partner's private nickname was set to a
 full 20 characters (`tqtqtwtqttqtqtqtqyqy`): it fits on one line beside the
 🔥 with room to spare at iPhone width, so `numberOfLines`/`flexShrink` never
-engage here. They remain the guard for narrower screens.
+engage here. They remain the guard for narrower screens. Pull-to-refresh
+does not re-trigger the entrance motion either.
 
-**Not exercised:** the truncation path itself, pull-to-refresh behaviour, and
-Android.
+**Not exercised:** the truncation path itself, and Android.

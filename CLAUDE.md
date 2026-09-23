@@ -1394,12 +1394,11 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   AI data renders as just name + caption. The unwatched dot shows leading
   the name. A full 20-char nickname fits on the row beside a reaction
   without truncating at iPhone width, so the truncation path is a narrower
-  screen's concern. Cards don't re-animate on scroll. See "Timeline card
+  screen's concern. Cards don't re-animate on scroll or pull-to-refresh. See "Timeline card
   layout"
 
 **Not verified:**
-- The reworked Timeline card's remaining pieces: pull-to-refresh behaviour,
-  the nickname truncation path on a screen narrow enough to need it, and
+- The reworked Timeline card's remaining pieces: the nickname truncation path on a screen narrow enough to need it, and
   Android at all
 - That the Appearance choice survives a force-quit, and that System mode
   tracks the OS setting
