@@ -68,6 +68,11 @@ export const brand = {
   // blue -- enough for the 28pt count, which is WCAG large, but not the 16pt
   // caption beside it. On this it gets 5.20.
   youDeep: palette.blueDark,
+  // The pet's belly and inner ears, split like the rest of it. Soft and
+  // theme-independent: the theme's fillPartner goes dark brown at night,
+  // which read as holes in the cat.
+  partnerSoft: palette.orangeSoft,
+  youSoft: palette.blueSoft,
 } as const;
 
 export const lightTheme: Theme = {

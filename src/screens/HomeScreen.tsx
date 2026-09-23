@@ -1,5 +1,12 @@
-import React, { useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -27,21 +34,20 @@ import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 
-// What the pet card says. Every line is phrased as a state of the pair, not
-// an instruction to the reader -- "it's been quiet" rather than "you haven't
-// posted". A shared pet that nags is just a streak counter with a face, and
-// the guilt dynamic is the thing this feature exists to avoid.
-const PET_COPY: Record<PetMood, { title: string; body: string }> = {
-  thriving: { title: 'Thriving', body: "You've both been showing up." },
-  content: { title: 'Doing well', body: 'Keep it going.' },
-  sleepy: {
-    title: 'Getting sleepy',
-    body: "It's been a quiet couple of days.",
-  },
-  withdrawn: {
-    title: 'Waiting for you both',
-    body: 'A day from each of you brings it back.',
-  },
+// What the pet says under itself. Each is phrased as a state of the pair,
+// not an instruction to the reader. A shared pet that nags is just a streak
+// counter with a face, and the guilt dynamic is the thing this feature
+// exists to avoid. One line only since the pet became the centre of Home
+// (2026-09-23): the face carries the rest.
+// Room under the pet for its title: the area's vertical padding plus one
+// line of `lg` display text and its margin.
+const PET_TITLE_SPACE = 56;
+
+const PET_TITLE: Record<PetMood, string> = {
+  thriving: 'Thriving',
+  content: 'Doing well',
+  sleepy: 'Getting sleepy',
+  withdrawn: 'Waiting for you both',
 };
 
 export default function HomeScreen({ navigation }: any) {
@@ -80,6 +86,17 @@ export default function HomeScreen({ navigation }: any) {
   const petResting =
     !!pet?.paused_until && pet.paused_until >= sharedTodayDateString();
   const mood = pet ? petMood(pet.score) : null;
+  // Sized from the height the pet area actually gets (measured below), not
+  // the window: the window counts the status bar, title, trip card, pinned
+  // question and tab bar, and guessing a fraction of it overflowed an
+  // iPhone SE. Starts at 0 so the first measurement is the true leftover
+  // space; below 120pt it stops shrinking and the body scrolls instead.
+  const { width } = useWindowDimensions();
+  const [petArea, setPetArea] = useState(0);
+  const petSize = Math.max(
+    120,
+    Math.min(width - 80, petArea - PET_TITLE_SPACE, 300)
+  );
 
   const recordCtaScale = useSharedValue(1);
   const recordCtaAnimatedStyle = useAnimatedStyle(() => ({
@@ -99,6 +116,7 @@ export default function HomeScreen({ navigation }: any) {
           bounce, so on a normal phone it's inert. */}
       <ScrollView
         style={styles.body}
+        contentContainerStyle={styles.bodyContent}
         alwaysBounceVertical={false}
         showsVerticalScrollIndicator={false}
       >
@@ -133,16 +151,14 @@ export default function HomeScreen({ navigation }: any) {
         {/* Above the record CTA on purpose: the pet's state is the reason to
           tap it, so it should be read first. */}
         {mood && (
-          <View style={styles.petCard}>
-            <SharedPet mood={mood} size={72} resting={petResting} />
-            <View style={styles.petCopy}>
-              <Text style={styles.petTitle}>
-                {petResting ? 'Resting' : PET_COPY[mood].title}
-              </Text>
-              <Text style={styles.petBody}>
-                {petResting ? "Paused while you're away." : PET_COPY[mood].body}
-              </Text>
-            </View>
+          <View
+            style={styles.petArea}
+            onLayout={(e) => setPetArea(e.nativeEvent.layout.height)}
+          >
+            <SharedPet mood={mood} size={petSize} resting={petResting} />
+            <Text style={styles.petTitle}>
+              {petResting ? 'Resting' : PET_TITLE[mood]}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -189,28 +205,21 @@ const makeStyles = (t: Theme) =>
       color: t.textMuted,
       marginBottom: 16,
     },
-    petCard: {
-      flexDirection: 'row',
+    // The pet is the centre of Home: no card, it fills whatever height is
+    // left between the trip card and the pinned question, with its mood
+    // title centred underneath.
+    petArea: {
+      flex: 1,
       alignItems: 'center',
-      gap: 14,
-      backgroundColor: t.surface,
-      borderWidth: 1,
-      borderColor: t.border,
-      borderRadius: 16,
-      padding: 14,
-      marginBottom: 16,
+      justifyContent: 'center',
+      paddingVertical: 8,
     },
-    petCopy: { flex: 1 },
     petTitle: {
       fontFamily: fonts.display,
-      fontSize: fontSizes.md,
+      fontSize: fontSizes.lg,
       color: t.textPrimary,
-    },
-    petBody: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.sm,
-      color: t.textMuted,
-      marginTop: 2,
+      textAlign: 'center',
+      marginTop: 8,
     },
     entryCard: {
       flexDirection: 'row',
@@ -253,8 +262,15 @@ const makeStyles = (t: Theme) =>
     body: {
       flex: 1,
     },
+    // flexGrow so the pet can take the leftover height; the ScrollView only
+    // actually scrolls when there isn't any.
+    bodyContent: {
+      flexGrow: 1,
+    },
     // HeroCard's footprint (120 + its 20 margin), held while the trip query
-    // is still loading so the pet card doesn't jump when it resolves.
+    // is still loading, so the common case -- an upcoming trip -- causes no
+    // shift at all. (Resolving to "Plan your next visit" is shorter, and the
+    // pet re-centres and grows into the difference.)
     tripPlaceholder: {
       height: 140,
     },

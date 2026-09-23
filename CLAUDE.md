@@ -510,7 +510,7 @@ your next visit" card instead, since HeroCard would fall back to the
 anniversary, which Home already states in its subtitle line.
 
 **Home layout (2026-09-23):** title and "N days together" line, the trip
-card, the pet card, then "Today's question" pinned 18pt above the tab bar
+card, the pet, then "Today's question" pinned 18pt above the tab bar
 — the same gap as Monthly Summary's action row. Everything above it is a
 non-bouncing `ScrollView` that only scrolls on a screen too small for it
 (iPhone SE, large text), so the question can't be pushed under the tab bar.
@@ -524,7 +524,21 @@ that route to Home name `HomeMain` so they don't resume a half-edited
 starts from today. Whether the
 trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
 and the Timeline share one rule; while the trip query is loading, Home holds
-HeroCard's height so the pet card doesn't jump.
+HeroCard's height so the pet doesn't jump.
+
+**The pet is a cat (2026-09-23, on request)** and the centre of Home: no
+card, sized from the height its area actually gets (`onLayout`), capped at
+`width − 80` and 300 with a 120 floor, centred in the remaining height, with
+one line under it — the mood's title, or "Resting"
+while paused. The second line of copy per mood was dropped at the user's
+request. The drawing (`src/theme/petPaths.ts`) is two split layers, body
+then head, so the body's outline doesn't cross the face; pointed ears are
+bumps in the head outline rather than subpaths; there is no tail, because a
+tail breaks the left/right symmetry `petPaths.test.ts` enforces. That test
+caught a swapped whisker coordinate while drawing it. Belly and inner ears
+are split too, in `brand.partnerSoft` / `brand.youSoft` — theme-independent,
+because the theme's `fillPartner` goes dark brown at night and read as holes
+in the cat.
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -1294,7 +1308,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The pet on Home (2026-09-06): renders with the mood matching
   `pair_pet.score`, and a tab-away-and-back picks up a score change with no
-  manual refresh. `withdrawn` is legible on a white card.
+  manual refresh. `withdrawn` is legible on a white card. (Home's layout
+  has since changed — see "Home layout".)
 
 - Pause mode (2026-09-06): three presets in Settings, the row reads back the
   date, Home shows the resting overlay, "Resume now" clears it, and the daily
@@ -1302,9 +1317,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The redrawn pet (2026-09-07): reads as a sitting floppy-eared companion
   at the 72pt Home card size, with the `withdrawn` frown clearly visible.
-  Ears and paws are separate closed subpaths overlapping the body — as
-  outline bumps they rendered as side lumps, which is what made the previous
-  version read as a cloud
+  Superseded 2026-09-23 by the cat below
 
 - Reaction burst (2026-09-07): six emoji rising half a screen over 1400ms
   when you set a reaction, nothing on clear. Deliberately louder than the
@@ -1483,6 +1496,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The cat on device (2026-09-23): all four moods and Resting at Home's
+  large size, both themes, and a small phone (the pet sizes to its measured
+  area with a 120pt floor; the body is a non-bouncing ScrollView fallback)
 - `AnniversaryEditScreen` (2026-09-23): opens from Settings, Save updates
   the row and Home's days-together line, a future date is rejected, back
   discards
@@ -1867,8 +1883,10 @@ email" from the original ask, not an in-app digest.
   covers the "recap" need via stats + sequential playback instead (see
   "Monthly Summary feature" above); a real compiled video file is a
   bigger lift (native video-processing tooling, moving off Expo Go).
-- Streak/mascot mechanic ("Tamagotchi") — deferred per the original
-  project brief; not a core-loop feature yet.
+- A streak/Tamagotchi *mechanic* beyond what exists: the shared pet
+  (a cat, the centre of Home) reflects `pair_pet.score` and moods, but
+  there's no feeding, levelling or care loop — still deferred per the
+  original project brief.
 
 ## Git workflow
 

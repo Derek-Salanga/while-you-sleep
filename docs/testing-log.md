@@ -2276,3 +2276,16 @@ tap-to-open date dialog and dark mode remain unchecked.
 on iOS only. The user checked on iOS: all four back links, and both
 spinners, unchanged. The Android side of #136 is still unverified — no
 Android device in this pass.
+
+## 2026-09-23 — The pet becomes a cat
+
+Redrawn as a cat (right half written, then mirrored), rendered to a PNG
+locally in all four moods before wiring it in. `petPaths.test.ts` now covers
+every shape and caught a swapped whisker coordinate during drawing.
+
+Code review then fixed, not yet seen on device: inner ears and belly split
+per partner in theme-independent soft hues (the theme's `fillPartner` goes
+dark brown in dark mode — "holes in the cat"); the Resting Z moved clear of
+the right ear; the withdrawn frown now meets the nose line; the pet is sized
+from its measured area rather than a fraction of the window (which would
+have overflowed an iPhone SE).
