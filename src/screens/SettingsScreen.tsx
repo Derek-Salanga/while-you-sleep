@@ -222,9 +222,6 @@ export default function SettingsScreen({ navigation }: any) {
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AnniversaryEdit')}
-        // AnniversaryEdit seeds its picker from the cache once, on mount;
-        // opening it before the query loads would start from today.
-        disabled={anniversary === undefined}
       >
         <Text style={styles.rowLabel}>Anniversary</Text>
         <Text style={styles.rowValue}>
@@ -237,7 +234,9 @@ export default function SettingsScreen({ navigation }: any) {
                   year: 'numeric',
                 }
               )
-            : 'Not set'}
+            : anniversary === undefined
+              ? '...'
+              : 'Not set'}
         </Text>
       </Pressable>
       {editingPause ? (

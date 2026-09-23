@@ -85,6 +85,9 @@ src/
     SettingsScreen.tsx          nickname, anniversary, and an Account row
     AccountSettingsScreen.tsx   email + sign out, pushed over Settings inside
                                 the Settings tab's own small stack (MainTabs)
+    AnniversaryEditScreen.tsx   anniversary date, pushed from Settings
+    TripEditScreen.tsx          next trip (country + date), pushed from Home
+    MonthListScreen.tsx         Monthly Summary's favorites / captions lists
   theme/
     colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
@@ -511,8 +514,11 @@ card, the pet card, then "Today's question" pinned 18pt above the tab bar
 — the same gap as Monthly Summary's action row. Everything above it is a
 non-bouncing `ScrollView` that only scrolls on a screen too small for it
 (iPhone SE, large text), so the question can't be pushed under the tab bar.
-The trip card is disabled while the trip query is still loading, because
-`TripEditScreen` seeds its form once from the cache; notification taps
+Both editor pages wait for their own query (spinner, or an error line) and
+their fields follow the cache until the user touches them, so a refetch that
+lands after opening — say the partner just changed it — isn't saved over.
+After Save they go back only if still focused (a swipe-back mid-save would
+otherwise bubble GO_BACK to the tab navigator). Notification taps
 that route to Home name `HomeMain` so they don't resume a half-edited
 `TripEdit`. The trip editor is its own page, and for a past trip it
 starts from today. Whether the
@@ -550,7 +556,8 @@ new infrastructure; explicitly deferred, not an oversight.
 
 ### Date picker setup
 
-Both pickers (trip on Home, anniversary in Settings) went through six rounds
+Both pickers (trip, anniversary — each now on its own pushed page, sharing
+`src/components/ui/DateField.tsx`, which holds every rule below) went through six rounds
 of real-device crashes and display bugs, all caused by how
 `@react-native-community/datetimepicker` and its container were embedded —
 full history in [docs/datepicker-debugging.md](docs/datepicker-debugging.md),
@@ -575,8 +582,8 @@ table (not a column on `pair_trips` — deliberately kept separate since
 it's a distinct feature with a different entry point). Settings' Anniversary
 row pushes `AnniversaryEditScreen` inside the Settings tab's stack — the same
 shape as the trip editor, since 2026-09-23; it was an inline card before. The
-row is disabled until the anniversary query has loaded, because the page
-seeds its picker once from the cache. Future dates are rejected on Save
+page waits for the anniversary query itself and follows the cache until
+the picker is touched. Future dates are rejected on Save
 rather than via a picker `maximumDate` (see "Date picker setup" above). Shown
 read-only on Home as "N days
 together" under the title.

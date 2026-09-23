@@ -4,16 +4,13 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  Platform,
   TextInput,
   Modal,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker, {
-  DateTimePickerAndroid,
-} from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { usePairing } from '@/lib/PairingContext';
@@ -22,6 +19,7 @@ import { isTripUpcoming } from '@/components/HeroCard';
 import Screen from '@/components/ui/Screen';
 import BackLink from '@/components/ui/BackLink';
 import Button from '@/components/ui/Button';
+import DateField from '@/components/ui/DateField';
 import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
@@ -32,26 +30,28 @@ import { countries, flagEmoji, countryName } from '@/data/countries';
 // stack (so the tab bar stays). It used to replace the card in place, which
 // with its 216pt iOS spinner pushed the rest of Home off-screen.
 //
-// Picker setup follows docs/datepicker-debugging.md: the DateTimePicker is
-// never inside a Modal, has no minimumDate (the range is checked on Save),
-// and sits in a fixed-height box on iOS. The Modal below is only the
-// country list.
+// The date input is ui/DateField, which holds every picker rule from
+// docs/datepicker-debugging.md. The Modal below is only the country list.
 export default function TripEditScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
   const { session, pair } = usePairing();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { data: trip } = usePairTrip(pair?.id);
+  const { data: trip, isError } = usePairTrip(pair?.id);
 
+  // Both fields follow the cache until the user touches them, so a refetch
+  // that lands after this page opened (the partner may have just changed
+  // the trip) shows up instead of being saved over. `undefined` means
+  // untouched; a picked country can't be cleared back to null.
+  const [pickedDate, setPickedDate] = useState<Date | null>(null);
+  const [pickedCountry, setPickedCountry] = useState<string | undefined>();
   // A past trip shows "Plan your next visit" on Home, so start from today
   // rather than the stale date, which Save would reject.
-  const [pickerDate, setPickerDate] = useState(() =>
-    isTripUpcoming(trip) ? parseDateString(trip?.target_date) : new Date()
-  );
-  const [pickerCountryCode, setPickerCountryCode] = useState<string | null>(
-    trip?.country_code ?? null
-  );
+  const pickerDate =
+    pickedDate ??
+    (isTripUpcoming(trip) ? parseDateString(trip?.target_date) : new Date());
+  const pickerCountryCode = pickedCountry ?? trip?.country_code ?? null;
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -91,7 +91,9 @@ export default function TripEditScreen({ navigation }: any) {
     // setQueryData rather than invalidate: the upsert already returned the
     // saved row, so Home and HeroCard show it the moment we go back.
     queryClient.setQueryData(['pairTrip', pair.id], data);
-    navigation.goBack();
+    // Only if still on screen: after a swipe-back mid-save, a GO_BACK from
+    // here would bubble to the tab navigator and switch tabs.
+    if (navigation.isFocused()) navigation.goBack();
   };
 
   const filteredCountries = useMemo(() => {
@@ -105,65 +107,45 @@ export default function TripEditScreen({ navigation }: any) {
       <BackLink label="Home" />
       <Text style={styles.title}>Our next trip</Text>
 
-      <Text style={styles.label}>Where are you meeting?</Text>
-      <Pressable
-        style={({ pressed }) => [styles.input, pressed && styles.pressed]}
-        onPress={() => setCountryPickerVisible(true)}
-      >
-        <Text style={pickerCountryCode ? styles.inputText : styles.placeholder}>
-          {pickerCountryCode
-            ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
-            : 'Select a country'}
-        </Text>
-      </Pressable>
-
-      <Text style={styles.label}>When?</Text>
-      {Platform.OS === 'android' && (
-        <Pressable
-          style={({ pressed }) => [styles.input, pressed && styles.pressed]}
-          onPress={() =>
-            // The imperative API rather than a mounted <DateTimePicker>:
-            // the component opens Android's dialog from an effect keyed
-            // on its onChange, so any re-render while mounted reopens it.
-            DateTimePickerAndroid.open({
-              value: pickerDate,
-              mode: 'date',
-              onChange: (_, date) => date && setPickerDate(date),
-            })
-          }
-        >
-          <Text style={styles.inputText}>
-            {pickerDate.toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+      {/* Waits for the query itself rather than relying on the caller to
+          only open it once loaded. */}
+      {trip === undefined ? (
+        isError ? (
+          <Text style={styles.error}>
+            Couldn't load your trip. Go back and try again.
           </Text>
-        </Pressable>
-      )}
-      {Platform.OS === 'ios' && (
-        <View style={styles.spinnerBox}>
-          <DateTimePicker
-            // Follows the OS appearance by default, not the app's -- so a user
-            // on System=dark with the app forced Light would get a dark picker
-            // on a light sheet.
-            themeVariant={t.name}
-            value={pickerDate}
-            mode="date"
-            display="spinner"
-            onChange={(_, date) => date && setPickerDate(date)}
-          />
-        </View>
-      )}
+        ) : (
+          <ActivityIndicator color={t.accent} />
+        )
+      ) : (
+        <>
+          <Text style={styles.label}>Where are you meeting?</Text>
+          <Pressable
+            style={({ pressed }) => [styles.input, pressed && styles.pressed]}
+            onPress={() => setCountryPickerVisible(true)}
+          >
+            <Text
+              style={pickerCountryCode ? styles.inputText : styles.placeholder}
+            >
+              {pickerCountryCode
+                ? `${flagEmoji(pickerCountryCode)}  ${countryName(pickerCountryCode)}`
+                : 'Select a country'}
+            </Text>
+          </Pressable>
 
-      <View style={styles.save}>
-        <Button
-          title="Save"
-          onPress={handleSave}
-          loading={saving}
-          disabled={saving}
-        />
-      </View>
+          <Text style={styles.label}>When?</Text>
+          <DateField value={pickerDate} onChange={setPickedDate} />
+
+          <View style={styles.save}>
+            <Button
+              title="Save"
+              onPress={handleSave}
+              loading={saving}
+              disabled={saving}
+            />
+          </View>
+        </>
+      )}
 
       <Modal
         visible={countryPickerVisible}
@@ -190,7 +172,7 @@ export default function TripEditScreen({ navigation }: any) {
                   pressed && styles.pressed,
                 ]}
                 onPress={() => {
-                  setPickerCountryCode(item.code);
+                  setPickedCountry(item.code);
                   setCountryPickerVisible(false);
                   setCountrySearch('');
                 }}
@@ -250,11 +232,10 @@ const makeStyles = (t: Theme) =>
       fontSize: fontSizes.md,
       color: t.textMuted,
     },
-    // Fixed height so the native spinner never lays out with a zero-size
-    // frame mid-transition -- iOS's UIDatePicker can reset its displayed
-    // value to the Unix epoch if that happens.
-    spinnerBox: {
-      height: 216,
+    error: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.sm,
+      color: t.danger,
     },
     save: {
       marginTop: 20,
