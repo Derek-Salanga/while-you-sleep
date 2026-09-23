@@ -70,6 +70,10 @@ export default function SettingsScreen({ navigation }: any) {
       ? pet.paused_until
       : null;
   const [pickerDate, setPickerDate] = useState(new Date());
+  // Android's picker is a dialog, shown on demand from the date row below.
+  // Always mounted, it reopens on every re-render: the library opens it from
+  // an effect. Same pattern as TripEditScreen.
+  const [androidPickerOpen, setAndroidPickerOpen] = useState(false);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
   const queryClient = useQueryClient();
@@ -267,18 +271,38 @@ export default function SettingsScreen({ navigation }: any) {
               a time component) as a bound to a mode="date" picker is the
               suspected cause of the Dec 31, 1969 display bug. Range is
               validated on save instead. */}
-          <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
-            <DateTimePicker
-              // Follows the OS appearance by default, not the app's -- so a
-              // user on System=dark with the app forced Light would get a
-              // dark picker on a light sheet.
-              themeVariant={t.name}
-              value={pickerDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(_, date) => date && setPickerDate(date)}
-            />
-          </View>
+          {Platform.OS === 'android' && (
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              onPress={() => setAndroidPickerOpen(true)}
+            >
+              <Text style={styles.rowLabel}>Date</Text>
+              <Text style={styles.rowValue}>
+                {pickerDate.toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </Text>
+            </Pressable>
+          )}
+          {(Platform.OS === 'ios' || androidPickerOpen) && (
+            <View style={Platform.OS === 'ios' ? styles.spinnerBox : undefined}>
+              <DateTimePicker
+                // Follows the OS appearance by default, not the app's -- so a
+                // user on System=dark with the app forced Light would get a
+                // dark picker on a light sheet.
+                themeVariant={t.name}
+                value={pickerDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(_, date) => {
+                  setAndroidPickerOpen(false);
+                  if (date) setPickerDate(date);
+                }}
+              />
+            </View>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.pickerSave,

@@ -558,11 +558,10 @@ reusable lesson in [[feedback_datetimepicker_no_modal]] in memory.
 
 Current state (both pickers): no `Modal`, `unmountOnBlur: true` on the tab
 navigator, `display="spinner"` on iOS in a fixed-height container,
-`display="default"` on Android (in `TripEditScreen` the Android dialog is
-rendered only after tapping a date row, and unmounted on change — the
-library opens it from an effect, so an always-mounted one reopens on every
-re-render; `SettingsScreen`'s anniversary picker still has the
-always-mounted shape), dates always parsed through
+`display="default"` on Android, where both render the dialog only after
+tapping a date row and unmount it on change — the library opens it from an
+effect, so an always-mounted one reopens on every re-render (fixed in both
+2026-09-23; neither is verified on Android yet). Dates always parsed through
 `parseDateString()`, **neither picker has `minimumDate`/`maximumDate`** —
 date-range rules are enforced on Save via a plain string compare instead
 (`handleSave` in `TripEditScreen.tsx`, `handleSaveAnniversary` in
