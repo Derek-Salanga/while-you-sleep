@@ -17,6 +17,7 @@ import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
+import BackLink from '@/components/ui/BackLink';
 
 // The policy lives as PRIVACY.md in the public repo; GitHub renders it. Also
 // the URL to give App Store Connect. Swap for a GitHub Pages URL if one is set
@@ -87,7 +88,7 @@ function confirmDeleteAccount(
   );
 }
 
-export default function AccountSettingsScreen({ navigation }: any) {
+export default function AccountSettingsScreen() {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
   const { session } = usePairing();
@@ -96,14 +97,7 @@ export default function AccountSettingsScreen({ navigation }: any) {
 
   return (
     <Screen padding={20} topInset>
-      <Pressable
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="Back to Settings"
-      >
-        <Text style={styles.backText}>‹ Settings</Text>
-      </Pressable>
+      <BackLink label="Settings" />
       <Text style={styles.title}>Account</Text>
 
       <View style={styles.row}>
@@ -171,16 +165,6 @@ export default function AccountSettingsScreen({ navigation }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    back: {
-      alignSelf: 'flex-start',
-      paddingVertical: 4,
-      marginBottom: 4,
-    },
-    backText: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.md,
-      color: t.accent,
-    },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,

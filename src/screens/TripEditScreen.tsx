@@ -18,6 +18,7 @@ import { usePairing } from '@/lib/PairingContext';
 import { usePairTrip } from '@/hooks/queries';
 import { isTripUpcoming } from '@/components/HeroCard';
 import Screen from '@/components/ui/Screen';
+import BackLink from '@/components/ui/BackLink';
 import Button from '@/components/ui/Button';
 import { todayDateString, formatDateString, parseDateString } from '@/lib/date';
 import { Theme } from '@/theme/themes';
@@ -103,14 +104,7 @@ export default function TripEditScreen({ navigation }: any) {
 
   return (
     <Screen padding={20} topInset>
-      <Pressable
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="Back to Home"
-      >
-        <Text style={styles.backText}>‹ Home</Text>
-      </Pressable>
+      <BackLink label="Home" />
       <Text style={styles.title}>Our next trip</Text>
 
       <Text style={styles.label}>Where are you meeting?</Text>
@@ -222,16 +216,6 @@ export default function TripEditScreen({ navigation }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    back: {
-      alignSelf: 'flex-start',
-      paddingVertical: 4,
-      marginBottom: 4,
-    },
-    backText: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.md,
-      color: t.accent,
-    },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,

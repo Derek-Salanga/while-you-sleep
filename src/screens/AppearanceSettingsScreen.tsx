@@ -5,6 +5,7 @@ import { useTheme, useThemePreference } from '@/theme/ThemeContext';
 import type { ThemePreference } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
+import BackLink from '@/components/ui/BackLink';
 
 // Three options rather than a switch. A two-state toggle cannot express
 // "follow the device", which is the default and what most people want --
@@ -27,25 +28,14 @@ const THEME_OPTIONS: {
   { value: 'dark', label: 'Dark', detail: 'Always the night palette' },
 ];
 
-export default function AppearanceSettingsScreen({
-  navigation,
-}: {
-  navigation: any;
-}) {
+export default function AppearanceSettingsScreen() {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
   const { preference, setPreference } = useThemePreference();
 
   return (
     <Screen padding={20} topInset>
-      <Pressable
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-        onPress={() => navigation.goBack()}
-        accessibilityRole="button"
-        accessibilityLabel="Back to Settings"
-      >
-        <Text style={styles.backText}>‹ Settings</Text>
-      </Pressable>
+      <BackLink label="Settings" />
       <Text style={styles.title}>Appearance</Text>
 
       {THEME_OPTIONS.map((option) => {
@@ -83,16 +73,6 @@ export default function AppearanceSettingsScreen({
 
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    back: {
-      alignSelf: 'flex-start',
-      paddingVertical: 4,
-      marginBottom: 4,
-    },
-    backText: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.md,
-      color: t.accent,
-    },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
