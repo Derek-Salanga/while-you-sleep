@@ -150,18 +150,29 @@ export default function TimelineScreen({ navigation }: any) {
           {/* One row: unwatched dot, caption, reactions. No name -- the
               side, fill and edge say whose card it is. The row only renders
               when it has something in it. */}
-          {(unwatched || cardReactions.length > 0 || item.caption_text) && (
+          {(unwatched || cardReactions.length > 0 || !!item.caption_text) && (
             <View
               style={[styles.cardTopRow, hasAiRow && styles.cardTopRowAbove]}
             >
               {unwatched && <View style={styles.unwatchedDot} />}
-              <Text style={styles.cardCaption}>{item.caption_text}</Text>
+              <Text
+                style={styles.cardCaption}
+                accessibilityLabel={`${mine ? 'Your clip' : "Partner's clip"}${
+                  item.caption_text ? `: ${item.caption_text}` : ''
+                }`}
+              >
+                {item.caption_text}
+              </Text>
               {/* Both sides' reactions, not just the partner's -- on your own
                   card theirs is the reply you want to see, and on theirs it's
                   a reminder of what you sent back. At most two. */}
               {cardReactions.map((r) => (
                 <View
                   key={r.user_id}
+                  accessible
+                  accessibilityLabel={`${
+                    r.user_id === session?.user.id ? 'Your' : "Partner's"
+                  } reaction ${r.emoji}`}
                   style={[
                     styles.cardReaction,
                     r.user_id === session?.user.id

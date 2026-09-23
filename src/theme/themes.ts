@@ -46,8 +46,9 @@ export interface Theme {
   textOnAccent: string;
 
   // Card washes, and the edges that carry the actual meaning. The fills are
-  // decorative and sit at low contrast against the background by design;
-  // the 4pt edge is full-strength and is what tells you whose clip it is.
+  // decorative and sit at low contrast against the background by design.
+  // The 4pt edge is full-strength; on light, edgePartner is the brand orange
+  // and only ~1.44:1 (see below), so it is not a colour-only ownership cue.
   fillYou: string;
   fillPartner: string;
   edgeYou: string;

@@ -1270,7 +1270,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - WCAG AA in the light theme (2026-09-07): the record CTA label, HeroCard's
   two halves, `border`, `error` and the pet's line colour all clear AA, and
   `src/theme/themes.test.ts` asserts every pairing so it can't silently
-  regress. The CTA label is `ink` rather than white — white on the gradient's
+  regress — except, since 2026-09-23, the light-theme partner edge, which is
+  the brand orange by choice at ~1.44:1 (see "Timeline card layout"). The CTA label is `ink` rather than white — white on the gradient's
   orange end is 1.55:1, and keeping it would mean amber-ing the brand hue or
   adding a pill inside the button
 
@@ -1545,9 +1546,12 @@ what's load-bearing now:
   wanted, the safe shape is a root-stack screen like `ClipView` (no Modal),
   not a sheet or a first-run overlay.
 
-Nothing new on the theme side: the only pairs used are `textPrimary` /
-`textMuted` on `fillYou` / `fillPartner`, all already asserted at ≥4.5:1 in
-both themes. The tightest is `paperMuted` on `nightFillPartner` (~4.5:1),
+Text on the cards is only `textPrimary` / `textMuted` on `fillYou` /
+`fillPartner`, all asserted at ≥4.5:1 in both themes. The reaction circles
+(`edgeYou` / `edgePartner` on those fills) are not asserted: on light the
+orange circle is ~1.2–1.3:1 on either fill, so the emoji carries it and the
+circle is a hue hint. With no name on screen, the caption and each reaction
+carry an `accessibilityLabel` saying whose they are. The tightest is `paperMuted` on `nightFillPartner` (~4.5:1),
 which is exactly where the muted AI block sits in dark mode.
 
 ## iOS home screen widget (Days together)

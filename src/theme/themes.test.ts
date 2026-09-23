@@ -48,8 +48,16 @@ function combinations(t: Theme): [string, string, number, string][] {
     [t.border, t.background, LARGE, 'border against the background'],
     // The "you" edge still clears 3:1. The partner edge is the brand orange
     // in both themes by choice and does not on light (~1.44) -- see
-    // edgePartner in themes.ts -- so it isn't asserted.
+    // edgePartner in themes.ts -- so it's asserted on dark only.
     [t.edgeYou, t.background, LARGE, '"you" card edge'],
+    ...(t.name === 'dark'
+      ? ([[t.edgePartner, t.background, LARGE, '"partner" card edge']] as [
+          string,
+          string,
+          number,
+          string,
+        ][])
+      : []),
   ];
 }
 

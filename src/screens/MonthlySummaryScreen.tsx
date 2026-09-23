@@ -404,7 +404,8 @@ const makeStyles = (t: Theme) =>
       borderRadius: 3,
     },
     // edgeYou/edgePartner, not the accent tokens. These pips mean "you" and
-    // "your partner", which is the same job the Timeline card edges do -- and
+    // "your partner" (on light the partner pip is only ~1.44:1 against the
+    // background -- see edgePartner in themes.ts) -- and
     // `accent` deliberately flips hue with the theme, so using it here made
     // both pips orange in dark mode and destroyed the distinction the grid
     // exists to show.
