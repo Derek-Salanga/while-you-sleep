@@ -339,7 +339,12 @@ export default function RecordScreen({ navigation }: any) {
         // 64 clears the close button, which is absolutely positioned at
         // top: insets.top + 12 and is 40 tall -- the flow content below
         // would otherwise start underneath it.
-        style={[styles.container, { paddingTop: insets.top + 64 }]}
+        // One horizontal inset for the whole step rather than one per child:
+        // per-child margins are how Send ended up edge to edge.
+        style={[
+          styles.container,
+          { paddingTop: insets.top + 64, paddingHorizontal: 24 },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {closeButton}
@@ -357,11 +362,7 @@ export default function RecordScreen({ navigation }: any) {
           editable={!uploading}
         />
         <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            styles.sendButton,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={handleSend}
           disabled={uploading}
         >
@@ -521,6 +522,9 @@ const makeStyles = (t: Theme) =>
       backgroundColor: brand.you,
       borderRadius: 16,
       paddingVertical: 16,
+      // In the centred permission/error views this pill shrinks to its
+      // label; without side padding its edges sat right against the text.
+      paddingHorizontal: 24,
       alignItems: 'center',
     },
     buttonText: {
@@ -580,18 +584,15 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
       color: media.text,
-      paddingHorizontal: 24,
       marginBottom: 4,
     },
     reviewSubtitle: {
       fontFamily: fonts.body,
       fontSize: fontSizes.sm,
       color: media.textMuted,
-      paddingHorizontal: 24,
       marginBottom: 16,
     },
     captionInput: {
-      marginHorizontal: 24,
       backgroundColor: media.text,
       borderRadius: 16,
       padding: 16,
@@ -602,13 +603,7 @@ const makeStyles = (t: Theme) =>
       textAlignVertical: 'top',
       marginBottom: 16,
     },
-    // Same 24pt inset as the caption box and Retake. The shared `button`
-    // style has none, so Send ran edge to edge under an inset field.
-    sendButton: {
-      marginHorizontal: 24,
-    },
     retakeButton: {
-      marginHorizontal: 24,
       alignItems: 'center',
       paddingVertical: 12,
     },
