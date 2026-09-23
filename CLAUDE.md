@@ -1432,16 +1432,15 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   caption-free version was tried first and reverted on sight — a clip with
   no AI output was an empty coloured bar
 
-- **Monthly Summary rework (2026-09-23, iOS, dark):** weekday-aligned
-  calendar, stat tiles, the pinned icon row and the line-icon tab bar seen
-  on device
+- **Monthly Summary rework (2026-09-23, iOS, both themes):**
+  weekday-aligned calendar, stat tiles, the pinned icon row and the
+  line-icon tab bar seen on device. Switching August ↔ September neither
+  shifts the layout nor flashes zeros, and both `MonthListScreen` pages open
+  and read correctly
 
 **Not verified:**
-- Monthly Summary in light mode, on a smaller iPhone (whether six week
-  rows plus the pinned row still clear the tab bar), and the two
-  `MonthListScreen` pages after the icon-row change, and the last two
-  fixes (always-six-rows, filter-from-cache) re-checked on device for no
-  shift or flash between months
+- Monthly Summary on a smaller iPhone or at large text sizes, where the
+  middle block's `ScrollView` fallback should engage
 - The brand-orange `edgePartner` (2026-09-23) on device in light mode:
   Timeline edges and reaction circles, Monthly Summary's grid pips and
   `Button`'s secondary border. No screenshot was taken after the switch. Android not seen for any version of the

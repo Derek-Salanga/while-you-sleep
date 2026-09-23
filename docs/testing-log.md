@@ -2232,3 +2232,8 @@ iOS dev client, dark theme, changes made iteratively against the device.
   replaced with SVG chevrons.
 - Tab bar icons replaced with stroked line icons matching the new action
   row; the hand-drawn `theme/navIcons.ts` was deleted.
+
+**Follow-up, same day, after #130 merged:** the user checked the three
+remaining items on the phone and all looked right: switching August ↔
+September with no layout shift or zero flash, light mode, and both list
+pages. Still unexercised: the small-screen `ScrollView` fallback.
