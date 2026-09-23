@@ -527,14 +527,18 @@ and the Timeline share one rule; while the trip query is loading, Home holds
 HeroCard's height so the pet doesn't jump.
 
 **The pet is a cat (2026-09-23, on request)** and the centre of Home: no
-card, drawn at `min(width − 80, 36% of height, 300)` in the middle of the
-remaining height, with one line under it — the mood's title, or "Resting"
+card, sized from the height its area actually gets (`onLayout`), capped at
+`width − 80` and 300 with a 120 floor, centred in the remaining height, with
+one line under it — the mood's title, or "Resting"
 while paused. The second line of copy per mood was dropped at the user's
 request. The drawing (`src/theme/petPaths.ts`) is two split layers, body
 then head, so the body's outline doesn't cross the face; pointed ears are
 bumps in the head outline rather than subpaths; there is no tail, because a
 tail breaks the left/right symmetry `petPaths.test.ts` enforces. That test
-caught a swapped whisker coordinate while drawing it.
+caught a swapped whisker coordinate while drawing it. Belly and inner ears
+are split too, in `brand.partnerSoft` / `brand.youSoft` — theme-independent,
+because the theme's `fillPartner` goes dark brown at night and read as holes
+in the cat.
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -1493,8 +1497,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 **Not verified:**
 - The cat on device (2026-09-23): all four moods and Resting at Home's
-  large size, both themes, and a small phone (the pet shrinks to 36% of the
-  height; the body is a non-bouncing ScrollView fallback)
+  large size, both themes, and a small phone (the pet sizes to its measured
+  area with a 120pt floor; the body is a non-bouncing ScrollView fallback)
 - `AnniversaryEditScreen` (2026-09-23): opens from Settings, Save updates
   the row and Home's days-together line, a future date is rejected, back
   discards
@@ -1879,8 +1883,10 @@ email" from the original ask, not an in-app digest.
   covers the "recap" need via stats + sequential playback instead (see
   "Monthly Summary feature" above); a real compiled video file is a
   bigger lift (native video-processing tooling, moving off Expo Go).
-- Streak/mascot mechanic ("Tamagotchi") — deferred per the original
-  project brief; not a core-loop feature yet.
+- A streak/Tamagotchi *mechanic* beyond what exists: the shared pet
+  (a cat, the centre of Home) reflects `pair_pet.score` and moods, but
+  there's no feeding, levelling or care loop — still deferred per the
+  original project brief.
 
 ## Git workflow
 

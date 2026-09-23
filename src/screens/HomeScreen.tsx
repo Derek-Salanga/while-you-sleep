@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -39,6 +39,10 @@ import { fonts, fontSizes } from '@/theme/typography';
 // counter with a face, and the guilt dynamic is the thing this feature
 // exists to avoid. One line only since the pet became the centre of Home
 // (2026-09-23): the face carries the rest.
+// Room under the pet for its title: the area's vertical padding plus one
+// line of `lg` display text and its margin.
+const PET_TITLE_SPACE = 56;
+
 const PET_TITLE: Record<PetMood, string> = {
   thriving: 'Thriving',
   content: 'Doing well',
@@ -82,10 +86,17 @@ export default function HomeScreen({ navigation }: any) {
   const petResting =
     !!pet?.paused_until && pet.paused_until >= sharedTodayDateString();
   const mood = pet ? petMood(pet.score) : null;
-  // Big, but capped so a small phone still fits the trip card, the pet's
-  // copy and the pinned question without scrolling.
-  const { width, height } = useWindowDimensions();
-  const petSize = Math.min(width - 80, height * 0.36, 300);
+  // Sized from the height the pet area actually gets (measured below), not
+  // the window: the window counts the status bar, title, trip card, pinned
+  // question and tab bar, and guessing a fraction of it overflowed an
+  // iPhone SE. Starts at 0 so the first measurement is the true leftover
+  // space; below 120pt it stops shrinking and the body scrolls instead.
+  const { width } = useWindowDimensions();
+  const [petArea, setPetArea] = useState(0);
+  const petSize = Math.max(
+    120,
+    Math.min(width - 80, petArea - PET_TITLE_SPACE, 300)
+  );
 
   const recordCtaScale = useSharedValue(1);
   const recordCtaAnimatedStyle = useAnimatedStyle(() => ({
@@ -140,7 +151,10 @@ export default function HomeScreen({ navigation }: any) {
         {/* Above the record CTA on purpose: the pet's state is the reason to
           tap it, so it should be read first. */}
         {mood && (
-          <View style={styles.petCard}>
+          <View
+            style={styles.petArea}
+            onLayout={(e) => setPetArea(e.nativeEvent.layout.height)}
+          >
             <SharedPet mood={mood} size={petSize} resting={petResting} />
             <Text style={styles.petTitle}>
               {petResting ? 'Resting' : PET_TITLE[mood]}
@@ -193,8 +207,8 @@ const makeStyles = (t: Theme) =>
     },
     // The pet is the centre of Home: no card, it fills whatever height is
     // left between the trip card and the pinned question, with its mood
-    // copy centred underneath.
-    petCard: {
+    // title centred underneath.
+    petArea: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
@@ -254,7 +268,9 @@ const makeStyles = (t: Theme) =>
       flexGrow: 1,
     },
     // HeroCard's footprint (120 + its 20 margin), held while the trip query
-    // is still loading so the pet card doesn't jump when it resolves.
+    // is still loading, so the common case -- an upcoming trip -- causes no
+    // shift at all. (Resolving to "Plan your next visit" is shorter, and the
+    // pet re-centres and grows into the difference.)
     tripPlaceholder: {
       height: 140,
     },

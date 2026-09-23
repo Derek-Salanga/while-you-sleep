@@ -19,16 +19,18 @@ function points(d: string): [number, number][] {
   return out;
 }
 
+const SHAPES = [
+  // [name, path, minimum point count]
+  ['PET_BODY', PET_BODY, 40],
+  ['PET_HEAD', PET_HEAD, 24],
+  ['PET_BELLY', PET_BELLY, 12],
+  ['PET_INNER_EARS', PET_INNER_EARS, 6],
+  ['PET_WHISKERS', PET_WHISKERS, 8],
+  ['PET_NOSE', PET_NOSE, 3],
+] as const;
+
 describe('pet geometry', () => {
-  it.each([
-    // [name, path, minimum point count]
-    ['PET_BODY', PET_BODY, 40],
-    ['PET_HEAD', PET_HEAD, 24],
-    ['PET_BELLY', PET_BELLY, 12],
-    ['PET_INNER_EARS', PET_INNER_EARS, 6],
-    ['PET_WHISKERS', PET_WHISKERS, 8],
-    ['PET_NOSE', PET_NOSE, 3],
-  ] as const)('%s is symmetric about x=50', (_name, d, min) => {
+  it.each(SHAPES)('%s is symmetric about x=50', (_name, d, min) => {
     const pts = points(d);
     // Guards against an empty or mangled path silently passing the
     // mirror check below, which is vacuously true for zero points.
@@ -42,7 +44,8 @@ describe('pet geometry', () => {
   it('uses only absolute commands', () => {
     // Relative commands would silently break the reflection above, since a
     // mirrored relative delta is not the mirror of the point it lands on.
-    for (const d of [PET_BODY, PET_HEAD, PET_INNER_EARS]) {
+    // Same list as the symmetry check, so the two can't drift apart.
+    for (const [, d] of SHAPES) {
       expect(d).not.toMatch(/[mcqlzsvhta]/);
     }
   });

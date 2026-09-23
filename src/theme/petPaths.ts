@@ -93,7 +93,7 @@ export const PET_MOUTH: Record<string, string> = {
     'M50.0 49.2 L50.0 51.0 M45.8 51.0 Q47.9 54.0 50.0 51.0 Q52.1 54.0 54.2 51.0',
   sleepy:
     'M50.0 49.2 L50.0 51.0 M46.8 51.6 Q48.4 53.2 50.0 51.0 Q51.6 53.2 53.2 51.6',
-  withdrawn: 'M50.0 49.2 L50.0 51.0 M45.2 54.4 Q50.0 50.8 54.8 54.4',
+  withdrawn: 'M50.0 49.2 L50.0 51.0 M45.2 52.8 Q50.0 49.2 54.8 52.8',
 };
 
 // Was #554B66, an off-palette grey chosen for softness. It reached only
@@ -106,4 +106,6 @@ export const PET_LINE = '#2E2A3D';
 // Pause overlay, not a fifth mood. Pause is a status -- "we're travelling"
 // -- so it sits on top of whatever mood is current rather than replacing
 // it, and must never read as a worse state of wellbeing.
-export const PET_SLEEP_MARK = 'M82.0 20.0 L91.0 20.0 L82.0 30.0 L91.0 30.0';
+// Up and right of the cat's right ear, which reaches x≈78 near y=31 -- at the
+// dog's old spot the Z touched it.
+export const PET_SLEEP_MARK = 'M84.0 4.0 L93.0 4.0 L84.0 14.0 L93.0 14.0';

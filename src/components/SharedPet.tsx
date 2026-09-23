@@ -62,12 +62,11 @@ export default function SharedPet({
       <Path d={PET_BODY} fill={leftColor} clipPath="url(#petLeft)" />
       <Path d={PET_BODY} fill={rightColor} clipPath="url(#petRight)" />
       {/* Under the body outline so it reads as fur rather than a sticker. */}
-      <Path
-        d={PET_BELLY}
-        fill={t.fillPartner}
-        stroke={showOutline ? PET_LINE : 'none'}
-        strokeWidth={1.8}
-      />
+      <Path d={PET_BELLY} fill={brand.partnerSoft} clipPath="url(#petLeft)" />
+      <Path d={PET_BELLY} fill={brand.youSoft} clipPath="url(#petRight)" />
+      {showOutline && (
+        <Path d={PET_BELLY} fill="none" stroke={PET_LINE} strokeWidth={1.8} />
+      )}
       {showOutline && (
         <Path
           d={PET_BODY}
@@ -80,7 +79,13 @@ export default function SharedPet({
 
       <Path d={PET_HEAD} fill={leftColor} clipPath="url(#petLeft)" />
       <Path d={PET_HEAD} fill={rightColor} clipPath="url(#petRight)" />
-      <Path d={PET_INNER_EARS} fill={t.fillPartner} />
+      {/* Split like everything else: each ear belongs to one partner. */}
+      <Path
+        d={PET_INNER_EARS}
+        fill={brand.partnerSoft}
+        clipPath="url(#petLeft)"
+      />
+      <Path d={PET_INNER_EARS} fill={brand.youSoft} clipPath="url(#petRight)" />
       {showOutline && (
         <Path
           d={PET_HEAD}
