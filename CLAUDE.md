@@ -540,10 +540,17 @@ to a device pixel; in `SharedPet`'s pivots) lower than the art, set in code
 rather than by moving pixels, and `cat-assembled-reference.png` is composited
 with that drop; the body's neck
 reaches up behind the head with its outline wrapped around the cheeks, so
-the drop hides the neck seam instead of opening a gap (2026-09-25). 126
-see-through pinhole pixels along the inside of the cheek outlines were then
-filled on the body layer with the nearest solid colour, found by a flood
-fill of the composite from outside. Every layer
+the drop hides the neck seam instead of opening a gap (2026-09-25). Pixel
+patches at 1024 didn't hold: the app scales the art and rounds the drop
+(18px at @3x is 23.6 source px, not 24), so @3x kept see-through pinholes
+along the cheek outlines that the source didn't have. The body layer is now
+**opaque under the head's footprint** (for drops 22–26), painted with the
+colour the head shows there, so any rounding lands on solid colour. Only the
+head is backed, not the ears — they rotate, and a static copy would peek out
+mid-twitch. `python3 scripts/check_cat_layers.py` (needs Pillow) stacks the
+layers exactly as `SharedPet` does at 1024 and at the shipped @1x/@2x/@3x
+with their rounded drops, flood-fills from outside, and exits non-zero on
+any trapped see-through pixel: run it after any cat art change. Every layer
 shares one square coordinate system, so it must stay absolute-fill and must
 not be independently cropped or positioned — except as a group: head, ears
 and eyes move together by `headDrop` (below), and layers inside a group move
