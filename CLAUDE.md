@@ -535,12 +535,19 @@ line of copy per mood was dropped at the user's request.
 `src/components/SharedPet.tsx` stacks transparent raster layers from
 `assets/cat/runtime`: tail, body, separate ears, head, then one eye layer.
 Metro selects the 260/520/780 (`1x`/`2x`/`3x`) PNG automatically. The head
-group (head, ears, eyes) is drawn `HEAD_DROP` (24/1024 of the canvas) lower
-than the art, set in code rather than by moving pixels; the body's neck
+group (head, ears, eyes) is drawn `headDrop` (24/1024 of the canvas, rounded
+to a device pixel; in `SharedPet`'s pivots) lower than the art, set in code
+rather than by moving pixels, and `cat-assembled-reference.png` is composited
+with that drop; the body's neck
 reaches up behind the head with its outline wrapped around the cheeks, so
-the drop hides the neck seam instead of opening a gap (2026-09-25). Every layer
+the drop hides the neck seam instead of opening a gap (2026-09-25). 126
+see-through pinhole pixels along the inside of the cheek outlines were then
+filled on the body layer with the nearest solid colour, found by a flood
+fill of the composite from outside. Every layer
 shares one square coordinate system, so it must stay absolute-fill and must
-not be independently cropped or positioned. The palette follows the app's
+not be independently cropped or positioned — except as a group: head, ears
+and eyes move together by `headDrop` (below), and layers inside a group move
+with it. The palette follows the app's
 crossover convention: day-orange/partner on the viewer's left,
 night-blue/you on the right; the tail carries the same split without an ink
 divider. The approved 1024px source art remains in `assets/cat`, with the

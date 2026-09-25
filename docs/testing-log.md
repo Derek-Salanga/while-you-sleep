@@ -2334,3 +2334,7 @@ and all seven layers checked against their sources at @1x/@2x/@3x. The head
 group was then lowered 24/1024 in code (`HEAD_DROP`), previewed at 0/16/32/48
 before choosing, which also covers a faint seam under the chin. Remaining,
 minor: a few smudged pixels where each cheek line meets its shoulder line.
+Code review then found 126 enclosed see-through pixels along the inside of
+the cheek outlines (flood fill of the composite from outside); they were
+filled on the body layer with the nearest solid colour, re-checked at 0
+remaining, and the reference image was regenerated with the head drop.

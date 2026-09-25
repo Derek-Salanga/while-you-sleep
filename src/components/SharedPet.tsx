@@ -3,8 +3,10 @@ import {
   AccessibilityInfo,
   AppState,
   Image,
+  PixelRatio,
   Pressable,
   StyleSheet,
+  View,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -21,6 +23,8 @@ import type { PetMood } from '@/types';
 
 // Hand-drawn layers on one shared square canvas: each is absolute-fill and
 // must never be cropped or positioned on its own, or the cat falls apart.
+// The one exception is deliberate and grouped: head, ears and eyes move
+// together by `headDrop` (see the pivots below).
 // Metro picks the @1x/@2x/@3x file (260/520/780px) for the screen.
 const BODY = require('../../assets/cat/runtime/cat-body.png');
 const HEAD = require('../../assets/cat/runtime/cat-head.png');
@@ -40,11 +44,6 @@ const LAYERS = {
 };
 type LayerName = keyof typeof LAYERS;
 
-// The head group (head, ears, eyes) sits this fraction of the canvas lower
-// than drawn -- 24px of the 1024 source. It shortens the neck and tucks the
-// body's cheek outline behind the head. Done here rather than by moving the
-// pixels, so the source art stays as drawn and the amount is one number.
-const HEAD_DROP = 24 / 1024;
 const LAYER_COUNT = Object.keys(LAYERS).length;
 
 // Development only: there the layers are served by Metro, through a tunnel
@@ -380,6 +379,17 @@ export default function SharedPet({
       tail: { transformOrigin: [size * 0.749, size * 0.7969, 0] },
       leftEar: { transformOrigin: [size * 0.3779, size * 0.2666, 0] },
       rightEar: { transformOrigin: [size * 0.627, size * 0.2461, 0] },
+      // The head group (head, ears, eyes) sits 24/1024 of the canvas lower
+      // than drawn: it shortens the neck and tucks the body's cheek outline
+      // behind the head. In code rather than moved pixels, so the art stays
+      // as drawn. Rounded to a device pixel so the head's outline lands on
+      // the same pixel grid as the body's cheek line it has to meet.
+      // assets/cat/cat-assembled-reference.png is composited with this drop.
+      headDrop: {
+        transform: [
+          { translateY: PixelRatio.roundToNearestPixel((size * 24) / 1024) },
+        ],
+      },
     }),
     [size]
   );
@@ -420,12 +430,7 @@ export default function SharedPet({
         <Animated.View style={[styles.layer, pivots.breath, breathStyle]}>
           {layer('body')}
           {/* Head, ears and eyes move as one group, lowered onto the body. */}
-          <Animated.View
-            style={[
-              styles.layer,
-              { transform: [{ translateY: size * HEAD_DROP }] },
-            ]}
-          >
+          <View style={[styles.layer, pivots.headDrop]}>
             <Animated.View style={[styles.layer, pivots.leftEar, leftEarStyle]}>
               {layer('leftEar')}
             </Animated.View>
@@ -437,7 +442,7 @@ export default function SharedPet({
             {layer('head')}
             {layer('eyesOpen', eyesOpenStyle)}
             {layer('eyesClosed', eyesClosedStyle)}
-          </Animated.View>
+          </View>
         </Animated.View>
       </Animated.View>
     </Pressable>
