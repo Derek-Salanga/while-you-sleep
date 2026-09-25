@@ -2323,3 +2323,14 @@ before Metro-over-tunnel loads finished. Second pass: `Image.prefetch` all
 layers at app launch, a 3s fallback, and the mood title revealed with the
 cat via `onReady`. Not yet re-checked on device. Also added: occasional
 quick tail wags and a tap reaction (hop, ear perk, squint, tail flick).
+
+## 2026-09-25 — Cheek gap and a lower head
+
+The user saw unfilled notches at the cheeks: the head layer's cheek outline
+stopped short of the shoulders, with a pale erased fringe. They redrew the
+body layer so its neck rises behind the head with the outline wrapped around
+each cheek (the head layer was unchanged); runtime copies were regenerated
+and all seven layers checked against their sources at @1x/@2x/@3x. The head
+group was then lowered 24/1024 in code (`HEAD_DROP`), previewed at 0/16/32/48
+before choosing, which also covers a faint seam under the chin. Remaining,
+minor: a few smudged pixels where each cheek line meets its shoulder line.

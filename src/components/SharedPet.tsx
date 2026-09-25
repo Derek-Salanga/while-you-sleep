@@ -39,6 +39,12 @@ const LAYERS = {
   eyesClosed: EYES_CLOSED,
 };
 type LayerName = keyof typeof LAYERS;
+
+// The head group (head, ears, eyes) sits this fraction of the canvas lower
+// than drawn -- 24px of the 1024 source. It shortens the neck and tucks the
+// body's cheek outline behind the head. Done here rather than by moving the
+// pixels, so the source art stays as drawn and the amount is one number.
+const HEAD_DROP = 24 / 1024;
 const LAYER_COUNT = Object.keys(LAYERS).length;
 
 // Development only: there the layers are served by Metro, through a tunnel
@@ -413,15 +419,25 @@ export default function SharedPet({
             the body instead of the neck seam sliding under a still head. */}
         <Animated.View style={[styles.layer, pivots.breath, breathStyle]}>
           {layer('body')}
-          <Animated.View style={[styles.layer, pivots.leftEar, leftEarStyle]}>
-            {layer('leftEar')}
+          {/* Head, ears and eyes move as one group, lowered onto the body. */}
+          <Animated.View
+            style={[
+              styles.layer,
+              { transform: [{ translateY: size * HEAD_DROP }] },
+            ]}
+          >
+            <Animated.View style={[styles.layer, pivots.leftEar, leftEarStyle]}>
+              {layer('leftEar')}
+            </Animated.View>
+            <Animated.View
+              style={[styles.layer, pivots.rightEar, rightEarStyle]}
+            >
+              {layer('rightEar')}
+            </Animated.View>
+            {layer('head')}
+            {layer('eyesOpen', eyesOpenStyle)}
+            {layer('eyesClosed', eyesClosedStyle)}
           </Animated.View>
-          <Animated.View style={[styles.layer, pivots.rightEar, rightEarStyle]}>
-            {layer('rightEar')}
-          </Animated.View>
-          {layer('head')}
-          {layer('eyesOpen', eyesOpenStyle)}
-          {layer('eyesClosed', eyesClosedStyle)}
         </Animated.View>
       </Animated.View>
     </Pressable>
