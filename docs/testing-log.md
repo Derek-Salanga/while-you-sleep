@@ -2343,4 +2343,10 @@ remaining, and the reference image was regenerated with the head drop.
 fully transparent enclosed pixels, 2 mostly transparent (alpha < 200) at the
 cheek corners, and ~290 slightly translucent ones spread across the cat,
 which are brush grain rather than gaps. The 2 were filled the same way;
-0 remain at alpha < 200.
+0 remain at alpha < 200. **Correction, from code review:** that was only checked at
+the 1024 source. At @3x the rounded drop (18px = 23.6 source px) still left
+33 trapped see-through pixels along both cheeks. Fixed structurally instead:
+the body is opaque under the head's footprint (drops 22–26, head only, not
+the rotating ears), coloured as the head shows it. `scripts/check_cat_layers.py`
+now scans source + @1x/@2x/@3x with rounded drops: 0 at every size. At rest
+138 pixels visibly change (the former gaps); with ears twitched 9°, 6 more.
