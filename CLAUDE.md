@@ -559,16 +559,20 @@ layers at @3x are ~17MB of decoded bitmap while Home is mounted.
 
 **Loading all at once, and tap (2026-09-25).** Home renders the cat only
 after `onLayout` has measured its area (it used to draw at the 120pt floor,
-then jump), and `SharedPet` keeps itself at opacity 0 until all seven layers
-fire `onLoad` (or a 3s fallback passes, so a failed image can't hide it for
-good), then calls `onReady` so Home reveals the mood title at the same
-moment. The layers are also `Image.prefetch`ed at module load, i.e. at app
-launch — in development they come from Metro, over a tunnel slow enough that
-they arrived one by one. The tail's scheduler now sometimes does a quick
+then jump), and `SharedPet` keeps itself at opacity 0 — untappable and hidden
+from screen readers — until all seven layers have fired `onLoad`, tracked as
+a set of names rather than a count because iOS can fire it twice (or a 3s
+fallback passes, so a failed image can't hide it for good). It reports this
+through `onReadyChange`, which Home uses to reveal the mood title in step,
+including after a remount. In development only, the layers are
+`Image.prefetch`ed at app launch, since Metro-over-tunnel is slow enough
+that they arrived one by one; release builds read them from the bundle. The tail's scheduler now sometimes does a quick
 3–5-beat wag instead of the slow sway, likelier in happier moods. Tapping the
-cat hops it, perks the ears, squints and flicks the tail (throttled to one
-reaction per 600ms); resting it only slow-blinks, and with Reduce Motion it
-only blinks. The existing four moods change only
+cat hops it, perks the ears, squints and flicks the tail, scaled by mood
+(throttled to one reaction per 600ms). Idle blinks, twitches and swishes
+hold off for ~900ms after a tap so they don't cut the reaction short.
+Resting, the shut eyes half-open and close again; with Reduce Motion it only
+blinks. The existing four moods change only
 motion intensity for now; the neutral mouth is baked into the head layer.
 **That drops the per-mood faces**, including the `withdrawn` frown the user
 had explicitly chosen for the vector pet — until per-mood face layers are

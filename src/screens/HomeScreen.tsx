@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -99,7 +99,6 @@ export default function HomeScreen({ navigation }: any) {
   const isFocused = useIsFocused();
   const [petArea, setPetArea] = useState(0);
   const [petReady, setPetReady] = useState(false);
-  const markPetReady = useCallback(() => setPetReady(true), []);
   const petSize = Math.max(
     120,
     Math.min(width - 80, petArea - PET_TITLE_SPACE, 260)
@@ -173,10 +172,16 @@ export default function HomeScreen({ navigation }: any) {
                   // Stops the idle motion while the trip editor is pushed on
                   // top; a tab switch already unmounts Home.
                   active={isFocused}
-                  onReady={markPetReady}
+                  onReadyChange={setPetReady}
                 />
                 {/* Revealed with the cat, not ahead of it. */}
-                <Text style={[styles.petTitle, !petReady && styles.hidden]}>
+                <Text
+                  style={[styles.petTitle, !petReady && styles.hidden]}
+                  accessibilityElementsHidden={!petReady}
+                  importantForAccessibility={
+                    petReady ? 'auto' : 'no-hide-descendants'
+                  }
+                >
                   {petResting ? 'Resting' : PET_TITLE[mood]}
                 </Text>
               </>
