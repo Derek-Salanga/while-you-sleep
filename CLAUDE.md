@@ -555,7 +555,20 @@ it at launch. Blinks cross-fade two always-mounted eye images by opacity;
 swapping an `Image` source reloads it asynchronously on iOS and flashed an
 eyeless frame. Everything but the tail sits inside the breathing transform,
 so the head rises with the body. Cost worth knowing: seven full-canvas
-layers at @3x are ~17MB of decoded bitmap while Home is mounted. The existing four moods change only
+layers at @3x are ~17MB of decoded bitmap while Home is mounted.
+
+**Loading all at once, and tap (2026-09-25).** Home renders the cat only
+after `onLayout` has measured its area (it used to draw at the 120pt floor,
+then jump), and `SharedPet` keeps itself at opacity 0 until all seven layers
+fire `onLoad` (or a 3s fallback passes, so a failed image can't hide it for
+good), then calls `onReady` so Home reveals the mood title at the same
+moment. The layers are also `Image.prefetch`ed at module load, i.e. at app
+launch — in development they come from Metro, over a tunnel slow enough that
+they arrived one by one. The tail's scheduler now sometimes does a quick
+3–5-beat wag instead of the slow sway, likelier in happier moods. Tapping the
+cat hops it, perks the ears, squints and flicks the tail (throttled to one
+reaction per 600ms); resting it only slow-blinks, and with Reduce Motion it
+only blinks. The existing four moods change only
 motion intensity for now; the neutral mouth is baked into the head layer.
 **That drops the per-mood faces**, including the `withdrawn` frown the user
 had explicitly chosen for the vector pet — until per-mood face layers are
@@ -1517,6 +1530,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The cat appearing in one go on Home (2026-09-25) after the prefetch and
+  load gate — the first attempt, with an 800ms fallback, still built up
+  layer by layer in the dev client over a tunnel; also the wag bouts and
+  the tap reaction on device
 - The hand-drawn layered cat on device (2026-09-25): layers aligned at
   every size, breathing/tail/ear/blink motion reading as alive rather than
   looped, per-mood intensity, Resting, Reduce Motion toggled mid-session,

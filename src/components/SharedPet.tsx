@@ -3,8 +3,8 @@ import {
   AccessibilityInfo,
   AppState,
   Image,
+  Pressable,
   StyleSheet,
-  View,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -12,6 +12,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -28,6 +29,17 @@ const EYES_CLOSED = require('../../assets/cat/runtime/cat-eyes-closed.png');
 const TAIL = require('../../assets/cat/runtime/cat-tail.png');
 const LEFT_EAR = require('../../assets/cat/runtime/cat-ear-left.png');
 const RIGHT_EAR = require('../../assets/cat/runtime/cat-ear-right.png');
+const LAYERS = [BODY, HEAD, EYES_OPEN, EYES_CLOSED, TAIL, LEFT_EAR, RIGHT_EAR];
+const LAYER_COUNT = LAYERS.length;
+
+// Warm the image cache at app launch (this module is imported with the
+// navigator), so by the time Home mounts the layers are already fetched and
+// decode together. In development they're served over Metro -- through a
+// tunnel that's slow enough that they arrived one by one.
+LAYERS.forEach((src) => {
+  const uri = Image.resolveAssetSource(src)?.uri;
+  if (uri) Image.prefetch(uri).catch(() => {});
+});
 
 // Mood only scales how much the cat moves; the face is one neutral drawing
 // until per-mood faces are drawn.
@@ -77,6 +89,9 @@ interface SharedPetProps {
   // False stops every animation and timer -- Home passes its focus state,
   // since a pushed screen (the trip editor) leaves it mounted underneath.
   active?: boolean;
+  // Called once every layer is ready, so the caller can reveal anything
+  // that belongs with the cat (Home's mood title) at the same moment.
+  onReady?: () => void;
 }
 
 export default function SharedPet({
@@ -84,6 +99,7 @@ export default function SharedPet({
   size = 120,
   resting = false,
   active = true,
+  onReady,
 }: SharedPetProps) {
   const reduceMotion = useReduceMotion();
   const appActive = useAppActive();
@@ -95,6 +111,24 @@ export default function SharedPet({
   // swapping an Image's source reloads it asynchronously on iOS, which
   // flashed an eyeless frame on every blink.
   const eyesClosed = useSharedValue(resting ? 1 : 0);
+  const hop = useSharedValue(0);
+  // All seven layers decode separately, so without this they pop in one by
+  // one on every Home visit. Hidden until every layer reports in (or a
+  // short fallback passes, so a failed load can't hide the cat for good).
+  const [loaded, setLoaded] = React.useState(0);
+  const [timedOut, setTimedOut] = React.useState(false);
+  React.useEffect(() => {
+    // Generous: it only exists so a failed load can't hide the cat forever,
+    // and at 800ms it fired before slow dev loads finished.
+    const t = setTimeout(() => setTimedOut(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+  const onLayerLoad = React.useCallback(() => setLoaded((n) => n + 1), []);
+  const visible = loaded >= LAYER_COUNT || timedOut;
+  React.useEffect(() => {
+    if (visible) onReady?.();
+  }, [visible, onReady]);
+  const lastTap = React.useRef(0);
 
   React.useEffect(() => {
     const values = [breath, tailRotation, leftEarRotation, rightEarRotation];
@@ -138,9 +172,29 @@ export default function SharedPet({
 
     // Resting: slow breathing only, eyes shut.
     if (!resting) {
-      // Tail swishes in short bouts, with a random rest between them that
-      // runs longer in a calmer mood.
+      // The tail alternates between a slow sway and, now and then, a quick
+      // wag of a few beats -- likelier the happier the mood. Both go through
+      // this one scheduler so they never fight over the tail.
       const swish = () => {
+        if (Math.random() < 0.4 * intensity) {
+          const beats = Math.round(rand(3, 5));
+          const degrees = rand(9, 13) * Math.max(intensity, 0.4);
+          const beat = rand(130, 170);
+          const steps = [];
+          for (let i = 0; i < beats; i++) {
+            steps.push(
+              withTiming(i % 2 ? degrees : -degrees, {
+                duration: beat,
+                easing: EASE,
+              })
+            );
+          }
+          steps.push(withTiming(0, { duration: beat * 1.5, easing: EASE }));
+          tailRotation.set(withSequence(...steps));
+          const rest = rand(1500, 4500) / Math.max(intensity, 0.3);
+          later(swish, beat * (beats + 1.5) + rest);
+          return;
+        }
         const degrees = rand(3.5, 6) * intensity;
         const out = rand(1100, 1700);
         const back = rand(2200, 3200);
@@ -199,6 +253,54 @@ export default function SharedPet({
     tailRotation,
   ]);
 
+  // Tapping the cat: a little hop, ears perk, a happy squint and a quick
+  // wag. Throttled so hammering it doesn't stack animations. With Reduce
+  // Motion on it only blinks; resting, it just stirs (a slow blink).
+  const handleTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 600) return;
+    lastTap.current = now;
+    eyesClosed.set(
+      withSequence(
+        withTiming(1, { duration: 60 }),
+        withTiming(1, { duration: resting ? 500 : 220 }),
+        withTiming(resting ? 1 : 0, { duration: 80 })
+      )
+    );
+    if (reduceMotion || resting) return;
+    const lift = size * 0.05 * Math.max(MOTION[mood], 0.4);
+    hop.set(
+      withSequence(
+        withTiming(-lift, { duration: 140, easing: Easing.out(Easing.quad) }),
+        withSpring(0, { damping: 9, stiffness: 180 })
+      )
+    );
+    const perk = 9;
+    leftEarRotation.set(
+      withSequence(
+        withTiming(-perk, { duration: 120 }),
+        withTiming(0, { duration: 320, easing: EASE })
+      )
+    );
+    rightEarRotation.set(
+      withSequence(
+        withTiming(perk, { duration: 120 }),
+        withTiming(0, { duration: 320, easing: EASE })
+      )
+    );
+    tailRotation.set(
+      withSequence(
+        withTiming(-12, { duration: 120 }),
+        withTiming(12, { duration: 140 }),
+        withTiming(-8, { duration: 140 }),
+        withTiming(0, { duration: 200, easing: EASE })
+      )
+    );
+  };
+
+  const hopStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hop.get() }],
+  }));
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scaleY: breath.get() }],
   }));
@@ -230,40 +332,77 @@ export default function SharedPet({
   const label = resting ? 'Shared cat, resting' : `Shared cat, ${mood}`;
 
   return (
-    <View
-      style={{ width: size, height: size }}
-      accessible
-      accessibilityRole="image"
+    <Pressable
+      onPress={handleTap}
+      style={{ width: size, height: size, opacity: visible ? 1 : 0 }}
+      accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint="Say hi to your cat"
     >
-      <Animated.View style={[styles.layer, pivots.tail, tailStyle]}>
-        <Image source={TAIL} style={styles.layer} resizeMode="contain" />
-      </Animated.View>
-      {/* Everything but the tail breathes together, so the head rises with
+      <Animated.View style={[styles.layer, hopStyle]}>
+        <Animated.View style={[styles.layer, pivots.tail, tailStyle]}>
+          <Image
+            source={TAIL}
+            onLoad={onLayerLoad}
+            onError={onLayerLoad}
+            style={styles.layer}
+            resizeMode="contain"
+          />
+        </Animated.View>
+        {/* Everything but the tail breathes together, so the head rises with
           the body instead of the neck seam sliding under a still head. */}
-      <Animated.View style={[styles.layer, pivots.breath, breathStyle]}>
-        <Image source={BODY} style={styles.layer} resizeMode="contain" />
-        <Animated.View style={[styles.layer, pivots.leftEar, leftEarStyle]}>
-          <Image source={LEFT_EAR} style={styles.layer} resizeMode="contain" />
+        <Animated.View style={[styles.layer, pivots.breath, breathStyle]}>
+          <Image
+            source={BODY}
+            onLoad={onLayerLoad}
+            onError={onLayerLoad}
+            style={styles.layer}
+            resizeMode="contain"
+          />
+          <Animated.View style={[styles.layer, pivots.leftEar, leftEarStyle]}>
+            <Image
+              source={LEFT_EAR}
+              onLoad={onLayerLoad}
+              onError={onLayerLoad}
+              style={styles.layer}
+              resizeMode="contain"
+            />
+          </Animated.View>
+          <Animated.View style={[styles.layer, pivots.rightEar, rightEarStyle]}>
+            <Image
+              source={RIGHT_EAR}
+              onLoad={onLayerLoad}
+              onError={onLayerLoad}
+              style={styles.layer}
+              resizeMode="contain"
+            />
+          </Animated.View>
+          <Image
+            source={HEAD}
+            onLoad={onLayerLoad}
+            onError={onLayerLoad}
+            style={styles.layer}
+            resizeMode="contain"
+          />
+          <Animated.Image
+            source={EYES_OPEN}
+            onLoad={onLayerLoad}
+            onError={onLayerLoad}
+            style={[styles.layer, eyesOpenStyle]}
+            resizeMode="contain"
+            fadeDuration={0}
+          />
+          <Animated.Image
+            source={EYES_CLOSED}
+            onLoad={onLayerLoad}
+            onError={onLayerLoad}
+            style={[styles.layer, eyesClosedStyle]}
+            resizeMode="contain"
+            fadeDuration={0}
+          />
         </Animated.View>
-        <Animated.View style={[styles.layer, pivots.rightEar, rightEarStyle]}>
-          <Image source={RIGHT_EAR} style={styles.layer} resizeMode="contain" />
-        </Animated.View>
-        <Image source={HEAD} style={styles.layer} resizeMode="contain" />
-        <Animated.Image
-          source={EYES_OPEN}
-          style={[styles.layer, eyesOpenStyle]}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
-        <Animated.Image
-          source={EYES_CLOSED}
-          style={[styles.layer, eyesClosedStyle]}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 
