@@ -2338,3 +2338,9 @@ Code review then found 126 enclosed see-through pixels along the inside of
 the cheek outlines (flood fill of the composite from outside); they were
 filled on the body layer with the nearest solid colour, re-checked at 0
 remaining, and the reference image was regenerated with the head drop.
+
+**Follow-up:** a rescan of the composite at stricter thresholds found 0
+fully transparent enclosed pixels, 2 mostly transparent (alpha < 200) at the
+cheek corners, and ~290 slightly translucent ones spread across the cat,
+which are brush grain rather than gaps. The 2 were filled the same way;
+0 remain at alpha < 200.
