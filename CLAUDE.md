@@ -548,8 +548,19 @@ cycle at a time with a random length (breaths, tail bouts with random rests
 between, blink and twitch intervals) rather than `withRepeat`, because a fixed
 loop reads as mechanical within seconds. `SharedPet`'s `active` prop stops all
 of it; Home passes `useIsFocused()`, since the pushed trip editor leaves Home
-mounted underneath (a tab switch unmounts it anyway). The existing four moods change only
+mounted underneath (a tab switch unmounts it anyway), and it also stops
+when the app is backgrounded (`AppState`) or Reduce Motion is on — read live
+via `AccessibilityInfo`, since Reanimated's `useReducedMotion()` only reads
+it at launch. Blinks cross-fade two always-mounted eye images by opacity;
+swapping an `Image` source reloads it asynchronously on iOS and flashed an
+eyeless frame. Everything but the tail sits inside the breathing transform,
+so the head rises with the body. Cost worth knowing: seven full-canvas
+layers at @3x are ~17MB of decoded bitmap while Home is mounted. The existing four moods change only
 motion intensity for now; the neutral mouth is baked into the head layer.
+**That drops the per-mood faces**, including the `withdrawn` frown the user
+had explicitly chosen for the vector pet — until per-mood face layers are
+drawn, a still frame (or Reduce Motion) looks the same in every mood and
+only the title under it differs.
 `resting` closes the eyes and leaves only very slight breathing, and the OS
 reduced-motion setting disables movement. New facial expressions need a
 separate art/approval pass rather than code-drawn additions.
@@ -1322,16 +1333,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 - The pet on Home (2026-09-06): renders with the mood matching
   `pair_pet.score`, and a tab-away-and-back picks up a score change with no
-  manual refresh. `withdrawn` is legible on a white card. (Home's layout
-  has since changed — see "Home layout".)
+  manual refresh. (The drawing and Home's layout have since changed — see
+  "Home layout" and the hand-drawn cat entry under Not verified.)
 
 - Pause mode (2026-09-06): three presets in Settings, the row reads back the
   date, Home shows the resting overlay, "Resume now" clears it, and the daily
   reminder is cancelled while paused and returns on resume
-
-- The redrawn pet (2026-09-07): reads as a sitting floppy-eared companion
-  at the 72pt Home card size, with the `withdrawn` frown clearly visible.
-  Superseded 2026-09-23 by the cat below
 
 - Reaction burst (2026-09-07): six emoji rising half a screen over 1400ms
   when you set a reaction, nothing on clear. Deliberately louder than the
@@ -1347,7 +1354,7 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   dropping the dashboard expiry to 60s, which turns a 15-minute wait into two
 
 - WCAG AA in the light theme (2026-09-07): the record CTA label, HeroCard's
-  two halves, `border`, `error` and the pet's line colour all clear AA, and
+  two halves, `border` and `error` all clear AA, and
   `src/theme/themes.test.ts` asserts every pairing so it can't silently
   regress — except, since 2026-09-23, the light-theme partner edge, which is
   the brand orange by choice at ~1.44:1 (see "Timeline card layout"). The CTA label is `ink` rather than white — white on the gradient's
@@ -1512,11 +1519,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 **Not verified:**
 - The hand-drawn layered cat on device (2026-09-25): layers aligned at
   every size, breathing/tail/ear/blink motion reading as alive rather than
-  looped, per-mood intensity, Resting, reduced motion, and the motion
-  stopping while the trip editor is open
-- The cat on device (2026-09-23): all four moods and Resting at Home's
-  large size, both themes, and a small phone (the pet sizes to its measured
-  area with a 120pt floor; the body is a non-bouncing ScrollView fallback)
+  looped, per-mood intensity, Resting, Reduce Motion toggled mid-session,
+  motion stopping while the trip editor is open or the app is backgrounded,
+  and blinks with no eyeless frame on iOS
 - `AnniversaryEditScreen` (2026-09-23): opens from Settings, Save updates
   the row and Home's days-together line, a future date is rejected, back
   discards

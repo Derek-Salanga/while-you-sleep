@@ -93,7 +93,8 @@ export default function HomeScreen({ navigation }: any) {
   // iPhone SE. Starts at 0 so the first measurement is the true leftover
   // space; below 120pt it stops shrinking and the body scrolls instead.
   // 260 is the logical size of the cat's 260/520/780 density set, so it
-  // never has to upscale on a 3x screen.
+  // doesn't upscale on a 3x screen (Android phones denser than 3x still
+  // stretch the @3x file slightly).
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
   const [petArea, setPetArea] = useState(0);

@@ -2302,3 +2302,12 @@ Before committing: breathing and the tail sway were fixed-duration
 `withRepeat` loops, now scheduled per cycle with random lengths; and the
 motion kept running under the pushed trip editor, now stopped via
 `useIsFocused()`. Type-check, lint and tests pass; not yet seen on device.
+
+**Code review, same day, before merging:** blinks now cross-fade two mounted
+eye images (a source swap could flash an eyeless frame on iOS); Reduce
+Motion is read live via `AccessibilityInfo`; motion also stops when the app
+is backgrounded; the head, ears and eyes breathe with the body; a mood
+change eases back to rest instead of snapping. Noted, not changed: the
+raster cat has one neutral face, so the per-mood faces — including the
+user's deliberate `withdrawn` frown — are gone until mood face layers are
+drawn.
