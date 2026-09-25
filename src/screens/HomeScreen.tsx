@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -91,11 +92,15 @@ export default function HomeScreen({ navigation }: any) {
   // question and tab bar, and guessing a fraction of it overflowed an
   // iPhone SE. Starts at 0 so the first measurement is the true leftover
   // space; below 120pt it stops shrinking and the body scrolls instead.
+  // 260 is the logical size of the cat's 260/520/780 density set, so it
+  // doesn't upscale on a 3x screen (Android phones denser than 3x still
+  // stretch the @3x file slightly).
   const { width } = useWindowDimensions();
+  const isFocused = useIsFocused();
   const [petArea, setPetArea] = useState(0);
   const petSize = Math.max(
     120,
-    Math.min(width - 80, petArea - PET_TITLE_SPACE, 300)
+    Math.min(width - 80, petArea - PET_TITLE_SPACE, 260)
   );
 
   const recordCtaScale = useSharedValue(1);
@@ -155,7 +160,14 @@ export default function HomeScreen({ navigation }: any) {
             style={styles.petArea}
             onLayout={(e) => setPetArea(e.nativeEvent.layout.height)}
           >
-            <SharedPet mood={mood} size={petSize} resting={petResting} />
+            <SharedPet
+              mood={mood}
+              size={petSize}
+              resting={petResting}
+              // Stops the idle motion while the trip editor is pushed on
+              // top; a tab switch already unmounts Home.
+              active={isFocused}
+            />
             <Text style={styles.petTitle}>
               {petResting ? 'Resting' : PET_TITLE[mood]}
             </Text>
