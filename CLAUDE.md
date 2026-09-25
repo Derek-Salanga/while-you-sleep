@@ -526,19 +526,33 @@ trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
 and the Timeline share one rule; while the trip query is loading, Home holds
 HeroCard's height so the pet doesn't jump.
 
-**The pet is a cat (2026-09-23, on request)** and the centre of Home: no
-card, sized from the height its area actually gets (`onLayout`), capped at
-`width − 80` and 300 with a 120 floor, centred in the remaining height, with
-one line under it — the mood's title, or "Resting"
-while paused. The second line of copy per mood was dropped at the user's
-request. The drawing (`src/theme/petPaths.ts`) is two split layers, body
-then head, so the body's outline doesn't cross the face; pointed ears are
-bumps in the head outline rather than subpaths; there is no tail, because a
-tail breaks the left/right symmetry `petPaths.test.ts` enforces. That test
-caught a swapped whisker coordinate while drawing it. Belly and inner ears
-are split too, in `brand.partnerSoft` / `brand.youSoft` — theme-independent,
-because the theme's `fillPartner` goes dark brown at night and read as holes
-in the cat.
+**The pet is a cat (updated 2026-09-25)** and the centre of Home: no card,
+sized from the height its area actually gets (`onLayout`), capped at
+`width − 80` and 260 with a 120 floor, centred in the remaining height, with
+one line under it — the mood's title, or "Resting" while paused. The second
+line of copy per mood was dropped at the user's request.
+
+`src/components/SharedPet.tsx` stacks transparent raster layers from
+`assets/cat/runtime`: tail, body, separate ears, head, then one eye layer.
+Metro selects the 260/520/780 (`1x`/`2x`/`3x`) PNG automatically. Every layer
+shares one square coordinate system, so it must stay absolute-fill and must
+not be independently cropped or positioned. The palette follows the app's
+crossover convention: day-orange/partner on the viewer's left,
+night-blue/you on the right; the tail carries the same split without an ink
+divider. The approved 1024px source art remains in `assets/cat`, with the
+pre-flip version in git history (commit `a4c2fa0`).
+
+Reanimated supplies subtle body breathing, a pivoted tail sway, independent
+ear twitches, and open/closed eye swaps. Every behaviour is scheduled one
+cycle at a time with a random length (breaths, tail bouts with random rests
+between, blink and twitch intervals) rather than `withRepeat`, because a fixed
+loop reads as mechanical within seconds. `SharedPet`'s `active` prop stops all
+of it; Home passes `useIsFocused()`, since the pushed trip editor leaves Home
+mounted underneath (a tab switch unmounts it anyway). The existing four moods change only
+motion intensity for now; the neutral mouth is baked into the head layer.
+`resting` closes the eyes and leaves only very slight breathing, and the OS
+reduced-motion setting disables movement. New facial expressions need a
+separate art/approval pass rather than code-drawn additions.
 
 The meeting location is a country picked from a full-screen searchable
 list (`src/data/countries.ts` — ISO 3166-1 alpha-2 codes + English
@@ -1496,6 +1510,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The hand-drawn layered cat on device (2026-09-25): layers aligned at
+  every size, breathing/tail/ear/blink motion reading as alive rather than
+  looped, per-mood intensity, Resting, reduced motion, and the motion
+  stopping while the trip editor is open
 - The cat on device (2026-09-23): all four moods and Resting at Home's
   large size, both themes, and a small phone (the pet sizes to its measured
   area with a 120pt floor; the body is a non-bouncing ScrollView fallback)

@@ -2289,3 +2289,16 @@ dark brown in dark mode — "holes in the cat"); the Resting Z moved clear of
 the right ear; the withdrawn frown now meets the nose line; the pet is sized
 from its measured area rather than a fraction of the window (which would
 have overflowed an iPhone SE).
+
+## 2026-09-25 — Hand-drawn layered cat replaces the vector cat
+
+The user drew the cat in Procreate as separate transparent 1024px layers
+(body, head, both ears, tail, eyes open/closed), then flipped the palette to
+the app's convention (orange left, blue right). Runtime copies at 260/520/780
+live in `assets/cat/runtime`. `SharedPet` stacks them and animates with
+Reanimated; the vector `petPaths.ts` and its symmetry test are gone.
+
+Before committing: breathing and the tail sway were fixed-duration
+`withRepeat` loops, now scheduled per cycle with random lengths; and the
+motion kept running under the pushed trip editor, now stopped via
+`useIsFocused()`. Type-check, lint and tests pass; not yet seen on device.
