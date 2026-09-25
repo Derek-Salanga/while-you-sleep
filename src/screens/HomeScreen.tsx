@@ -98,6 +98,7 @@ export default function HomeScreen({ navigation }: any) {
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
   const [petArea, setPetArea] = useState(0);
+  const [petReady, setPetReady] = useState(false);
   const petSize = Math.max(
     120,
     Math.min(width - 80, petArea - PET_TITLE_SPACE, 260)
@@ -160,17 +161,31 @@ export default function HomeScreen({ navigation }: any) {
             style={styles.petArea}
             onLayout={(e) => setPetArea(e.nativeEvent.layout.height)}
           >
-            <SharedPet
-              mood={mood}
-              size={petSize}
-              resting={petResting}
-              // Stops the idle motion while the trip editor is pushed on
-              // top; a tab switch already unmounts Home.
-              active={isFocused}
-            />
-            <Text style={styles.petTitle}>
-              {petResting ? 'Resting' : PET_TITLE[mood]}
-            </Text>
+            {/* Only once measured: before that the size falls back to the
+                120pt floor, and the cat visibly jumped to full size. */}
+            {petArea > 0 && (
+              <>
+                <SharedPet
+                  mood={mood}
+                  size={petSize}
+                  resting={petResting}
+                  // Stops the idle motion while the trip editor is pushed on
+                  // top; a tab switch already unmounts Home.
+                  active={isFocused}
+                  onReadyChange={setPetReady}
+                />
+                {/* Revealed with the cat, not ahead of it. */}
+                <Text
+                  style={[styles.petTitle, !petReady && styles.hidden]}
+                  accessibilityElementsHidden={!petReady}
+                  importantForAccessibility={
+                    petReady ? 'auto' : 'no-hide-descendants'
+                  }
+                >
+                  {petResting ? 'Resting' : PET_TITLE[mood]}
+                </Text>
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -225,6 +240,9 @@ const makeStyles = (t: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 8,
+    },
+    hidden: {
+      opacity: 0,
     },
     petTitle: {
       fontFamily: fonts.display,

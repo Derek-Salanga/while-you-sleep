@@ -2311,3 +2311,15 @@ change eases back to rest instead of snapping. Noted, not changed: the
 raster cat has one neutral face, so the per-mood faces — including the
 user's deliberate `withdrawn` frown — are gone until mood face layers are
 drawn.
+
+## 2026-09-25 — Cat: load in one go, wag bouts, tap reaction
+
+The user saw the cat assemble layer by layer on each Home visit. Two causes:
+the size started at the 120pt floor before `onLayout` measured the area,
+and seven separately-decoded images arrived one at a time. A first fix
+(render after measuring; opacity 0 until all layers `onLoad`, 800ms
+fallback) still built up in the dev client — likely the fallback firing
+before Metro-over-tunnel loads finished. Second pass: `Image.prefetch` all
+layers at app launch, a 3s fallback, and the mood title revealed with the
+cat via `onReady`. Not yet re-checked on device. Also added: occasional
+quick tail wags and a tap reaction (hop, ear perk, squint, tail flick).
