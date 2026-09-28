@@ -69,7 +69,9 @@ src/
   navigation/
     RootNavigator.tsx          gate: Auth -> Pairing -> Home (Timeline)
   screens/
-    AuthScreen.tsx              email OTP sign-in (send code -> verify code)
+    AuthScreen.tsx              email OTP sign-in (send code -> verify code);
+                                the two App Review addresses get a password
+                                stage instead
     PairingScreen.tsx           create/join pair via invite code
     RecordScreen.tsx            shows today's question, captures the video
                                 answer (+ optional caption), reveal state
@@ -1552,6 +1554,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The App Review password sign-in (2026-09-28): a review address reaches the
+  password stage, the right password signs in, a wrong one errors, the return
+  key submits, and other addresses still get a code
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
   load gate — the first attempt, with an 800ms fallback, still built up
   layer by layer in the dev client over a tunnel; also the wag bouts and
@@ -1950,13 +1955,23 @@ password, so the password grant does nothing for them.
 
 One-time setup, outside the repo:
 1. Supabase dashboard → Authentication → Users → **Add user** → "Create new
-   user", for each address, with a strong password and **Auto Confirm User**
-   ticked (no email is ever sent; the domain doesn't need to exist).
+   user", for each address, with a strong password (20+ random characters:
+   the addresses ship in the app bundle, so assume they're known and the
+   password is the only lock) and **Auto Confirm User** ticked.
+   `whileyousleep.app` is the user's own domain (GoDaddy, registered
+   2026-04-22, expires 2027-04-22). **Set up email forwarding** for both
+   addresses to an inbox the user reads: anyone can request a sign-in code
+   for these addresses outside the app, and whoever receives that mail can
+   sign in. Renew the domain, or move the accounts, before it expires.
 2. Sign into both through the app and pair them with an invite code, then
    record a few clips from each (some with captions), so the reviewer sees a
    real Timeline, reveal, Monthly Summary and pet.
 3. Put the reviewer account's email and password in App Store Connect →
    App Review Information → Sign-in required. **Never commit the passwords.**
+4. **Before every submission, sign into both and check the pair is intact.**
+   Reviewers routinely test Delete account, and `delete_own_account()`
+   cascades through the pair: one deletion wipes both accounts' shared data
+   and removes that user. Recreate from step 1 if so.
 
 ## Explicitly out of scope for now
 
