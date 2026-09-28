@@ -1857,6 +1857,15 @@ the deviations from the original plan are in
 [automation/](automation/README.md) — start there for the operational
 picture, this section is the "what and why."
 
+**Consent copy (2026-09-28, for App Review).** Settings shows a note under
+the toggle naming every third party that receives data (AssemblyAI for the
+transcript, Google Gemini for title/summary/mood and the recap, and the
+weekly recap email to both partners), and turning it on asks for explicit
+confirmation with the same text; turning it off doesn't. Known gap, not
+changed: `get_weekly_recap_batch()` includes a pair if **either** partner
+opted in, so a partner who never turned it on still receives the recap
+email (their address goes to Resend).
+
 **Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
 "AI summaries" toggle, `Switch` bound with an optimistic update since it's
 the one true binary preference in Settings, unlike Pause's date-range

@@ -44,6 +44,16 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
   { label: 'Until I turn it back on', days: 365 },
 ];
 
+// Shown under the toggle and in the confirmation. Names every third party
+// that receives data when AI summaries are on (see "AI automation layer" in
+// CLAUDE.md): AssemblyAI transcribes, Gemini writes the title/summary/mood
+// and the weekly recap, and the recap is emailed to both partners.
+const AI_DISCLOSURE =
+  "When on, your clips' audio is sent to AssemblyAI for a transcript, and " +
+  'the transcript to Google Gemini for a title, summary and mood. It also ' +
+  'turns on a weekly recap email to you both. Only your own clips are sent; ' +
+  "your partner's follow their own setting.";
+
 export default function SettingsScreen({ navigation }: any) {
   const t = useTheme();
   // Only the current value is needed here -- setting it moved to the
@@ -312,18 +322,34 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.rowLabel}>AI summaries</Text>
         <Switch
           value={myProfile?.ai_enabled ?? false}
-          onValueChange={(enabled) =>
-            session?.user &&
-            setAiEnabled.mutate(
-              { userId: session.user.id, enabled },
-              {
-                onError: (err: any) =>
-                  Alert.alert("Couldn't update", err.message),
-              }
-            )
-          }
+          onValueChange={(enabled) => {
+            if (!session?.user) return;
+            const userId = session.user.id;
+            const save = () =>
+              setAiEnabled.mutate(
+                { userId, enabled },
+                {
+                  onError: (err: any) =>
+                    Alert.alert("Couldn't update", err.message),
+                }
+              );
+            // Turning it off needs no confirmation; turning it on sends
+            // data to third-party AI services, which App Review requires
+            // the user to agree to explicitly, with the services named.
+            if (!enabled) return save();
+            Alert.alert(
+              'Turn on AI summaries?',
+              AI_DISCLOSURE +
+                '\n\nYou can turn this off any time; clips already summarised keep their summaries.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Turn on', onPress: save },
+              ]
+            );
+          }}
         />
       </View>
+      <Text style={styles.rowNote}>{AI_DISCLOSURE}</Text>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AppearanceSettings')}
@@ -398,6 +424,15 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
       color: t.textPrimary,
+    },
+    rowNote: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      lineHeight: 17,
+      marginTop: -4,
+      marginBottom: 12,
+      paddingHorizontal: 4,
     },
     rowValue: {
       fontFamily: fonts.body,
