@@ -1552,6 +1552,10 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The new icon and splash (2026-09-28), which only appear in a fresh native
+  build: the icon on the home screen, the splash in light and dark. Checked
+  offline: icon 1024 RGB no alpha, fills exactly `#6A85F1`/`#FFC670`, and
+  the iOS corner mask clears the ear
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
   load gate — the first attempt, with an 800ms fallback, still built up
   layer by layer in the dev client over a tunnel; also the wag bouts and
@@ -1651,12 +1655,15 @@ palette/type proposals:
 - **UI icons:** one stroked line set in `src/components/NavIcon.tsx`
   (tab bar plus Monthly Summary's action row), replacing the hand-drawn
   filled paths on 2026-09-23 on request.
-- **Icon motif:** the "crossover split" (see `colors.ts`'s header
-  comment and the original project brief). Since 2026-09-28 the app icon is
+- **Icon motif:** the "crossover split" (brand hues in
+  `src/theme/palette.ts` / `brand` in `themes.ts`, and the original project
+  brief). Since 2026-09-28 the app icon is
   the sleeping cat in that split (`assets/icon-1024.png`, fills set to the
   exact `#6A85F1` / `#FFC670`); the split heart lives on as the in-screen
   emblem (`CrossoverHeart`). The splash is its own asset (`assets/splash.png`:
-  the in-app cat, centred, transparent) on the cream `#FDF7EF`, not the
+  the in-app cat, centred, transparent), configured through the
+  `expo-splash-screen` plugin so it has a dark variant: cream `#FDF7EF` in
+  light, night `#151826` in dark (no light flash before a dark app). Not the
   icon, which is full-bleed, off-centre and 1.1MB of crayon texture. The
   Android adaptive icon still uses the full-bleed icon and crops the ears on
   round masks; fix before any Play Store release.

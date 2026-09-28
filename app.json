@@ -5,11 +5,6 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon-1024.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FDF7EF"
-    },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
@@ -56,6 +51,19 @@
         {
           "ios": {
             "deploymentTarget": "16.4"
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 280,
+          "resizeMode": "contain",
+          "backgroundColor": "#FDF7EF",
+          "dark": {
+            "image": "./assets/splash.png",
+            "backgroundColor": "#151826"
           }
         }
       ]

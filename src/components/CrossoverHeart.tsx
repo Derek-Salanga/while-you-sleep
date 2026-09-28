@@ -4,7 +4,7 @@ import { brand } from '@/theme/themes';
 
 // The "Crossover Split" motif, as vector. It was the app icon until
 // 2026-09-28, when the icon became the sleeping cat; the heart stays as the
-// app's in-screen emblem (HeroCard).
+// app's in-screen emblem (HeroCard, Timeline's empty state, PairingScreen).
 //
 // Reads from `brand`, not the theme: these two hues encode "you" and "your
 // partner" and are identical in light and dark. A themed heart would mean

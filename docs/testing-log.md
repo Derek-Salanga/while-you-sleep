@@ -2350,3 +2350,14 @@ the body is opaque under the head's footprint (drops 22–26, head only, not
 the rotating ears), coloured as the head shows it. `scripts/check_cat_layers.py`
 now scans source + @1x/@2x/@3x with rounded drops: 0 at every size. At rest
 138 pixels visibly change (the former gaps); with ears twitched 9°, 6 more.
+
+## 2026-09-28 — New app icon and splash
+
+The sleeping-cat icon (from Codex's concepts, chosen by the user) replaced
+the split heart. Checked offline: 1024x1024 RGB with no alpha; its fills
+measured #688EFC / #FDC75B and were shifted onto exactly #6A85F1 / #FFC670,
+texture kept; rendered through a 229px iOS corner radius, the ear clears the
+mask. The splash stopped reusing the full-bleed 1.37MB icon on lavender and
+got its own `assets/splash.png` (the in-app cat, centred, 199KB), set through
+the expo-splash-screen plugin with cream for light and night for dark. Not
+yet seen in a native build.
