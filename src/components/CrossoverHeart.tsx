@@ -2,14 +2,15 @@ import React from 'react';
 import Svg, { Defs, ClipPath, Rect, Path } from 'react-native-svg';
 import { brand } from '@/theme/themes';
 
-// The "Crossover Split" motif from assets/icon-1024.png, as vector.
+// The "Crossover Split" motif, as vector. It was the app icon until
+// 2026-09-28, when the icon became the sleeping cat; the heart stays as the
+// app's in-screen emblem (HeroCard).
 //
 // Reads from `brand`, not the theme: these two hues encode "you" and "your
 // partner" and are identical in light and dark. A themed heart would mean
-// the motif changing meaning with the appearance setting. No SVG
-// source for the icon is checked in (it's a raster only), so this is a plain
-// symmetric heart silhouette split down the middle, with each half taking the
-// opposite partner's color -- which is what the icon itself does.
+// the motif changing meaning with the appearance setting. A plain symmetric
+// heart silhouette split down the middle, with each half taking the opposite
+// partner's color.
 const HEART_PATH =
   'M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5C2,5.42,4.42,3,7.5,3' +
   'c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3C19.58,3,22,5.42,22,8.5' +

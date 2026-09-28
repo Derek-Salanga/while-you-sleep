@@ -1652,7 +1652,14 @@ palette/type proposals:
   (tab bar plus Monthly Summary's action row), replacing the hand-drawn
   filled paths on 2026-09-23 on request.
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
-  comment and the original project brief).
+  comment and the original project brief). Since 2026-09-28 the app icon is
+  the sleeping cat in that split (`assets/icon-1024.png`, fills set to the
+  exact `#6A85F1` / `#FFC670`); the split heart lives on as the in-screen
+  emblem (`CrossoverHeart`). The splash is its own asset (`assets/splash.png`:
+  the in-app cat, centred, transparent) on the cream `#FDF7EF`, not the
+  icon, which is full-bleed, off-centre and 1.1MB of crayon texture. The
+  Android adaptive icon still uses the full-bleed icon and crops the ears on
+  round masks; fix before any Play Store release.
 
 ## Timeline card layout (2026-09-21)
 
