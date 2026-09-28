@@ -182,7 +182,11 @@ export default function AuthScreen() {
                 onChangeText={setEmail}
               />
               <Button
-                title="Send code"
+                title={
+                  REVIEW_EMAILS.includes(email.trim().toLowerCase())
+                    ? 'Continue'
+                    : 'Send code'
+                }
                 onPress={handleSendCode}
                 loading={busy}
                 disabled={busy || !email.trim()}
@@ -199,7 +203,10 @@ export default function AuthScreen() {
                 textContentType="password"
                 autoComplete="password"
                 returnKeyType="go"
-                onSubmitEditing={() => password && handlePasswordSignIn()}
+                autoFocus
+                onSubmitEditing={() =>
+                  !busy && password && handlePasswordSignIn()
+                }
                 value={password}
                 onChangeText={setPassword}
               />
@@ -209,16 +216,6 @@ export default function AuthScreen() {
                 loading={busy}
                 disabled={busy || !password}
               />
-              <Pressable
-                style={({ pressed }) => [
-                  styles.linkButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={backToEmail}
-                disabled={busy}
-              >
-                <Text style={styles.linkButtonText}>Use a different email</Text>
-              </Pressable>
             </>
           ) : (
             <>
@@ -247,17 +244,19 @@ export default function AuthScreen() {
               >
                 <Text style={styles.linkButtonText}>Resend code</Text>
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.linkButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={backToEmail}
-                disabled={busy}
-              >
-                <Text style={styles.linkButtonText}>Use a different email</Text>
-              </Pressable>
             </>
+          )}
+          {stage !== 'enterEmail' && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.linkButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={backToEmail}
+              disabled={busy}
+            >
+              <Text style={styles.linkButtonText}>Use a different email</Text>
+            </Pressable>
           )}
         </View>
       </Screen>

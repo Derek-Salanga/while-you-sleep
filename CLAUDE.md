@@ -1958,20 +1958,27 @@ One-time setup, outside the repo:
    user", for each address, with a strong password (20+ random characters:
    the addresses ship in the app bundle, so assume they're known and the
    password is the only lock) and **Auto Confirm User** ticked.
-   `whileyousleep.app` is the user's own domain (GoDaddy, registered
-   2026-04-22, expires 2027-04-22). **Set up email forwarding** for both
-   addresses to an inbox the user reads: anyone can request a sign-in code
-   for these addresses outside the app, and whoever receives that mail can
-   sign in. Renew the domain, or move the accounts, before it expires.
+   `whileyousleep.app` is the user's own domain. **Set up email forwarding**
+   for both addresses to an inbox the user reads, and **keep the domain
+   renewed** -- control of these addresses' mail is part of what protects
+   the accounts. The addresses are compiled into `AuthScreen.tsx`, so
+   changing them needs a new build (a server-side list would avoid that).
 2. Sign into both through the app and pair them with an invite code, then
    record a few clips from each (some with captions), so the reviewer sees a
    real Timeline, reveal, Monthly Summary and pet.
 3. Put the reviewer account's email and password in App Store Connect →
    App Review Information → Sign-in required. **Never commit the passwords.**
-4. **Before every submission, sign into both and check the pair is intact.**
-   Reviewers routinely test Delete account, and `delete_own_account()`
-   cascades through the pair: one deletion wipes both accounts' shared data
-   and removes that user. Recreate from step 1 if so.
+4. **Right before every submission** (not days ahead):
+   - sign into both and check the pair is intact -- reviewers routinely
+     test Delete account, and `delete_own_account()` cascades through the
+     pair, so one deletion wipes both accounts' shared data. Recreate from
+     step 1 if so;
+   - **post a clip from the partner account that UTC day**, so the reviewer
+     can post theirs and see the reveal (reveal is per UTC day, so clips
+     from setup never produce one on review day);
+   - post from both accounts over the preceding days if possible: the pet
+     loses points each idle day, and a reviewer's first Home screen
+     shouldn't be a withdrawn pet.
 
 ## Explicitly out of scope for now
 
