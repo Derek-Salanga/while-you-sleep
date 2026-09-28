@@ -1872,7 +1872,9 @@ either, which emailed a partner who never agreed), and
 hides Retry then too). Existing opt-ins predate the consent screen, so on
 applying this the live project reset everyone to off, once, making each
 person re-opt-in through it. That reset is not in `schema.sql`, which must
-stay safe to re-run.
+stay safe to re-run. **Applied to the live project 2026-09-28:** both
+functions confirmed replaced via `pg_proc.prosrc`, and the one-time reset
+run, so every account starts with AI summaries off.
 
 **Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
 "AI summaries" toggle, `Switch` bound with an optimistic update since it's
