@@ -128,6 +128,12 @@ export default function AuthScreen() {
     }
   }
 
+  function backToEmail() {
+    setStage('enterEmail');
+    setCode('');
+    setPassword('');
+  }
+
   async function handleResend() {
     setCode('');
     await handleSendCode();
@@ -191,6 +197,9 @@ export default function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 textContentType="password"
+                autoComplete="password"
+                returnKeyType="go"
+                onSubmitEditing={() => password && handlePasswordSignIn()}
                 value={password}
                 onChangeText={setPassword}
               />
@@ -205,10 +214,7 @@ export default function AuthScreen() {
                   styles.linkButton,
                   pressed && styles.pressed,
                 ]}
-                onPress={() => {
-                  setStage('enterEmail');
-                  setPassword('');
-                }}
+                onPress={backToEmail}
                 disabled={busy}
               >
                 <Text style={styles.linkButtonText}>Use a different email</Text>
@@ -246,10 +252,7 @@ export default function AuthScreen() {
                   styles.linkButton,
                   pressed && styles.pressed,
                 ]}
-                onPress={() => {
-                  setStage('enterEmail');
-                  setCode('');
-                }}
+                onPress={backToEmail}
                 disabled={busy}
               >
                 <Text style={styles.linkButtonText}>Use a different email</Text>
