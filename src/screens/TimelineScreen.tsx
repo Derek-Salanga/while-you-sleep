@@ -63,7 +63,7 @@ function formatClipDate(dateStr: string): string {
 export default function TimelineScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
-  const { session, pair } = usePairing();
+  const { session, pair, myProfile } = usePairing();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
@@ -201,7 +201,9 @@ export default function TimelineScreen({ navigation }: any) {
               {item.ai_summary}
             </Text>
           )}
-          {item.ai_status === 'failed' && mine && (
+          {/* Only while AI summaries are on: Retry re-sends the clip, and
+              the server refuses it once they're off (consent). */}
+          {item.ai_status === 'failed' && mine && myProfile?.ai_enabled && (
             <Pressable
               disabled={retryAi.isPending}
               style={({ pressed }) => pressed && styles.pressed}

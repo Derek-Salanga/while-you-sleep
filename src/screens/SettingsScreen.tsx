@@ -44,15 +44,22 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
   { label: 'Until I turn it back on', days: 365 },
 ];
 
-// Shown under the toggle and in the confirmation. Names every third party
-// that receives data when AI summaries are on (see "AI automation layer" in
-// CLAUDE.md): AssemblyAI transcribes, Gemini writes the title/summary/mood
-// and the weekly recap, and the recap is emailed to both partners.
+// Shown under the toggle and in the confirmation. Names every service that
+// receives data when AI summaries are on (see "AI automation layer" in
+// CLAUDE.md), and must stay true to what the backend does:
+// - n8n Cloud runs the pipeline and handles the clip, transcript and results;
+// - AssemblyAI is given a link to the whole video file to transcribe it;
+// - Google Gemini gets the transcript (title, summary, mood) and writes the
+//   weekly recap;
+// - Resend sends the recap, which only goes out when BOTH partners have this
+//   on (get_weekly_recap_batch), and Retry is refused while it's off
+//   (retry_ai_processing).
 const AI_DISCLOSURE =
-  "When on, your clips' audio is sent to AssemblyAI for a transcript, and " +
-  'the transcript to Google Gemini for a title, summary and mood. It also ' +
-  'turns on a weekly recap email to you both. Only your own clips are sent; ' +
-  "your partner's follow their own setting.";
+  'When on, each clip you record is processed by n8n (our automation ' +
+  'service): AssemblyAI transcribes the video file, and Google Gemini turns ' +
+  'the transcript into a title, summary and mood. Only your own clips are ' +
+  'sent. If you both turn this on, Gemini also writes a weekly recap that ' +
+  'Resend emails to you both.';
 
 export default function SettingsScreen({ navigation }: any) {
   const t = useTheme();
@@ -340,7 +347,7 @@ export default function SettingsScreen({ navigation }: any) {
             Alert.alert(
               'Turn on AI summaries?',
               AI_DISCLOSURE +
-                '\n\nYou can turn this off any time; clips already summarised keep their summaries.',
+                '\n\nTurning it off stops anything more being sent. Clips already summarised keep their summaries.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Turn on', onPress: save },
@@ -349,7 +356,7 @@ export default function SettingsScreen({ navigation }: any) {
           }}
         />
       </View>
-      <Text style={styles.rowNote}>{AI_DISCLOSURE}</Text>
+      <Text style={[styles.editHint, styles.aiNote]}>{AI_DISCLOSURE}</Text>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AppearanceSettings')}
@@ -425,13 +432,9 @@ const makeStyles = (t: Theme) =>
       fontSize: fontSizes.md,
       color: t.textPrimary,
     },
-    rowNote: {
-      fontFamily: fonts.body,
-      fontSize: fontSizes.xs,
-      color: t.textMuted,
-      lineHeight: 17,
+    // editHint's text style; only the spacing differs, to sit under a row.
+    aiNote: {
       marginTop: -4,
-      marginBottom: 12,
       paddingHorizontal: 4,
     },
     rowValue: {

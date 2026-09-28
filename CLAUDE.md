@@ -1552,6 +1552,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- AI consent (2026-09-28): the note and confirmation in both themes; a
+  recap going out only when both partners are opted in; Retry hidden and
+  refused with AI off
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
   load gate — the first attempt, with an 800ms fallback, still built up
   layer by layer in the dev client over a tunnel; also the wag bouts and
@@ -1857,14 +1860,19 @@ the deviations from the original plan are in
 [automation/](automation/README.md) — start there for the operational
 picture, this section is the "what and why."
 
-**Consent copy (2026-09-28, for App Review).** Settings shows a note under
-the toggle naming every third party that receives data (AssemblyAI for the
-transcript, Google Gemini for title/summary/mood and the recap, and the
-weekly recap email to both partners), and turning it on asks for explicit
-confirmation with the same text; turning it off doesn't. Known gap, not
-changed: `get_weekly_recap_batch()` includes a pair if **either** partner
-opted in, so a partner who never turned it on still receives the recap
-email (their address goes to Resend).
+**Consent (2026-09-28, for App Review).** Settings shows a note under the
+toggle naming every service that receives data (n8n Cloud runs the pipeline;
+AssemblyAI is given the whole video file to transcribe; Google Gemini gets
+the transcript and writes the recap; Resend emails the recap), and turning
+it on asks for explicit confirmation with the same text; turning it off
+doesn't. The backend was changed to make the copy true:
+`get_weekly_recap_batch()` now needs **both** partners opted in (it was
+either, which emailed a partner who never agreed), and
+`retry_ai_processing()` refuses while the sender has AI off (the Timeline
+hides Retry then too). Existing opt-ins predate the consent screen, so on
+applying this the live project reset everyone to off, once, making each
+person re-opt-in through it. That reset is not in `schema.sql`, which must
+stay safe to re-run.
 
 **Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
 "AI summaries" toggle, `Switch` bound with an optimistic update since it's
