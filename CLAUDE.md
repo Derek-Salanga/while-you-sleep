@@ -1939,6 +1939,25 @@ app itself (it only exists as the email right now) was never part of this
 scope — the recap is deliberately email-only, matching "a warm weekly recap
 email" from the original ask, not an in-app digest.
 
+## App Review demo accounts (2026-09-28)
+
+App Review can't receive the emailed sign-in code, so two demo accounts sign
+in with a **password** instead: `appreview@whileyousleep.app` and
+`appreview-partner@whileyousleep.app` (`REVIEW_EMAILS` in `AuthScreen.tsx`).
+Typing either address on the email screen goes to a password stage; every
+other address gets the normal code flow, and normal accounts have no
+password, so the password grant does nothing for them.
+
+One-time setup, outside the repo:
+1. Supabase dashboard → Authentication → Users → **Add user** → "Create new
+   user", for each address, with a strong password and **Auto Confirm User**
+   ticked (no email is ever sent; the domain doesn't need to exist).
+2. Sign into both through the app and pair them with an invite code, then
+   record a few clips from each (some with captions), so the reviewer sees a
+   real Timeline, reveal, Monthly Summary and pet.
+3. Put the reviewer account's email and password in App Store Connect →
+   App Review Information → Sign-in required. **Never commit the passwords.**
+
 ## Explicitly out of scope for now
 
 - Actual stitched highlight-reel video generation — Monthly Summary

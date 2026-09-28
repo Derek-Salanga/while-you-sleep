@@ -16,7 +16,19 @@ import Screen from '@/components/ui/Screen';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-type Stage = 'enterEmail' | 'enterCode';
+type Stage = 'enterEmail' | 'enterCode' | 'enterPassword';
+
+// App Review can't receive our emailed codes, so the two demo accounts sign
+// in with a password instead (given to Apple in the review notes, never in
+// the repo). Only these exact addresses reach the password stage; everyone
+// else gets the normal code flow. Both are created in the Supabase dashboard
+// with a password and auto-confirm, then paired with each other through the
+// app, with a few real clips, so the reviewer sees real content. Normal
+// accounts have no password, so the password grant is useless against them.
+const REVIEW_EMAILS = [
+  'appreview@whileyousleep.app',
+  'appreview-partner@whileyousleep.app',
+];
 
 export default function AuthScreen() {
   const t = useTheme();
@@ -24,11 +36,16 @@ export default function AuthScreen() {
   const [stage, setStage] = useState<Stage>('enterEmail');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function handleSendCode() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
+    if (REVIEW_EMAILS.includes(trimmed)) {
+      setStage('enterPassword');
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -96,6 +113,21 @@ export default function AuthScreen() {
     }
   }
 
+  async function handlePasswordSignIn() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      Alert.alert('Could not sign in', err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleResend() {
     setCode('');
     await handleSendCode();
@@ -111,7 +143,9 @@ export default function AuthScreen() {
         <Text style={styles.subtitle}>
           {stage === 'enterEmail'
             ? 'Sign in with your email to get started.'
-            : `Enter the code we sent to ${email.trim()}`}
+            : stage === 'enterPassword'
+              ? 'Enter the review account password.'
+              : `Enter the code we sent to ${email.trim()}`}
         </Text>
 
         {/* Keyed on `stage` so the whole subtree is torn down and rebuilt on
@@ -147,6 +181,38 @@ export default function AuthScreen() {
                 loading={busy}
                 disabled={busy || !email.trim()}
               />
+            </>
+          ) : stage === 'enterPassword' ? (
+            <>
+              <Input
+                key="password"
+                placeholder="Password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="password"
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Button
+                title="Sign in"
+                onPress={handlePasswordSignIn}
+                loading={busy}
+                disabled={busy || !password}
+              />
+              <Pressable
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => {
+                  setStage('enterEmail');
+                  setPassword('');
+                }}
+                disabled={busy}
+              >
+                <Text style={styles.linkButtonText}>Use a different email</Text>
+              </Pressable>
             </>
           ) : (
             <>
