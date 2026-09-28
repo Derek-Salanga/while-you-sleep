@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ScrollView,
   View,
   Text,
   Pressable,
@@ -57,9 +58,9 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
 const AI_DISCLOSURE =
   'When on, each clip you record is processed by n8n (our automation ' +
   'service): AssemblyAI transcribes the video file, and Google Gemini turns ' +
-  'the transcript into a title, summary and mood. Only your own clips are ' +
-  'sent. If you both turn this on, Gemini also writes a weekly recap that ' +
-  'Resend emails to you both.';
+  'the transcript and your caption into a title, summary and mood. Only ' +
+  'your own clips are sent. If you both turn this on, Gemini also writes a ' +
+  'weekly recap that Resend emails to you both.';
 
 export default function SettingsScreen({ navigation }: any) {
   const t = useTheme();
@@ -150,7 +151,13 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+    // Scrolls: with an edit card open plus the AI note, the rows can outgrow
+    // a small phone, and Account (sign out, delete) must stay reachable.
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Settings</Text>
       {editingNickname ? (
         <View style={styles.editCard}>
@@ -347,7 +354,7 @@ export default function SettingsScreen({ navigation }: any) {
             Alert.alert(
               'Turn on AI summaries?',
               AI_DISCLOSURE +
-                '\n\nTurning it off stops anything more being sent. Clips already summarised keep their summaries.',
+                '\n\nTurning it off stops new clips being sent (one already being processed may finish). Clips already summarised keep their summaries.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Turn on', onPress: save },
@@ -378,7 +385,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.rowLabel}>Account</Text>
         <Text style={styles.rowValue}>›</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -386,7 +393,8 @@ export default function SettingsScreen({ navigation }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background, padding: 20 },
+    container: { flex: 1, backgroundColor: t.background },
+    content: { padding: 20 },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,

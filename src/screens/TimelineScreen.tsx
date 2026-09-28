@@ -124,7 +124,8 @@ export default function TimelineScreen({ navigation }: any) {
     const hasAiRow =
       (aiDone && (item.ai_title || item.ai_mood || item.ai_summary)) ||
       (mine &&
-        (item.ai_status === 'failed' || item.ai_status === 'unprocessable'));
+        ((item.ai_status === 'failed' && myProfile?.ai_enabled) ||
+          item.ai_status === 'unprocessable'));
 
     const entering = entranceDone.current
       ? undefined

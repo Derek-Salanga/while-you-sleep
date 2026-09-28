@@ -2350,3 +2350,19 @@ the body is opaque under the head's footprint (drops 22–26, head only, not
 the rotating ears), coloured as the head shows it. `scripts/check_cat_layers.py`
 now scans source + @1x/@2x/@3x with rounded drops: 0 at every size. At rest
 138 pixels visibly change (the former gaps); with ears twitched 9°, 6 more.
+
+## 2026-09-28 — AI consent made true to the backend
+
+For App Review's third-party AI disclosure rule. Settings now names n8n,
+AssemblyAI (given the video file), Google Gemini (transcript and caption) and
+Resend, and asks before turning AI on. Review found the first copy promised
+more than the backend did, so: `get_weekly_recap_batch()` needs both
+partners opted in (it was either); `retry_ai_processing()` refuses while the
+sender has AI off, and its state guard became `is distinct from 'failed'`
+(`!=` let a never-queued, null-status clip through). Applied live: the two
+function replacements confirmed via `pg_proc.prosrc`, and a one-time reset
+of every `ai_enabled` to false so everyone re-opts in through the consent.
+The consent check was deliberately not moved into `queue_clip_for_ai`:
+`schema.sql` holds a placeholder n8n URL (the real one is set only on the
+live function), so re-running that function from the file would break the
+pipeline. Not yet seen on a device.

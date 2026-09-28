@@ -1190,7 +1190,9 @@ begin
   if clip_row.sender_id != auth.uid() then
     raise exception 'Can only retry your own clip';
   end if;
-  if clip_row.ai_status != 'failed' then
+  -- is distinct from, not !=: a clip that was never queued has a null
+  -- status, `null != 'failed'` is null, and the guard would let it through.
+  if clip_row.ai_status is distinct from 'failed' then
     raise exception 'Clip is not in a failed state';
   end if;
   -- Retry re-sends the clip to the AI services, so it needs the same consent
@@ -1260,8 +1262,8 @@ select cron.schedule(
 
 -- Weekly recap data, one call for n8n's schedule workflow. Mutual-reveal-
 -- gated: a day only counts if BOTH partners posted that day, matching the
--- app's existing reveal-gating elsewhere. Only returns pairs where at least
--- one partner opted in.
+-- app's existing reveal-gating elsewhere. Only returns pairs where BOTH
+-- partners opted in (see the WHERE clause).
 create or replace function get_weekly_recap_batch(
   week_start date default (current_date - interval '7 days')::date
 )
