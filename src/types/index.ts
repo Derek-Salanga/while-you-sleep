@@ -100,8 +100,11 @@ export interface ClipFavorite {
 // get_pet_state in supabase/schema.sql -- it cannot be derived client-side,
 // because reveal gating would show each partner a different pet). `mood` is
 // derived from it, never stored, so the two can't drift.
+export type PetSpecies = 'cat' | 'dog';
+
 export interface PairPet {
   pair_id: string;
+  species: PetSpecies; // one choice shared by both partners; old rows default to cat
   score: number; // 0-100
   last_scored_date: string | null; // YYYY-MM-DD, last day folded into score
   paused_until: string | null; // YYYY-MM-DD inclusive, null = not paused

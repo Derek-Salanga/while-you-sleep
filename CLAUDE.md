@@ -526,19 +526,22 @@ trip is upcoming is `isTripUpcoming()`, exported from `HeroCard.tsx` so Home
 and the Timeline share one rule; while the trip query is loading, Home holds
 HeroCard's height so the pet doesn't jump.
 
-**The pet is a cat (updated 2026-09-25)** and the centre of Home: no card,
-sized from the height its area actually gets (`onLayout`), capped at
-`width − 80` and 260 with a 120 floor, centred in the remaining height, with
-one line under it — the mood's title, or "Resting" while paused. The second
-line of copy per mood was dropped at the user's request.
+**The shared pet is a cat or dog (updated 2026-09-25)** and the centre of
+Home: no card, sized from the height its area actually gets (`onLayout`),
+capped at `width − 80` and 260 with a 120 floor, centred in the remaining
+height, with one line under it — the mood's title, or "Resting" while paused.
+The second line of copy per mood was dropped at the user's request.
 
 `src/components/SharedPet.tsx` stacks transparent raster layers from
-`assets/cat/runtime`: tail, body, separate ears, head, then one eye layer.
-Metro selects the 260/520/780 (`1x`/`2x`/`3x`) PNG automatically. The head
-group (head, ears, eyes) is drawn `headDrop` (24/1024 of the canvas, rounded
-to a device pixel; in `SharedPet`'s pivots) lower than the art, set in code
-rather than by moving pixels, and `cat-assembled-reference.png` is composited
-with that drop; the body's neck
+`assets/cat/runtime` or `assets/dog/runtime`: tail, body, separate ears,
+head, then one eye layer. Metro selects the 260/520/780
+(`1x`/`2x`/`3x`) PNG automatically. Only the selected species is mounted;
+switching species keys the inner component so its load gate and animations
+restart cleanly. The cat's head group (head, ears, eyes) is drawn
+`headOffsetY` (24/1024 of the canvas, rounded to a device pixel; in
+`SharedPet`'s rig) lower than the art, set in code rather than by moving
+pixels, and `cat-assembled-reference.png` is composited with that drop; the
+body's neck
 reaches up behind the head with its outline wrapped around the cheeks, so
 the drop hides the neck seam instead of opening a gap (2026-09-25). Pixel
 patches at 1024 didn't hold: the app scales the art and rounds the drop
@@ -547,18 +550,32 @@ along the cheek outlines that the source didn't have. The body layer is now
 **opaque under the head's footprint** (for drops 22–26), painted with the
 colour the head shows there, so any rounding lands on solid colour. Only the
 head is backed, not the ears — they rotate, and a static copy would peek out
-mid-twitch. `python3 scripts/check_cat_layers.py` (needs Pillow) stacks the
+mid-twitch. The dog has no head drop; its hidden tail overlap and ear-root
+ellipses provide measured rotation pivots for its upright tail and floppy
+ears. `python3 scripts/check_pet_layers.py` (needs Pillow) stacks both pets'
 layers exactly as `SharedPet` does at 1024 and at the shipped @1x/@2x/@3x
-with their rounded drops, flood-fills from outside, and exits non-zero on
-any trapped see-through pixel: run it after any cat art change. Every layer
+with their species-specific drops, flood-fills from outside, and exits
+non-zero on any trapped see-through pixel: run it after any pet art change.
+Every layer
 shares one square coordinate system, so it must stay absolute-fill and must
 not be independently cropped or positioned — except as a group: head, ears
-and eyes move together by `headDrop` (below), and layers inside a group move
-with it. The palette follows the app's
+and eyes move together by the rig's `headOffsetY`, and layers inside a group
+move with it. The palette follows the app's
 crossover convention: day-orange/partner on the viewer's left,
 night-blue/you on the right; the tail carries the same split without an ink
-divider. The approved 1024px source art remains in `assets/cat`, with the
-pre-flip version in git history (commit `a4c2fa0`).
+divider. The approved 1024px cat source remains in `assets/cat`, with the
+pre-flip version in git history (commit `a4c2fa0`); the approved dog source
+and its two concept references are in `assets/dog`.
+
+The species is shared pair state, not a local preference:
+`pair_pet.species` is constrained to `cat`/`dog` and defaults old rows to
+`cat`. Settings → Appearance changes it through the auth-scoped
+`set_pet_species(text)` RPC; there is still no direct `pair_pet` update
+policy that could expose `score` or `last_scored_date`. Home reads the same
+`usePetState` query and passes the species into `SharedPet`, so either
+partner's choice appears for both after the query refetches. Apply the
+additive `pair_pet` migration and function in `supabase/schema.sql` to the
+live project before testing the picker.
 
 Reanimated supplies subtle body breathing, a pivoted tail sway, independent
 ear twitches, and open/closed eye swaps. Every behaviour is scheduled one
@@ -573,9 +590,10 @@ it at launch. Blinks cross-fade two always-mounted eye images by opacity;
 swapping an `Image` source reloads it asynchronously on iOS and flashed an
 eyeless frame. Everything but the tail sits inside the breathing transform,
 so the head rises with the body. Cost worth knowing: seven full-canvas
-layers at @3x are ~17MB of decoded bitmap while Home is mounted.
+layers at @3x are ~17MB of decoded bitmap while Home is mounted; the unused
+species is bundled but not decoded as another visible stack.
 
-**Loading all at once, and tap (2026-09-25).** Home renders the cat only
+**Loading all at once, and tap (2026-09-25).** Home renders the pet only
 after `onLayout` has measured its area (it used to draw at the 120pt floor,
 then jump), and `SharedPet` keeps itself at opacity 0 — untappable and hidden
 from screen readers — until all seven layers have fired `onLoad`, tracked as
@@ -586,7 +604,7 @@ including after a remount. In development only, the layers are
 `Image.prefetch`ed at app launch, since Metro-over-tunnel is slow enough
 that they arrived one by one; release builds read them from the bundle. The tail's scheduler now sometimes does a quick
 3–5-beat wag instead of the slow sway, likelier in happier moods. Tapping the
-cat hops it, perks the ears, squints and flicks the tail, scaled by mood
+pet hops it, perks/lifts the ears, squints and flicks the tail, scaled by mood
 (throttled to one reaction per 600ms). Idle blinks, twitches and swishes
 hold off for ~900ms after a tap so they don't cut the reaction short.
 Resting, the shut eyes half-open and close again; with Reduce Motion it only
@@ -1652,7 +1670,12 @@ palette/type proposals:
   (tab bar plus Monthly Summary's action row), replacing the hand-drawn
   filled paths on 2026-09-23 on request.
 - **Icon motif:** the "crossover split" (see `colors.ts`'s header
-  comment and the original project brief).
+  comment and the original project brief). As of 2026-09-26,
+  `assets/icon-1024.png` is the approved enlarged sleeping-cat corner
+  headshot (orange left, blue right, cream ground). `app.json` already uses
+  that one opaque 1024px PNG for the app icon, Android adaptive foreground,
+  and splash; its 1254px concept master is
+  `assets/app-icon-concepts/headshots/cat/cat-headshot-02-large.png`.
 
 ## Timeline card layout (2026-09-21)
 

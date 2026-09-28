@@ -92,7 +92,7 @@ export default function HomeScreen({ navigation }: any) {
   // question and tab bar, and guessing a fraction of it overflowed an
   // iPhone SE. Starts at 0 so the first measurement is the true leftover
   // space; below 120pt it stops shrinking and the body scrolls instead.
-  // 260 is the logical size of the cat's 260/520/780 density set, so it
+  // 260 is the logical size of each pet's 260/520/780 density set, so it
   // doesn't upscale on a 3x screen (Android phones denser than 3x still
   // stretch the @3x file slightly).
   const { width } = useWindowDimensions();
@@ -162,11 +162,12 @@ export default function HomeScreen({ navigation }: any) {
             onLayout={(e) => setPetArea(e.nativeEvent.layout.height)}
           >
             {/* Only once measured: before that the size falls back to the
-                120pt floor, and the cat visibly jumped to full size. */}
+                120pt floor, and the pet visibly jumped to full size. */}
             {petArea > 0 && (
               <>
                 <SharedPet
                   mood={mood}
+                  species={pet?.species ?? 'cat'}
                   size={petSize}
                   resting={petResting}
                   // Stops the idle motion while the trip editor is pushed on
@@ -174,7 +175,7 @@ export default function HomeScreen({ navigation }: any) {
                   active={isFocused}
                   onReadyChange={setPetReady}
                 />
-                {/* Revealed with the cat, not ahead of it. */}
+                {/* Revealed with the pet, not ahead of it. */}
                 <Text
                   style={[styles.petTitle, !petReady && styles.hidden]}
                   accessibilityElementsHidden={!petReady}

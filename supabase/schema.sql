@@ -1421,16 +1421,28 @@ create trigger clip_reactions_notify_sender
 -- function, no second column to drift out of sync.
 create table if not exists pair_pet (
   pair_id uuid primary key references pairs (id) on delete cascade,
+  -- Shared by the pair, like the score itself. Cat is the compatibility
+  -- default for rows and app versions that predate the species picker.
+  species text not null default 'cat' check (species in ('cat', 'dog')),
   score int not null default 50 check (score between 0 and 100),
   last_scored_date date,
   paused_until date,
   updated_at timestamptz not null default now()
 );
 
+-- create table if not exists does not evolve the live table, so keep the
+-- additive form here too. Swap the check explicitly to keep this file
+-- re-runnable if the allowed set changes later.
+alter table pair_pet
+  add column if not exists species text not null default 'cat';
+alter table pair_pet drop constraint if exists pair_pet_species_check;
+alter table pair_pet add constraint pair_pet_species_check
+  check (species in ('cat', 'dog'));
+
 alter table pair_pet enable row level security;
 
 -- SELECT only, mirroring pair_trips' shape. Deliberately no insert/update/
--- delete policies: every write goes through the two definer functions
+-- delete policies: every write goes through the narrow definer functions
 -- below, the same reason mark_clip_viewed() exists -- RLS can't express
 -- "only the score column, only via the scoring rules".
 create policy "pair_pet_select_pair_members" on pair_pet
@@ -1574,6 +1586,55 @@ end;
 $$;
 
 grant execute on function set_pet_pause(date) to authenticated;
+
+-- Either partner can choose the one shared pet species. This stays behind a
+-- narrow function instead of an UPDATE policy: a table-wide update policy
+-- would also let the client rewrite score and last_scored_date.
+--
+-- Takes no pair id, matching get_pet_state()/set_pet_pause(): the caller's
+-- pair is derived from auth.uid(), so another pair cannot be targeted.
+create or replace function set_pet_species(new_species text) returns pair_pet
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+declare
+  target_pair uuid;
+  pet pair_pet;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  if new_species is null or new_species not in ('cat', 'dog') then
+    raise exception 'Invalid pet species' using errcode = '22023';
+  end if;
+
+  select p.id into target_pair
+    from pairs p
+   where is_pair_member(p, auth.uid())
+   limit 1;
+
+  if target_pair is null then
+    raise exception 'Not paired';
+  end if;
+
+  insert into pair_pet (pair_id, species)
+    values (target_pair, new_species)
+    on conflict (pair_id) do update
+      set species = excluded.species,
+          updated_at = now()
+    returning * into pet;
+
+  return pet;
+end;
+$$;
+
+-- SECURITY DEFINER functions are executable by public unless revoked.
+-- Anonymous callers fail the auth guard too, but keep the privilege surface
+-- as narrow as the function's job.
+revoke all on function set_pet_species(text) from public, anon;
+grant execute on function set_pet_species(text) to authenticated;
 
 -- Storage: private "clips" bucket, one folder per pair, readable only by
 -- the two paired users. Create the bucket via the dashboard or:

@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -19,45 +20,136 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import type { PetMood } from '@/types';
+import type { PetMood, PetSpecies } from '@/types';
 
-// Hand-drawn layers on one shared square canvas: each is absolute-fill and
-// must never be cropped or positioned on its own, or the cat falls apart.
-// The one exception is deliberate and grouped: head, ears and eyes move
-// together by `headDrop` (see the pivots below).
+// Hand-drawn layers share one square canvas and normally stay absolute-fill.
+// The dog tail alone clips its concealed root before rotation; head, ears and
+// eyes also move together by `headDrop` (see the geometry below).
 // Metro picks the @1x/@2x/@3x file (260/520/780px) for the screen.
-const BODY = require('../../assets/cat/runtime/cat-body.png');
-const HEAD = require('../../assets/cat/runtime/cat-head.png');
-const EYES_OPEN = require('../../assets/cat/runtime/cat-eyes-open.png');
-const EYES_CLOSED = require('../../assets/cat/runtime/cat-eyes-closed.png');
-const TAIL = require('../../assets/cat/runtime/cat-tail.png');
-const LEFT_EAR = require('../../assets/cat/runtime/cat-ear-left.png');
-const RIGHT_EAR = require('../../assets/cat/runtime/cat-ear-right.png');
-const LAYERS = {
-  tail: TAIL,
-  body: BODY,
-  leftEar: LEFT_EAR,
-  rightEar: RIGHT_EAR,
-  head: HEAD,
-  eyesOpen: EYES_OPEN,
-  eyesClosed: EYES_CLOSED,
+const CAT_LAYERS = {
+  tail: require('../../assets/cat/runtime/cat-tail.png'),
+  body: require('../../assets/cat/runtime/cat-body.png'),
+  leftEar: require('../../assets/cat/runtime/cat-ear-left.png'),
+  rightEar: require('../../assets/cat/runtime/cat-ear-right.png'),
+  head: require('../../assets/cat/runtime/cat-head.png'),
+  eyesOpen: require('../../assets/cat/runtime/cat-eyes-open.png'),
+  eyesClosed: require('../../assets/cat/runtime/cat-eyes-closed.png'),
 };
-type LayerName = keyof typeof LAYERS;
+type LayerName = keyof typeof CAT_LAYERS;
+type LayerSet = Record<LayerName, ImageSourcePropType>;
 
-const LAYER_COUNT = Object.keys(LAYERS).length;
+const DOG_LAYERS = {
+  tail: require('../../assets/dog/runtime/dog-tail.png'),
+  body: require('../../assets/dog/runtime/dog-body.png'),
+  leftEar: require('../../assets/dog/runtime/dog-ear-left.png'),
+  rightEar: require('../../assets/dog/runtime/dog-ear-right.png'),
+  head: require('../../assets/dog/runtime/dog-head.png'),
+  eyesOpen: require('../../assets/dog/runtime/dog-eyes-open.png'),
+  eyesClosed: require('../../assets/dog/runtime/dog-eyes-closed.png'),
+} satisfies LayerSet;
+
+// The dog tail asset includes a long hidden root so it can sit behind the
+// body. Clip that root before rotating; otherwise its dark edge swings out
+// from behind the hind leg. Values are normalized from the 260px runtime art.
+const DOG_TAIL_CLIP = {
+  left: 188 / 260,
+  top: 122 / 260,
+  width: 58 / 260,
+  height: 94 / 260,
+};
+
+type Point = readonly [number, number];
+
+interface PetRig {
+  label: string;
+  layers: LayerSet;
+  pivots: {
+    breath: Point;
+    tail: Point;
+    leftEar: Point;
+    rightEar: Point;
+  };
+  headOffsetY: number;
+  motion: {
+    tail: number;
+    // Lowest mood intensity the tail uses, so a species whose tail is its
+    // main sign of life still wags in a low mood. 0 = follow mood fully.
+    tailFloor: number;
+    ears: number;
+    leftEarDirection: -1 | 1;
+    rightEarDirection: -1 | 1;
+  };
+}
+
+const PET_RIGS = {
+  cat: {
+    label: 'cat',
+    layers: CAT_LAYERS,
+    pivots: {
+      breath: [0.5, 0.9],
+      tail: [0.749, 0.7969],
+      leftEar: [0.3779, 0.2666],
+      rightEar: [0.627, 0.2461],
+    },
+    headOffsetY: 24 / 1024,
+    motion: {
+      tail: 1,
+      tailFloor: 0,
+      ears: 1,
+      leftEarDirection: -1,
+      rightEarDirection: 1,
+    },
+  },
+  dog: {
+    label: 'dog',
+    layers: DOG_LAYERS,
+    // Pivots were chosen by rotating each part to its tap angle and counting
+    // how much of its tucked-in end came out from behind the head or body
+    // (2026-09-27). The earlier ear pivots (hidden root centres, y 0.19)
+    // swung ear outline out past the cheeks; these lower hinge points expose
+    // ~6px at 3 degrees. The tail's hidden base is also trimmed in the art to
+    // a band next to where it leaves the body, and a stray ink fragment was
+    // removed from the tail layer; up to ~6 degrees then stays clean.
+    pivots: {
+      breath: [0.5, 0.9],
+      tail: [0.68, 0.76],
+      leftEar: [0.41, 0.33],
+      rightEar: [0.59, 0.33],
+    },
+    headOffsetY: 0,
+    motion: {
+      // The floppy parts have shallow hidden overlap. Keep their movement
+      // inside it so concealed outlines never pass the body/head silhouette.
+      // Up to ~8 degrees: the tail's hidden base is trimmed to a 35px
+      // (@3x) circle round its pivot; wider swings showed its edge along
+      // the hip outline (2026-09-27).
+      tail: 0.65,
+      tailFloor: 0.6,
+      ears: 0.2,
+      // Floppy ears hang out and down from an inner-top hinge, so these
+      // directions lift them; the cat's upright ears perk the other way.
+      leftEarDirection: 1,
+      rightEarDirection: -1,
+    },
+  },
+} satisfies Record<PetSpecies, PetRig>;
+
+const LAYER_COUNT = Object.keys(CAT_LAYERS).length;
 
 // Development only: there the layers are served by Metro, through a tunnel
 // slow enough that they arrived one by one, so warm the cache at app launch
 // (this module loads with the navigator). A release build reads them from
 // the bundle, where prefetch -- meant for remote URLs -- is wasted work.
 if (__DEV__) {
-  Object.values(LAYERS).forEach((src) => {
-    const uri = Image.resolveAssetSource(src)?.uri;
-    if (uri?.startsWith('http')) Image.prefetch(uri).catch(() => {});
+  Object.values(PET_RIGS).forEach((rig) => {
+    Object.values(rig.layers).forEach((src) => {
+      const uri = Image.resolveAssetSource(src)?.uri;
+      if (uri?.startsWith('http')) Image.prefetch(uri).catch(() => {});
+    });
   });
 }
 
-// Mood only scales how much the cat moves; the face is one neutral drawing
+// Mood only scales how much the pet moves; the face is one neutral drawing
 // until per-mood faces are drawn.
 const MOTION: Record<PetMood, number> = {
   thriving: 1,
@@ -72,7 +164,7 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const EASE = Easing.inOut(Easing.sin);
 
 // Live, unlike Reanimated's useReducedMotion(), which reads the setting
-// once at launch -- turning Reduce Motion on mid-session must still the cat.
+// once at launch -- turning Reduce Motion on mid-session must still the pet.
 function useReduceMotion() {
   const [on, setOn] = React.useState(false);
   React.useEffect(() => {
@@ -100,23 +192,33 @@ function useAppActive() {
 
 interface SharedPetProps {
   mood: PetMood;
+  species?: PetSpecies;
   size?: number;
   resting?: boolean;
   // False stops every animation and timer -- Home passes its focus state,
   // since a pushed screen (the trip editor) leaves it mounted underneath.
   active?: boolean;
-  // Reports whether the cat is showing (false again on a remount), so the
+  // Reports whether the pet is showing (false again on a remount), so the
   // caller can reveal what belongs with it (Home's mood title) in step.
   onReadyChange?: (ready: boolean) => void;
 }
 
-export default function SharedPet({
+// Keying the inner component resets its layer gate and every scheduled
+// animation when the shared species changes.
+export default function SharedPet(props: SharedPetProps) {
+  const species = props.species ?? 'cat';
+  return <SharedPetInstance key={species} {...props} species={species} />;
+}
+
+function SharedPetInstance({
   mood,
+  species,
   size = 120,
   resting = false,
   active = true,
   onReadyChange,
-}: SharedPetProps) {
+}: SharedPetProps & { species: PetSpecies }) {
+  const rig = PET_RIGS[species];
   const reduceMotion = useReduceMotion();
   const appActive = useAppActive();
   const breath = useSharedValue(1);
@@ -130,16 +232,16 @@ export default function SharedPet({
   const hop = useSharedValue(0);
   // All seven layers decode separately, so without this they pop in one by
   // one on every Home visit. Hidden until every layer reports in (or a
-  // short fallback passes, so a failed load can't hide the cat for good).
+  // short fallback passes, so a failed load can't hide the pet for good).
   // A set of layer names, not a counter: iOS can fire onLoad twice for one
   // image (e.g. after a resize), which would count a layer twice and reveal
-  // the cat with another still missing.
+  // the pet with another still missing.
   const [loaded, setLoaded] = React.useState<ReadonlySet<LayerName>>(
     () => new Set()
   );
   const [timedOut, setTimedOut] = React.useState(false);
   React.useEffect(() => {
-    // Generous: it only exists so a failed load can't hide the cat forever,
+    // Generous: it only exists so a failed load can't hide the pet forever,
     // and at 800ms it fired before slow dev loads finished.
     const t = setTimeout(() => setTimedOut(true), 3000);
     return () => clearTimeout(t);
@@ -204,15 +306,17 @@ export default function SharedPet({
       // The tail alternates between a slow sway and, now and then, a quick
       // wag of a few beats -- likelier the happier the mood. Both go through
       // this one scheduler so they never fight over the tail.
+      const tailIntensity = Math.max(intensity, rig.motion.tailFloor);
       const swish = () => {
         if (tapBusy()) {
           later(swish, rand(400, 900));
           return;
         }
-        if (Math.random() < 0.4 * intensity) {
+        if (Math.random() < 0.4 * tailIntensity) {
           // 3, 4 or 5 beats, equally likely.
           const beats = 3 + Math.floor(Math.random() * 3);
-          const degrees = rand(9, 13) * Math.max(intensity, 0.4);
+          const degrees =
+            rand(9, 13) * Math.max(tailIntensity, 0.4) * rig.motion.tail;
           const beat = rand(130, 170);
           const steps = [];
           for (let i = 0; i < beats; i++) {
@@ -225,11 +329,11 @@ export default function SharedPet({
           }
           steps.push(withTiming(0, { duration: beat * 1.5, easing: EASE }));
           tailRotation.set(withSequence(...steps));
-          const rest = rand(1500, 4500) / Math.max(intensity, 0.3);
+          const rest = rand(1500, 4500) / Math.max(tailIntensity, 0.3);
           later(swish, beat * (beats + 1.5) + rest);
           return;
         }
-        const degrees = rand(3.5, 6) * intensity;
+        const degrees = rand(3.5, 6) * tailIntensity * rig.motion.tail;
         const out = rand(1100, 1700);
         const back = rand(2200, 3200);
         const settleMs = rand(1100, 1700);
@@ -240,7 +344,7 @@ export default function SharedPet({
             withTiming(0, { duration: settleMs, easing: EASE })
           )
         );
-        const rest = rand(600, 4000) / Math.max(intensity, 0.3);
+        const rest = rand(600, 4000) / Math.max(tailIntensity, 0.3);
         later(swish, out + back + settleMs + rest);
       };
       swish();
@@ -265,7 +369,7 @@ export default function SharedPet({
           later(() => twitch(ear, direction), rand(600, 1500));
           return;
         }
-        const degrees = direction * 4 * intensity;
+        const degrees = direction * 4 * intensity * rig.motion.ears;
         ear.set(
           withSequence(
             withTiming(degrees, { duration: 110 }),
@@ -275,8 +379,14 @@ export default function SharedPet({
         );
         later(() => twitch(ear, direction), rand(4200, 9400));
       };
-      later(() => twitch(leftEarRotation, -1), rand(4200, 9400));
-      later(() => twitch(rightEarRotation, 1), rand(4200, 9400));
+      later(
+        () => twitch(leftEarRotation, rig.motion.leftEarDirection),
+        rand(4200, 9400)
+      );
+      later(
+        () => twitch(rightEarRotation, rig.motion.rightEarDirection),
+        rand(4200, 9400)
+      );
     }
 
     return () => {
@@ -293,11 +403,12 @@ export default function SharedPet({
     mood,
     reduceMotion,
     resting,
+    rig,
     rightEarRotation,
     tailRotation,
   ]);
 
-  // Tapping the cat: a little hop, ears perk, a happy squint and a quick
+  // Tapping the pet: a little hop, ears perk, a happy squint and a quick
   // wag, all scaled by mood like the idle motion. Throttled so hammering it
   // doesn't stack animations. With Reduce Motion on it only blinks; resting,
   // its shut eyes half-open for a moment and close again.
@@ -328,31 +439,38 @@ export default function SharedPet({
         withSpring(0, { damping: 9, stiffness: 180 })
       )
     );
-    const perk = 9 * scale;
+    const perk = 9 * scale * rig.motion.ears;
     leftEarRotation.set(
       withSequence(
-        withTiming(-perk, { duration: 120 }),
+        withTiming(rig.motion.leftEarDirection * perk, { duration: 120 }),
         withTiming(0, { duration: 320, easing: EASE })
       )
     );
     rightEarRotation.set(
       withSequence(
-        withTiming(perk, { duration: 120 }),
+        withTiming(rig.motion.rightEarDirection * perk, { duration: 120 }),
         withTiming(0, { duration: 320, easing: EASE })
       )
     );
     tailRotation.set(
       withSequence(
-        withTiming(-12 * scale, { duration: 120 }),
-        withTiming(12 * scale, { duration: 140 }),
-        withTiming(-8 * scale, { duration: 140 }),
+        withTiming(-12 * scale * rig.motion.tail, { duration: 120 }),
+        withTiming(12 * scale * rig.motion.tail, { duration: 140 }),
+        withTiming(-8 * scale * rig.motion.tail, { duration: 140 }),
         withTiming(0, { duration: 200, easing: EASE })
       )
     );
   };
 
+  const pixelRatio = PixelRatio.get();
   const hopStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: hop.get() }],
+    // Moving a raster illustration by fractional device pixels makes its
+    // hand-drawn outline shimmer, most noticeably around the dog's cheeks.
+    transform: [
+      {
+        translateY: Math.round(hop.get() * pixelRatio) / pixelRatio,
+      },
+    ],
   }));
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scaleY: breath.get() }],
@@ -374,31 +492,67 @@ export default function SharedPet({
   }));
   const pivots = React.useMemo(
     () => ({
-      // From the paws, so the cat rises rather than stretching both ways.
-      breath: { transformOrigin: [size * 0.5, size * 0.9, 0] },
-      tail: { transformOrigin: [size * 0.749, size * 0.7969, 0] },
-      leftEar: { transformOrigin: [size * 0.3779, size * 0.2666, 0] },
-      rightEar: { transformOrigin: [size * 0.627, size * 0.2461, 0] },
-      // The head group (head, ears, eyes) sits 24/1024 of the canvas lower
-      // than drawn: it shortens the neck and tucks the body's cheek outline
-      // behind the head. In code rather than moved pixels, so the art stays
-      // as drawn. Rounded to a device pixel so the head's outline lands on
-      // the same pixel grid as the body's cheek line it has to meet.
-      // assets/cat/cat-assembled-reference.png is composited with this drop.
+      // From the paws, so the pet rises rather than stretching both ways.
+      breath: {
+        transformOrigin: [
+          size * rig.pivots.breath[0],
+          size * rig.pivots.breath[1],
+          0,
+        ],
+      },
+      tail: {
+        transformOrigin: [
+          size * rig.pivots.tail[0],
+          size * rig.pivots.tail[1],
+          0,
+        ],
+      },
+      dogTailClip: {
+        left: size * DOG_TAIL_CLIP.left,
+        top: size * DOG_TAIL_CLIP.top,
+        width: size * DOG_TAIL_CLIP.width,
+        height: size * DOG_TAIL_CLIP.height,
+      },
+      dogTailImage: {
+        left: -size * DOG_TAIL_CLIP.left,
+        top: -size * DOG_TAIL_CLIP.top,
+        width: size,
+        height: size,
+      },
+      leftEar: {
+        transformOrigin: [
+          size * rig.pivots.leftEar[0],
+          size * rig.pivots.leftEar[1],
+          0,
+        ],
+      },
+      rightEar: {
+        transformOrigin: [
+          size * rig.pivots.rightEar[0],
+          size * rig.pivots.rightEar[1],
+          0,
+        ],
+      },
+      // Rounded so the head outline and the body's cheek line land on the
+      // same device-pixel grid.
       headDrop: {
         transform: [
-          { translateY: PixelRatio.roundToNearestPixel((size * 24) / 1024) },
+          {
+            translateY: PixelRatio.roundToNearestPixel(size * rig.headOffsetY),
+          },
         ],
       },
     }),
-    [size]
+    [rig, size]
   );
-  const label = resting ? 'Shared cat, resting' : `Shared cat, ${mood}`;
+  const label = resting
+    ? `Shared ${rig.label}, resting`
+    : `Shared ${rig.label}, ${mood}`;
 
   // Every layer is a full-canvas image that reports its load by name.
   const layer = (name: LayerName, style?: object) => (
     <Animated.Image
-      source={LAYERS[name]}
+      source={rig.layers[name]}
       onLoad={() => onLayerLoad(name)}
       onError={() => onLayerLoad(name)}
       style={[styles.layer, style]}
@@ -410,7 +564,7 @@ export default function SharedPet({
   return (
     <Pressable
       onPress={handleTap}
-      // Until it's showing, the cat is neither tappable nor announced --
+      // Until it's showing, the pet is neither tappable nor announced --
       // opacity 0 alone leaves both.
       disabled={!visible}
       pointerEvents={visible ? 'auto' : 'none'}
@@ -419,11 +573,24 @@ export default function SharedPet({
       style={{ width: size, height: size, opacity: visible ? 1 : 0 }}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint="Say hi to your cat"
+      accessibilityHint={`Say hi to your ${rig.label}`}
     >
       <Animated.View style={[styles.layer, hopStyle]}>
         <Animated.View style={[styles.layer, pivots.tail, tailStyle]}>
-          {layer('tail')}
+          {species === 'dog' ? (
+            <View style={[styles.tailClip, pivots.dogTailClip]}>
+              <Image
+                source={rig.layers.tail}
+                onLoad={() => onLayerLoad('tail')}
+                onError={() => onLayerLoad('tail')}
+                style={[styles.tailClipImage, pivots.dogTailImage]}
+                resizeMode="contain"
+                fadeDuration={0}
+              />
+            </View>
+          ) : (
+            layer('tail')
+          )}
         </Animated.View>
         {/* Everything but the tail breathes together, so the head rises with
             the body instead of the neck seam sliding under a still head. */}
@@ -452,5 +619,12 @@ export default function SharedPet({
 const styles = StyleSheet.create({
   layer: {
     ...StyleSheet.absoluteFillObject,
+  },
+  tailClip: {
+    position: 'absolute',
+    overflow: 'hidden',
+  },
+  tailClipImage: {
+    position: 'absolute',
   },
 });

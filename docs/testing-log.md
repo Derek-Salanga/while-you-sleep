@@ -2350,3 +2350,31 @@ the body is opaque under the head's footprint (drops 22–26, head only, not
 the rotating ears), coloured as the head shows it. `scripts/check_cat_layers.py`
 now scans source + @1x/@2x/@3x with rounded drops: 0 at every size. At rest
 138 pixels visibly change (the former gaps); with ears twitched 9°, 6 more.
+
+## 2026-09-25 — Shared Cat/Dog pet choice
+
+The approved dog was exported as the same seven transparent layers as the
+cat (body, head, open/closed eyes, straight tail and separate ears), all on
+one 1024px coordinate system, plus 260/520/780 runtime copies in
+`assets/dog/runtime`. Its second concept is the approved one: floppy ears,
+an upright tail, broader hindquarters and distinct oval front paws keep the
+silhouette from reading as the cat with different ears. The crossover
+palette is orange on the viewer's left and blue on the right; the tail split
+has no visible centre divider.
+
+`SharedPet` now chooses a species-specific layer set and rig. The dog's tail
+and floppy-ear pivots come from the hidden overlap geometry in its layers;
+its head uses no vertical offset. Only one seven-layer stack is mounted at a
+time, and changing species remounts the inner rig so loading and animation
+state cannot leak across animals. `scripts/check_pet_layers.py` replaces the
+cat-only checker and reports zero trapped pixels below alpha 200 for both
+eye states, both species, and every source/runtime density.
+
+Settings → Appearance now offers Cat and Dog as one pair-shared choice.
+`pair_pet.species` defaults to `cat`, is constrained to `cat`/`dog`, and is
+changed only through the auth-derived `set_pet_species(text)` function; no
+direct update policy was added. The screen is scrollable for small devices
+and large text. Automated lint, type-check and test results are recorded in
+the change handoff; the dog motion and picker have not yet been exercised on
+a physical device. The additive SQL in `supabase/schema.sql` still needs to
+be applied to the live Supabase project before the picker can save there.
