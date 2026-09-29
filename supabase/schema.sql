@@ -1190,8 +1190,18 @@ begin
   if clip_row.sender_id != auth.uid() then
     raise exception 'Can only retry your own clip';
   end if;
-  if clip_row.ai_status != 'failed' then
+  -- is distinct from, not !=: a clip that was never queued has a null
+  -- status, `null != 'failed'` is null, and the guard would let it through.
+  if clip_row.ai_status is distinct from 'failed' then
     raise exception 'Clip is not in a failed state';
+  end if;
+  -- Retry re-sends the clip to the AI services, so it needs the same consent
+  -- as a new clip: once the sender turns AI summaries off, nothing more of
+  -- theirs is sent (the Settings copy promises exactly that).
+  if not coalesce(
+    (select ai_enabled from profiles where id = clip_row.sender_id), false
+  ) then
+    raise exception 'AI summaries are turned off';
   end if;
   perform queue_clip_for_ai(target_clip_id);
 end;
@@ -1252,8 +1262,8 @@ select cron.schedule(
 
 -- Weekly recap data, one call for n8n's schedule workflow. Mutual-reveal-
 -- gated: a day only counts if BOTH partners posted that day, matching the
--- app's existing reveal-gating elsewhere. Only returns pairs where at least
--- one partner opted in.
+-- app's existing reveal-gating elsewhere. Only returns pairs where BOTH
+-- partners opted in (see the WHERE clause).
 create or replace function get_weekly_recap_batch(
   week_start date default (current_date - interval '7 days')::date
 )
@@ -1298,7 +1308,11 @@ as $$
        and c2.sender_id != c.sender_id
    )
   where p.user_b is not null
-    and (coalesce(pa.ai_enabled, false) or coalesce(pb.ai_enabled, false))
+    -- BOTH partners must have AI summaries on: the recap is emailed to both
+    -- (addresses go to Resend) and written by Gemini from both people's
+    -- days, so one partner's toggle can't opt the other in. It was "either"
+    -- until 2026-09-28, which the consent copy couldn't honestly describe.
+    and coalesce(pa.ai_enabled, false) and coalesce(pb.ai_enabled, false)
   group by p.id, ua.email, ub.email;
 $$;
 

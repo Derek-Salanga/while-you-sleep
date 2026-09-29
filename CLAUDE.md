@@ -1552,6 +1552,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- AI consent (2026-09-28): the note and confirmation in both themes; a
+  recap going out only when both partners are opted in; Retry hidden and
+  refused with AI off
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
   load gate — the first attempt, with an 800ms fallback, still built up
   layer by layer in the dev client over a tunnel; also the wag bouts and
@@ -1856,6 +1859,29 @@ The n8n workflows themselves, a README covering credentials/re-import, and
 the deviations from the original plan are in
 [automation/](automation/README.md) — start there for the operational
 picture, this section is the "what and why."
+
+**Consent (2026-09-28, for App Review).** Settings shows a note under the
+toggle naming every service that receives data (n8n Cloud runs the pipeline;
+AssemblyAI is given the whole video file to transcribe; Google Gemini gets
+the transcript and caption and writes the recap; Resend emails the recap),
+and turning it on asks for explicit confirmation with the same text; turning
+it off doesn't. The backend was changed to make the copy true:
+`get_weekly_recap_batch()` now needs **both** partners opted in (it was
+either, which emailed a partner who never agreed), and
+`retry_ai_processing()` refuses while the sender has AI off, guarded by
+`ai_status is distinct from 'failed'` rather than `!=` since a
+never-queued clip's null status must not slip through (the Timeline hides
+Retry then too). Existing opt-ins predate the consent screen, so on
+applying this the live project reset everyone to off, once, making each
+person re-opt-in through it. That reset is not in `schema.sql`, which must
+stay safe to re-run. **Applied to the live project 2026-09-28:** both
+function replacements — including the later `retry_ai_processing()`
+`is distinct from 'failed'` guard — and the one-time reset were applied and
+confirmed via `pg_proc.prosrc`, so every account starts with AI summaries
+off. Telegram also receives pipeline failure alerts, whose error text can
+include a signed clip URL; that is operator alerting rather than AI
+processing, so it belongs in the privacy policy rather than the in-app
+consent — flagged, not changed.
 
 **Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
 "AI summaries" toggle, `Switch` bound with an optimistic update since it's

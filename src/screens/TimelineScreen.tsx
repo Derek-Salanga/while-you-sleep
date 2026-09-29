@@ -63,7 +63,7 @@ function formatClipDate(dateStr: string): string {
 export default function TimelineScreen({ navigation }: any) {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
-  const { session, pair } = usePairing();
+  const { session, pair, myProfile } = usePairing();
   // No useFocusEffect refetch anymore: the tab navigator unmounts this
   // screen on blur, so a tab switch remounts and refetches, and coming back
   // from ClipView refetches because marking a clip viewed invalidates
@@ -201,22 +201,32 @@ export default function TimelineScreen({ navigation }: any) {
               {item.ai_summary}
             </Text>
           )}
+          {/* Retry re-sends the clip, and the server refuses it once AI
+              summaries are off (consent) -- so Retry itself is only offered
+              while they're on. AI off still shows the failure, just as
+              plain text with no pressable. */}
           {item.ai_status === 'failed' && mine && (
-            <Pressable
-              disabled={retryAi.isPending}
-              style={({ pressed }) => pressed && styles.pressed}
-              onPress={() =>
-                retryAi.mutate(item.id, {
-                  onError: (err: any) =>
-                    Alert.alert("Couldn't retry", err.message),
-                })
-              }
-            >
-              <Text style={styles.cardAiFailed}>
-                AI summary failed —{' '}
-                <Text style={styles.cardAiRetry}>Retry</Text>
-              </Text>
-            </Pressable>
+            <>
+              {myProfile?.ai_enabled ? (
+                <Pressable
+                  disabled={retryAi.isPending}
+                  style={({ pressed }) => pressed && styles.pressed}
+                  onPress={() =>
+                    retryAi.mutate(item.id, {
+                      onError: (err: any) =>
+                        Alert.alert("Couldn't retry", err.message),
+                    })
+                  }
+                >
+                  <Text style={styles.cardAiFailed}>
+                    AI summary failed —{' '}
+                    <Text style={styles.cardAiRetry}>Retry</Text>
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.cardAiFailed}>AI summary failed</Text>
+              )}
+            </>
           )}
           {/* No Retry here: the file itself was rejected (e.g. no audio
               track), so re-running would fail identically. The RPC refuses
