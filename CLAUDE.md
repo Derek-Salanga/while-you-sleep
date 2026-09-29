@@ -69,7 +69,9 @@ src/
   navigation/
     RootNavigator.tsx          gate: Auth -> Pairing -> Home (Timeline)
   screens/
-    AuthScreen.tsx              email OTP sign-in (send code -> verify code)
+    AuthScreen.tsx              email OTP sign-in (send code -> verify code);
+                                the two App Review addresses get a password
+                                stage instead
     PairingScreen.tsx           create/join pair via invite code
     RecordScreen.tsx            shows today's question, captures the video
                                 answer (+ optional caption), reveal state
@@ -1552,6 +1554,9 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   still work now that the component renders on iOS only
 
 **Not verified:**
+- The App Review password sign-in (2026-09-28): a review address reaches the
+  password stage, the right password signs in, a wrong one errors, the return
+  key submits, and other addresses still get a code
 - AI consent (2026-09-28): the note and confirmation in both themes; a
   recap going out only when both partners are opted in; Retry hidden and
   refused with AI off
@@ -1964,6 +1969,47 @@ redesign — see `automation/README.md`'s "Deviations from the plan."
 app itself (it only exists as the email right now) was never part of this
 scope — the recap is deliberately email-only, matching "a warm weekly recap
 email" from the original ask, not an in-app digest.
+
+## App Review demo accounts (2026-09-28)
+
+App Review can't receive the emailed sign-in code, so two demo accounts sign
+in with a **password** instead: `appreview@whileyousleep.app` and
+`appreview-partner@whileyousleep.app` (`REVIEW_EMAILS` in `AuthScreen.tsx`).
+Typing either address on the email screen goes to a password stage; every
+other address gets the normal code flow, and normal accounts have no
+password, so the password grant does nothing for them.
+
+One-time setup, outside the repo:
+1. Supabase dashboard → Authentication → Users → **Add user** → "Create new
+   user", for each address, with a strong password (20+ random characters:
+   the addresses ship in the app bundle, so assume they're known and the
+   password is the only lock) and **Auto Confirm User** ticked.
+   `whileyousleep.app` is the user's own domain. **Set up email forwarding**
+   for both addresses to an inbox the user reads, and **keep the domain
+   renewed** -- control of these addresses' mail is part of what protects
+   the accounts. The addresses are compiled into `AuthScreen.tsx`, so
+   changing them needs a new build (a server-side list would avoid that).
+2. Sign into both through the app and pair them with an invite code, then
+   record a few clips from each (some with captions), so the reviewer sees a
+   real Timeline, reveal, Monthly Summary and pet.
+3. Put the reviewer account's email and password in App Store Connect →
+   App Review Information → Sign-in required. **Never commit the passwords.**
+4. **Right before every submission** (not days ahead):
+   - sign into both and check the pair is intact -- reviewers routinely
+     test Delete account, and `delete_own_account()` cascades through the
+     pair, so one deletion wipes both accounts' shared data. Recreate from
+     step 1 if so, reusing the passwords already in App Store Connect (or
+     updating step 3 to match -- a stale password just says "Invalid login
+     credentials", indistinguishable from an outage);
+   - **post a clip from the partner account that UTC day**, so the reviewer
+     can post theirs and see the reveal (reveal is per UTC day, so clips
+     from setup never produce one on review day). Review pickup isn't
+     ours to schedule: if it's still "Waiting for Review" on a later UTC
+     day, post from the partner again that day, or the reviewer just sees
+     "Waiting for your partner to answer";
+   - post from both accounts over the preceding days if possible: the pet
+     loses points each idle day, and a reviewer's first Home screen
+     shouldn't be a withdrawn pet.
 
 ## Explicitly out of scope for now
 
