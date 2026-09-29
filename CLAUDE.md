@@ -69,7 +69,9 @@ src/
   navigation/
     RootNavigator.tsx          gate: Auth -> Pairing -> Home (Timeline)
   screens/
-    AuthScreen.tsx              email OTP sign-in (send code -> verify code)
+    AuthScreen.tsx              email OTP sign-in (send code -> verify code);
+                                the two App Review addresses get a password
+                                stage instead
     PairingScreen.tsx           create/join pair via invite code
     RecordScreen.tsx            shows today's question, captures the video
                                 answer (+ optional caption), reveal state
@@ -1557,6 +1559,12 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
   the Android adaptive icon using `splash.png` as its foreground. Checked
   offline: icon 1024 RGB no alpha, fills exactly `#6A85F1`/`#FFC670`, and
   the iOS corner mask clears the ear
+- The App Review password sign-in (2026-09-28): a review address reaches the
+  password stage, the right password signs in, a wrong one errors, the return
+  key submits, and other addresses still get a code
+- AI consent (2026-09-28): the note and confirmation in both themes; a
+  recap going out only when both partners are opted in; Retry hidden and
+  refused with AI off
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
   load gate — the first attempt, with an 800ms fallback, still built up
   layer by layer in the dev client over a tunnel; also the wag bouts and
@@ -1872,6 +1880,29 @@ the deviations from the original plan are in
 [automation/](automation/README.md) — start there for the operational
 picture, this section is the "what and why."
 
+**Consent (2026-09-28, for App Review).** Settings shows a note under the
+toggle naming every service that receives data (n8n Cloud runs the pipeline;
+AssemblyAI is given the whole video file to transcribe; Google Gemini gets
+the transcript and caption and writes the recap; Resend emails the recap),
+and turning it on asks for explicit confirmation with the same text; turning
+it off doesn't. The backend was changed to make the copy true:
+`get_weekly_recap_batch()` now needs **both** partners opted in (it was
+either, which emailed a partner who never agreed), and
+`retry_ai_processing()` refuses while the sender has AI off, guarded by
+`ai_status is distinct from 'failed'` rather than `!=` since a
+never-queued clip's null status must not slip through (the Timeline hides
+Retry then too). Existing opt-ins predate the consent screen, so on
+applying this the live project reset everyone to off, once, making each
+person re-opt-in through it. That reset is not in `schema.sql`, which must
+stay safe to re-run. **Applied to the live project 2026-09-28:** both
+function replacements — including the later `retry_ai_processing()`
+`is distinct from 'failed'` guard — and the one-time reset were applied and
+confirmed via `pg_proc.prosrc`, so every account starts with AI summaries
+off. Telegram also receives pipeline failure alerts, whose error text can
+include a signed clip URL; that is operator alerting rather than AI
+processing, so it belongs in the privacy policy rather than the in-app
+consent — flagged, not changed.
+
 **Per-partner opt-in, not per-couple.** `profiles.ai_enabled` (Settings →
 "AI summaries" toggle, `Switch` bound with an optimistic update since it's
 the one true binary preference in Settings, unlike Pause's date-range
@@ -1953,6 +1984,47 @@ redesign — see `automation/README.md`'s "Deviations from the plan."
 app itself (it only exists as the email right now) was never part of this
 scope — the recap is deliberately email-only, matching "a warm weekly recap
 email" from the original ask, not an in-app digest.
+
+## App Review demo accounts (2026-09-28)
+
+App Review can't receive the emailed sign-in code, so two demo accounts sign
+in with a **password** instead: `appreview@whileyousleep.app` and
+`appreview-partner@whileyousleep.app` (`REVIEW_EMAILS` in `AuthScreen.tsx`).
+Typing either address on the email screen goes to a password stage; every
+other address gets the normal code flow, and normal accounts have no
+password, so the password grant does nothing for them.
+
+One-time setup, outside the repo:
+1. Supabase dashboard → Authentication → Users → **Add user** → "Create new
+   user", for each address, with a strong password (20+ random characters:
+   the addresses ship in the app bundle, so assume they're known and the
+   password is the only lock) and **Auto Confirm User** ticked.
+   `whileyousleep.app` is the user's own domain. **Set up email forwarding**
+   for both addresses to an inbox the user reads, and **keep the domain
+   renewed** -- control of these addresses' mail is part of what protects
+   the accounts. The addresses are compiled into `AuthScreen.tsx`, so
+   changing them needs a new build (a server-side list would avoid that).
+2. Sign into both through the app and pair them with an invite code, then
+   record a few clips from each (some with captions), so the reviewer sees a
+   real Timeline, reveal, Monthly Summary and pet.
+3. Put the reviewer account's email and password in App Store Connect →
+   App Review Information → Sign-in required. **Never commit the passwords.**
+4. **Right before every submission** (not days ahead):
+   - sign into both and check the pair is intact -- reviewers routinely
+     test Delete account, and `delete_own_account()` cascades through the
+     pair, so one deletion wipes both accounts' shared data. Recreate from
+     step 1 if so, reusing the passwords already in App Store Connect (or
+     updating step 3 to match -- a stale password just says "Invalid login
+     credentials", indistinguishable from an outage);
+   - **post a clip from the partner account that UTC day**, so the reviewer
+     can post theirs and see the reveal (reveal is per UTC day, so clips
+     from setup never produce one on review day). Review pickup isn't
+     ours to schedule: if it's still "Waiting for Review" on a later UTC
+     day, post from the partner again that day, or the reviewer just sees
+     "Waiting for your partner to answer";
+   - post from both accounts over the preceding days if possible: the pet
+     loses points each idle day, and a reviewer's first Home screen
+     shouldn't be a withdrawn pet.
 
 ## Explicitly out of scope for now
 

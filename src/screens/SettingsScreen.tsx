@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  ScrollView,
   View,
   Text,
   Pressable,
@@ -43,6 +44,23 @@ const PAUSE_PRESETS: { label: string; days: number }[] = [
   { label: '1 week', days: 7 },
   { label: 'Until I turn it back on', days: 365 },
 ];
+
+// Shown under the toggle and in the confirmation. Names every service that
+// receives data when AI summaries are on (see "AI automation layer" in
+// CLAUDE.md), and must stay true to what the backend does:
+// - n8n Cloud runs the pipeline and handles the clip, transcript and results;
+// - AssemblyAI is given a link to the whole video file to transcribe it;
+// - Google Gemini gets the transcript (title, summary, mood) and writes the
+//   weekly recap;
+// - Resend sends the recap, which only goes out when BOTH partners have this
+//   on (get_weekly_recap_batch), and Retry is refused while it's off
+//   (retry_ai_processing).
+const AI_DISCLOSURE =
+  'When on, each clip you record is processed by n8n (our automation ' +
+  'service): AssemblyAI transcribes the video file, and Google Gemini turns ' +
+  'the transcript and your caption into a title, summary and mood. Only ' +
+  'your own clips are sent. If you both turn this on, Gemini also writes a ' +
+  'weekly recap that Resend emails to you both.';
 
 export default function SettingsScreen({ navigation }: any) {
   const t = useTheme();
@@ -133,7 +151,13 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
+    // Scrolls: with an edit card open plus the AI note, the rows can outgrow
+    // a small phone, and Account (sign out, delete) must stay reachable.
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Settings</Text>
       {editingNickname ? (
         <View style={styles.editCard}>
@@ -312,18 +336,34 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.rowLabel}>AI summaries</Text>
         <Switch
           value={myProfile?.ai_enabled ?? false}
-          onValueChange={(enabled) =>
-            session?.user &&
-            setAiEnabled.mutate(
-              { userId: session.user.id, enabled },
-              {
-                onError: (err: any) =>
-                  Alert.alert("Couldn't update", err.message),
-              }
-            )
-          }
+          onValueChange={(enabled) => {
+            if (!session?.user) return;
+            const userId = session.user.id;
+            const save = () =>
+              setAiEnabled.mutate(
+                { userId, enabled },
+                {
+                  onError: (err: any) =>
+                    Alert.alert("Couldn't update", err.message),
+                }
+              );
+            // Turning it off needs no confirmation; turning it on sends
+            // data to third-party AI services, which App Review requires
+            // the user to agree to explicitly, with the services named.
+            if (!enabled) return save();
+            Alert.alert(
+              'Turn on AI summaries?',
+              AI_DISCLOSURE +
+                '\n\nTurning it off stops new clips being sent (one already being processed may finish). Clips already summarised keep their summaries.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Turn on', onPress: save },
+              ]
+            );
+          }}
         />
       </View>
+      <Text style={[styles.editHint, styles.aiNote]}>{AI_DISCLOSURE}</Text>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
         onPress={() => navigation.navigate('AppearanceSettings')}
@@ -345,7 +385,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.rowLabel}>Account</Text>
         <Text style={styles.rowValue}>›</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -353,7 +393,8 @@ export default function SettingsScreen({ navigation }: any) {
 // has to be rebuilt when the theme changes.
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: t.background, padding: 20 },
+    container: { flex: 1, backgroundColor: t.background },
+    content: { padding: 20 },
     title: {
       fontFamily: fonts.display,
       fontSize: fontSizes.xl,
@@ -398,6 +439,11 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
       color: t.textPrimary,
+    },
+    // editHint's text style; only the spacing differs, to sit under a row.
+    aiNote: {
+      marginTop: -4,
+      paddingHorizontal: 4,
     },
     rowValue: {
       fontFamily: fonts.body,

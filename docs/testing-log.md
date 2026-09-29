@@ -2361,3 +2361,19 @@ mask. The splash stopped reusing the full-bleed icon, 1.1MB of crayon
 texture, on lavender and got its own `assets/splash.png` (the in-app cat,
 centred, 199KB), set through the top-level `expo.splash` key: cream
 `#FDF7EF`, no dark variant. Not yet seen in a native build.
+
+## 2026-09-28 — AI consent made true to the backend
+
+For App Review's third-party AI disclosure rule. Settings now names n8n,
+AssemblyAI (given the video file), Google Gemini (transcript and caption) and
+Resend, and asks before turning AI on. Review found the first copy promised
+more than the backend did, so: `get_weekly_recap_batch()` needs both
+partners opted in (it was either); `retry_ai_processing()` refuses while the
+sender has AI off, and its state guard became `is distinct from 'failed'`
+(`!=` let a never-queued, null-status clip through). Applied live: the two
+function replacements confirmed via `pg_proc.prosrc`, and a one-time reset
+of every `ai_enabled` to false so everyone re-opts in through the consent.
+The consent check was deliberately not moved into `queue_clip_for_ai`:
+`schema.sql` holds a placeholder n8n URL (the real one is set only on the
+live function), so re-running that function from the file would break the
+pipeline. Not yet seen on a device.
