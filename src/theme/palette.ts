@@ -6,7 +6,8 @@
 
 export const palette = {
   // The two brand hues. These are the app's identity -- night blue is "you",
-  // day orange is "your partner" (see the icon motif) -- and they are
+  // day orange is "your partner" (the crossover split on the heart, the pet
+  // and the app icon's cat) -- and they are
   // deliberately identical in both themes. Everything else moves around them.
   blue: '#6A85F1',
   blueLight: '#8FA8FF',

@@ -2351,6 +2351,17 @@ the rotating ears), coloured as the head shows it. `scripts/check_cat_layers.py`
 now scans source + @1x/@2x/@3x with rounded drops: 0 at every size. At rest
 138 pixels visibly change (the former gaps); with ears twitched 9°, 6 more.
 
+## 2026-09-28 — New app icon and splash
+
+The sleeping-cat icon (from Codex's concepts, chosen by the user) replaced
+the split heart. Checked offline: 1024x1024 RGB with no alpha; its fills
+measured #688EFC / #FDC75B and were shifted onto exactly #6A85F1 / #FFC670,
+texture kept; rendered through a 229px iOS corner radius, the ear clears the
+mask. The splash stopped reusing the full-bleed icon, 1.1MB of crayon
+texture, on lavender and got its own `assets/splash.png` (the in-app cat,
+centred, 199KB), set through the top-level `expo.splash` key: cream
+`#FDF7EF`, no dark variant. Not yet seen in a native build.
+
 ## 2026-09-28 — AI consent made true to the backend
 
 For App Review's third-party AI disclosure rule. Settings now names n8n,

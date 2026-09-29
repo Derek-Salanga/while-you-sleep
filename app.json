@@ -5,11 +5,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-1024.png",
-    "splash": {
-      "image": "./assets/icon-1024.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F3FA"
-    },
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
@@ -28,8 +23,8 @@
       "package": "com.whileyousleep.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon-1024.png",
-        "backgroundColor": "#F5F3FA"
+        "foregroundImage": "./assets/splash.png",
+        "backgroundColor": "#FDF7EF"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -59,6 +54,11 @@
         }
       ]
     ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF7EF"
+    },
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",
       "supabaseAnonKey": "sb_publishable_rRuR_xXpVoiKgi6db_t7Gw_L25jTylo",

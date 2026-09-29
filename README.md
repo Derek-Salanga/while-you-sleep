@@ -73,14 +73,15 @@ src/
     TimelineScreen.tsx         card feed of clips
     ClipViewScreen.tsx         video playback, marks viewed
   theme/
-    colors.ts                  palette from the app icon spec
+    palette.ts, themes.ts      brand hues and the light/dark themes
     typography.ts              Fraunces + Inter pairing
   types/
     index.ts                   shared data models
 supabase/
   schema.sql                   tables, RLS, storage policies
 assets/
-  icon-1024.png                app icon (from prior step)
+  icon-1024.png                app icon (the sleeping cat)
+  splash.png                   launch screen (the cat, centred, transparent)
 ```
 
 ## Notes / next steps
