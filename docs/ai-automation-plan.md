@@ -192,7 +192,8 @@ select cron.schedule(
 
 -- === Weekly recap data, one call for n8n's schedule workflow ===
 -- Mutual-reveal-gated: a day only counts if BOTH partners posted that day.
--- Only returns pairs where at least one partner opted in.
+-- Only returns pairs where both partners opted in (changed 2026-09-28 from
+-- "at least one", so one partner's toggle can't email the other).
 create or replace function get_weekly_recap_batch(
   week_start date default (current_date - interval '7 days')::date
 )
@@ -237,7 +238,7 @@ as $$
        and c2.sender_id != c.sender_id
    )
   where p.user_b is not null
-    and (coalesce(pa.ai_enabled, false) or coalesce(pb.ai_enabled, false))
+    and coalesce(pa.ai_enabled, false) and coalesce(pb.ai_enabled, false)
   group by p.id, ua.email, ub.email;
 $$;
 
