@@ -124,8 +124,7 @@ export default function TimelineScreen({ navigation }: any) {
     const hasAiRow =
       (aiDone && (item.ai_title || item.ai_mood || item.ai_summary)) ||
       (mine &&
-        ((item.ai_status === 'failed' && myProfile?.ai_enabled) ||
-          item.ai_status === 'unprocessable'));
+        (item.ai_status === 'failed' || item.ai_status === 'unprocessable'));
 
     const entering = entranceDone.current
       ? undefined
@@ -202,24 +201,32 @@ export default function TimelineScreen({ navigation }: any) {
               {item.ai_summary}
             </Text>
           )}
-          {/* Only while AI summaries are on: Retry re-sends the clip, and
-              the server refuses it once they're off (consent). */}
-          {item.ai_status === 'failed' && mine && myProfile?.ai_enabled && (
-            <Pressable
-              disabled={retryAi.isPending}
-              style={({ pressed }) => pressed && styles.pressed}
-              onPress={() =>
-                retryAi.mutate(item.id, {
-                  onError: (err: any) =>
-                    Alert.alert("Couldn't retry", err.message),
-                })
-              }
-            >
-              <Text style={styles.cardAiFailed}>
-                AI summary failed —{' '}
-                <Text style={styles.cardAiRetry}>Retry</Text>
-              </Text>
-            </Pressable>
+          {/* Retry re-sends the clip, and the server refuses it once AI
+              summaries are off (consent) -- so Retry itself is only offered
+              while they're on. AI off still shows the failure, just as
+              plain text with no pressable. */}
+          {item.ai_status === 'failed' && mine && (
+            <>
+              {myProfile?.ai_enabled ? (
+                <Pressable
+                  disabled={retryAi.isPending}
+                  style={({ pressed }) => pressed && styles.pressed}
+                  onPress={() =>
+                    retryAi.mutate(item.id, {
+                      onError: (err: any) =>
+                        Alert.alert("Couldn't retry", err.message),
+                    })
+                  }
+                >
+                  <Text style={styles.cardAiFailed}>
+                    AI summary failed —{' '}
+                    <Text style={styles.cardAiRetry}>Retry</Text>
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.cardAiFailed}>AI summary failed</Text>
+              )}
+            </>
           )}
           {/* No Retry here: the file itself was rejected (e.g. no audio
               track), so re-running would fail identically. The RPC refuses

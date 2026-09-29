@@ -238,7 +238,7 @@ as $$
        and c2.sender_id != c.sender_id
    )
   where p.user_b is not null
-    and (coalesce(pa.ai_enabled, false) or coalesce(pb.ai_enabled, false))
+    and coalesce(pa.ai_enabled, false) and coalesce(pb.ai_enabled, false)
   group by p.id, ua.email, ub.email;
 $$;
 
