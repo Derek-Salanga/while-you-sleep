@@ -2357,7 +2357,7 @@ The sleeping-cat icon (from Codex's concepts, chosen by the user) replaced
 the split heart. Checked offline: 1024x1024 RGB with no alpha; its fills
 measured #688EFC / #FDC75B and were shifted onto exactly #6A85F1 / #FFC670,
 texture kept; rendered through a 229px iOS corner radius, the ear clears the
-mask. The splash stopped reusing the full-bleed 1.37MB icon on lavender and
-got its own `assets/splash.png` (the in-app cat, centred, 199KB), set through
-the expo-splash-screen plugin with cream for light and night for dark. Not
-yet seen in a native build.
+mask. The splash stopped reusing the full-bleed icon, 1.1MB of crayon
+texture, on lavender and got its own `assets/splash.png` (the in-app cat,
+centred, 199KB), set through the top-level `expo.splash` key: cream
+`#FDF7EF`, no dark variant. Not yet seen in a native build.

@@ -89,7 +89,7 @@ src/
     TripEditScreen.tsx          next trip (country + date), pushed from Home
     MonthListScreen.tsx         Monthly Summary's favorites / captions lists
   theme/
-    colors.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
+    palette.ts, themes.ts, typography.ts    palette + Fraunces/Inter pairing from brand spec
   types/index.ts                shared data models
 supabase/
   schema.sql                    tables + RLS policies (source of truth for schema)
@@ -1553,7 +1553,8 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 
 **Not verified:**
 - The new icon and splash (2026-09-28), which only appear in a fresh native
-  build: the icon on the home screen, the splash in light and dark. Checked
+  build: the icon on the home screen, the splash (cream, no dark variant), and
+  the Android adaptive icon using `splash.png` as its foreground. Checked
   offline: icon 1024 RGB no alpha, fills exactly `#6A85F1`/`#FFC670`, and
   the iOS corner mask clears the ear
 - The cat appearing in one go on Home (2026-09-25) after the prefetch and
@@ -1645,7 +1646,8 @@ to use *within* these constraints, not sources to consult for new
 palette/type proposals:
 
 - **Palette:** `#6A85F1` night-blue = "you", `#FFC670` day-orange =
-  "partner" (`src/theme/colors.ts`). The `*Soft` steps were added to that
+  "partner" (`src/theme/palette.ts`, brand hues `brand` in `src/theme/themes.ts`).
+  The `*Soft` steps were added to that
   file's existing scale (Dark → base → Light → Soft → Tint), not chosen
   fresh: `*Tint` sits only ~4% off `background`, so a card filled with it
   reads as plain white. The `*Tint` values themselves are unchanged —
@@ -1661,12 +1663,11 @@ palette/type proposals:
   the sleeping cat in that split (`assets/icon-1024.png`, fills set to the
   exact `#6A85F1` / `#FFC670`); the split heart lives on as the in-screen
   emblem (`CrossoverHeart`). The splash is its own asset (`assets/splash.png`:
-  the in-app cat, centred, transparent), configured through the
-  `expo-splash-screen` plugin so it has a dark variant: cream `#FDF7EF` in
-  light, night `#151826` in dark (no light flash before a dark app). Not the
-  icon, which is full-bleed, off-centre and 1.1MB of crayon texture. The
-  Android adaptive icon still uses the full-bleed icon and crops the ears on
-  round masks; fix before any Play Store release.
+  the in-app cat, centred, transparent), configured through the top-level
+  `expo.splash` key: cream `#FDF7EF`, no dark variant. Not the icon, which is
+  full-bleed, off-centre and 1.1MB of crayon texture. The Android adaptive
+  icon uses `splash.png` as its foreground (transparent, cat centred inside
+  the safe zone) on the same `#FDF7EF` background.
 
 ## Timeline card layout (2026-09-21)
 

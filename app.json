@@ -24,7 +24,7 @@
       "package": "com.whileyousleep.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon-1024.png",
+        "foregroundImage": "./assets/splash.png",
         "backgroundColor": "#FDF7EF"
       },
       "permissions": [
@@ -53,21 +53,13 @@
             "deploymentTarget": "16.4"
           }
         }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
-          "backgroundColor": "#FDF7EF",
-          "dark": {
-            "image": "./assets/splash.png",
-            "backgroundColor": "#151826"
-          }
-        }
       ]
     ],
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF7EF"
+    },
     "extra": {
       "supabaseUrl": "https://lgzcvryexckjrwlipenr.supabase.co",
       "supabaseAnonKey": "sb_publishable_rRuR_xXpVoiKgi6db_t7Gw_L25jTylo",
