@@ -1972,10 +1972,15 @@ One-time setup, outside the repo:
    - sign into both and check the pair is intact -- reviewers routinely
      test Delete account, and `delete_own_account()` cascades through the
      pair, so one deletion wipes both accounts' shared data. Recreate from
-     step 1 if so;
+     step 1 if so, reusing the passwords already in App Store Connect (or
+     updating step 3 to match -- a stale password just says "Invalid login
+     credentials", indistinguishable from an outage);
    - **post a clip from the partner account that UTC day**, so the reviewer
      can post theirs and see the reveal (reveal is per UTC day, so clips
-     from setup never produce one on review day);
+     from setup never produce one on review day). Review pickup isn't
+     ours to schedule: if it's still "Waiting for Review" on a later UTC
+     day, post from the partner again that day, or the reviewer just sees
+     "Waiting for your partner to answer";
    - post from both accounts over the preceding days if possible: the pet
      loses points each idle day, and a reviewer's first Home screen
      shouldn't be a withdrawn pet.
