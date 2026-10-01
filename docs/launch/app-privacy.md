@@ -105,25 +105,23 @@ privacy policy's narrative text rather than as its own nutrition-label row.
   from Apple, not a silent pass, so this is unlikely to proceed unnoticed
   through `eas build` — but it should still be resolved deliberately rather
   than discovered at submission time.
-- **Known required-reason API usage in this codebase:**
-  - **UserDefaults** — confirmed. `targets/widget/widgets.swift` reads
-    `UserDefaults(suiteName: "group.com.whileyousleep.app")` to share data
-    (the anniversary date) from the app into the home-screen widget via the
-    App Group. This needs reason code `CA92.1` ("accessing UserDefaults
-    from within an app group, to access data shared between the app and
-    an app extension").
-- **Likely but not confirmed from this repo alone**, since several Expo
-  SDK modules commonly touch these APIs internally (`expo-file-system`,
-  `expo-font`, `expo-notifications`, `expo-camera`, `expo-video`):
-  - File timestamp APIs
-  - System boot time APIs
-  - Disk space APIs
-
-[CONFIRM: the three "likely but not confirmed" required-reason categories
-above need verification against the actual compiled privacy manifest —
-either by running `eas build` and checking Apple's App Store Connect
-processing report for a missing-reason-API rejection, or by inspecting
-each installed Expo module's own `PrivacyInfo.xcprivacy` under
-`node_modules/<module>/ios/`. This document does not guess which exact
-modules declare which reason codes — that's a build-time check, not
-something greppable from this JS/TS source tree.]
+- **What the installed native modules declare** (read from each
+  `node_modules/**/PrivacyInfo.xcprivacy`, 2026-09-30):
+  - UserDefaults `CA92.1`: React Native core, expo-constants,
+    expo-notifications
+  - File timestamp `C617.1`: React Native core, Folly, boost, glog,
+    expo-application, async-storage; `0A2A.1`, `3B52.1`: expo-file-system
+  - System boot time `35F9.1`: boost
+  - Disk space `E174.1`, `85F4.1`: expo-file-system
+- **The app's own use:** the App Group (`ExtensionStorage` in the app,
+  `UserDefaults(suiteName: "group.com.whileyousleep.app")` in
+  `targets/widget/widgets.swift`) needs UserDefaults `1C8F.1` (same App
+  Group). Not `CA92.1`, which covers only the app's own defaults.
+- **Fix:** declare the union of the above under `ios.privacyManifests` in
+  `app.json`, since pod-level manifests aren't reliably merged into the app's
+  manifest for static libraries. Done in a separate PR.
+- **Open risk: the widget extension is its own bundle** and reads App Group
+  UserDefaults, and `@bacons/apple-targets` has no privacy-manifest support
+  that could be found in its build output. If the first TestFlight upload
+  comes back with ITMS-91053 naming the widget, add a
+  `PrivacyInfo.xcprivacy` (UserDefaults `1C8F.1`) to `targets/widget/`.

@@ -158,12 +158,13 @@ pass.
 
 ## Support / Privacy / Marketing URLs
 
-- Support URL: `https://whileyousleep.app/support`
-- Privacy Policy URL: `https://whileyousleep.app/privacy`
+- Support URL: `https://github.com/Derek-Salanga/while-you-sleep/blob/main/SUPPORT.md`
+- Privacy Policy URL: `https://github.com/Derek-Salanga/while-you-sleep/blob/main/PRIVACY.md`
+  (the same file the app's Settings → Account → Privacy Policy row opens)
 - Marketing URL: optional, not set for v1.0.0.
 
-[CONFIRM: these URLs are specified by the task, not verified live from this
-worktree — confirm the pages actually resolve before submitting.]
+Both resolve once PR #150 merges. A whileyousleep.app page can replace
+them later; App Store Connect lets you change these URLs without a new build.
 
 ## Screenshot plan
 
