@@ -12,7 +12,7 @@ anything here is unclear, email us.
 While You Sleep is an independent app made by **Derek Salanga**. For any
 question about this policy or your data, contact:
 
-**support@whileyousleep.app**
+**support@whileyousleepapp.com**
 
 ## What we collect
 
@@ -187,4 +187,4 @@ change is significant, we'll also surface it inside the app.
 
 ## Contact
 
-Questions about this policy or your data: **support@whileyousleep.app**
+Questions about this policy or your data: **support@whileyousleepapp.com**

@@ -106,4 +106,4 @@ A few things to check:
 Still stuck, or something above doesn't match what you're seeing? Email
 us at:
 
-**support@whileyousleep.app**
+**support@whileyousleepapp.com**
