@@ -26,8 +26,8 @@ type Stage = 'enterEmail' | 'enterCode' | 'enterPassword';
 // app, with a few real clips, so the reviewer sees real content. Normal
 // accounts have no password, so the password grant is useless against them.
 const REVIEW_EMAILS = [
-  'appreview@whileyousleep.app',
-  'appreview-partner@whileyousleep.app',
+  'appreview@whileyousleepapp.com',
+  'appreview-partner@whileyousleepapp.com',
 ];
 
 export default function AuthScreen() {
