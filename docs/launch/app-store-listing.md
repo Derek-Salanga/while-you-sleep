@@ -129,7 +129,7 @@ While You Sleep normally signs in with a one-time code emailed to the user
 (no passwords for real accounts). Since App Review can't receive that
 email, the demo account below uses a password instead:
 
-Email: appreview@whileyousleep.app
+Email: appreview@whileyousleepapp.com
 Password: [PASSWORD IN SIGN-IN FIELD]
 
 To sign in: enter the email above, tap Continue, then enter the password
