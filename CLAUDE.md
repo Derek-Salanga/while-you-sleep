@@ -2109,6 +2109,15 @@ button on `ClipViewScreen` sits next to the date line, muted, and only
 renders for the partner's clip -- re-derived from the clip actually on
 screen, so it tracks correctly in reel (`queue`) mode too.
 
+`block_partner()` acts on every pairs row the caller is in, and
+`clip_reports` is unique per (clip, reporter) so a repeat report is a quiet
+no-op. Both came from review. The first exists because **`create_invite()`
+never checks for an existing pair**, so a user can hold two rows (two
+devices tapping Create at once, or a direct RPC call); `usePair`'s
+`.maybeSingle()` would then error too. That gap predates this feature and is
+a follow-up: reject in `create_invite()` when the caller is already in a
+pairs row.
+
 ## Explicitly out of scope for now
 
 - Actual stitched highlight-reel video generation — Monthly Summary

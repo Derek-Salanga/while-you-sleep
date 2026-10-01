@@ -1826,7 +1826,11 @@ create table if not exists clip_reports (
   caption_snapshot text,
   recorded_for_date date,
   storage_path_snapshot text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- One report per person per clip: a second tap on Report is a no-op
+  -- rather than a duplicate row and a second Telegram ping. Nulls (a clip
+  -- or account since deleted) never collide, so old reports are kept.
+  unique (clip_id, reporter_id)
 );
 
 alter table clip_reports enable row level security;
@@ -1875,7 +1879,14 @@ begin
     auth.uid(), clip_row.sender_id, clip_row.id, reason,
     clip_row.caption_text, clip_row.recorded_for_date, clip_row.storage_path
   )
+  on conflict (clip_id, reporter_id) do nothing
   returning id into new_report_id;
+
+  -- Already reported by this person: the first report already notified, so
+  -- succeed quietly instead of pinging again.
+  if new_report_id is null then
+    return;
+  end if;
 
   -- Best-effort developer notification. Same Vault-degrades-rather-than-
   -- blocks reasoning as delete_own_account(): the report above is already
@@ -1918,33 +1929,25 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  target_pair pairs;
-  other_user uuid;
 begin
   if auth.uid() is null then
     raise exception 'Not signed in';
   end if;
 
-  select * into target_pair from pairs
-    where user_a = auth.uid() or user_b = auth.uid();
-
-  if target_pair is null then
-    raise exception 'Not paired';
-  end if;
-
-  other_user := case
-    when target_pair.user_a = auth.uid() then target_pair.user_b
-    else target_pair.user_a
-  end;
-
-  -- Null while an invite is still unclaimed: there's no partner yet, so
-  -- there's nobody to block -- just the dangling invite to remove below.
-  if other_user is not null then
-    insert into blocks (blocker_id, blocked_id)
-    values (auth.uid(), other_user)
-    on conflict do nothing;
-  end if;
+  -- Acts on EVERY pairs row the caller is in, not one picked by a plain
+  -- `select into`. Nothing in the schema stops a user holding two rows
+  -- (create_invite doesn't check for an existing pair), and a single-row
+  -- read would take an arbitrary one: possibly a dangling invite, leaving
+  -- the real pairing with the person being blocked untouched while
+  -- reporting success. Unclaimed invites (user_b null) have nobody to block
+  -- and are simply removed below.
+  insert into blocks (blocker_id, blocked_id)
+  select auth.uid(),
+         case when p.user_a = auth.uid() then p.user_b else p.user_a end
+    from pairs p
+   where (p.user_a = auth.uid() or p.user_b = auth.uid())
+     and p.user_b is not null
+  on conflict do nothing;
 
   -- Everything shared cascades from here exactly as it does for
   -- delete_own_account(): clips, daily_answers, pair_trips,
@@ -1956,7 +1959,11 @@ begin
   -- gap: a reported clip's video needs to still exist long enough for the
   -- developer to actually review it before the block (the obvious next
   -- step after reporting) sweeps it away.
-  delete from pairs where id = target_pair.id;
+  delete from pairs where user_a = auth.uid() or user_b = auth.uid();
+
+  if not found then
+    raise exception 'Not paired';
+  end if;
 end;
 $$;
 
@@ -1964,5 +1971,6 @@ grant execute on function block_partner() to authenticated;
 
 -- Verify after applying, in the SQL editor -- each should return true:
 --   select prosrc like '%from blocks%' from pg_proc where proname = 'join_pair_by_code';
---   select prosrc like '%insert into blocks%' from pg_proc where proname = 'block_partner';
+--   select prosrc like '%insert into blocks%' and prosrc not like '%target_pair%' from pg_proc where proname = 'block_partner';
+--   select prosrc like '%on conflict (clip_id, reporter_id)%' from pg_proc where proname = 'report_clip';
 --   select prosrc like '%telegram_bot_token%' from pg_proc where proname = 'report_clip';
