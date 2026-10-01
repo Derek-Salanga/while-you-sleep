@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -29,6 +30,11 @@ const REVIEW_EMAILS = [
   'appreview@whileyousleep.app',
   'appreview-partner@whileyousleep.app',
 ];
+
+// Same URL AccountSettingsScreen's "Terms of Use" row opens -- plain
+// Markdown in the public repo, which GitHub renders.
+const TERMS_OF_USE_URL =
+  'https://github.com/Derek-Salanga/while-you-sleep/blob/main/TERMS.md';
 
 export default function AuthScreen() {
   const t = useTheme();
@@ -191,6 +197,21 @@ export default function AuthScreen() {
                 loading={busy}
                 disabled={busy || !email.trim()}
               />
+              {/* Email stage only -- the other two stages are mid-sign-in,
+                  not the point where agreeing to anything applies. */}
+              <Text style={styles.termsNote}>
+                By continuing you agree to the{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() =>
+                    Linking.openURL(TERMS_OF_USE_URL).catch(() =>
+                      Alert.alert("Couldn't open the terms of use")
+                    )
+                  }
+                >
+                  Terms of Use
+                </Text>
+              </Text>
             </>
           ) : stage === 'enterPassword' ? (
             <>
@@ -291,6 +312,17 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodyMedium,
       color: t.accent,
       fontSize: fontSizes.sm,
+    },
+    termsNote: {
+      fontFamily: fonts.body,
+      fontSize: fontSizes.xs,
+      color: t.textMuted,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    termsLink: {
+      color: t.accent,
+      textDecorationLine: 'underline',
     },
     pressed: {
       opacity: 0.7,

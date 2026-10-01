@@ -192,6 +192,17 @@ begin
     -- column existed has. Treating it as valid avoids a migration for rows
     -- whose owners are already paired anyway.
     and (invite_expires_at is null or invite_expires_at > now())
+    -- Added for report-and-block (see `blocks` below): a block always runs
+    -- block_partner(), which deletes the pairs row along with it, so by the
+    -- time this runs the only pair left to find by invite code is a *new*
+    -- one the blocked side created. Checked in both directions because
+    -- either half of the old pair could be the one creating this invite or
+    -- the one trying to join it.
+    and not exists (
+      select 1 from blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = pairs.user_a)
+         or (b.blocker_id = pairs.user_a and b.blocked_id = auth.uid())
+    )
   returning * into joined_pair;
 
   if joined_pair is null then
@@ -1769,3 +1780,189 @@ select cron.schedule(
   '17 4 * * *',
   $cron$ select public.cleanup_orphaned_clip_files(); $cron$
 );
+
+-- ---------------------------------------------------------------------
+-- Report and block (App Store guideline 1.2)
+-- ---------------------------------------------------------------------
+--
+-- Apple's user-generated-content guideline requires a way to report
+-- objectionable content and a way to block an abusive user. There's no
+-- public feed and no strangers in this app -- exactly two people per pair,
+-- joined by an invite code they share themselves -- so "block" here can
+-- only mean one thing: end the pairing for good. There's no feed post to
+-- hide and no third party to block instead.
+
+-- Who blocked whom. RLS enabled with NO client policies, same shape as
+-- invite_attempts above: written only by block_partner() below, and the
+-- client has no legitimate reason to read or write this table directly,
+-- only to trigger the function that does.
+create table if not exists blocks (
+  blocker_id uuid not null references auth.users (id) on delete cascade,
+  blocked_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id)
+);
+
+alter table blocks enable row level security;
+
+-- One report per flagged clip. The snapshot columns exist so a report
+-- outlives a block: blocking the reported sender is the obvious next step
+-- after reporting, and block_partner() deletes the pairs row, which
+-- cascades the clips row away (reported_user_id and clip_id are `on delete
+-- set null` for the same reason -- the report should survive both the
+-- account and the clip being gone). Without the snapshot, a report filed
+-- and then acted on immediately would leave nothing for the developer to
+-- review.
+--
+-- RLS enabled with NO client policies, same reasoning as blocks above:
+-- written only by report_clip() below, read only from the Supabase
+-- dashboard by the developer.
+create table if not exists clip_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid references auth.users (id) on delete set null,
+  reported_user_id uuid references auth.users (id) on delete set null,
+  clip_id uuid references clips (id) on delete set null,
+  reason text not null check (reason in ('inappropriate', 'harassment', 'other')),
+  caption_snapshot text,
+  recorded_for_date date,
+  storage_path_snapshot text,
+  created_at timestamptz not null default now()
+);
+
+alter table clip_reports enable row level security;
+
+-- Reports a clip. security definer so it can write clip_reports (which has
+-- no client insert policy) and read the clip across the reveal gate --
+-- has_own_clip() governs *watching* a partner's clip, not reporting one
+-- you were just sent, so this reads the row directly rather than through
+-- clips_select_pair_members.
+create or replace function report_clip(target_clip_id uuid, reason text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  clip_row clips;
+  bot_token text;
+  chat_id text;
+  new_report_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  select * into clip_row from clips where id = target_clip_id;
+  if clip_row is null then
+    raise exception 'Clip not found';
+  end if;
+
+  if not exists (
+    select 1 from pairs p
+    where p.id = clip_row.pair_id and is_pair_member(p, auth.uid())
+  ) then
+    raise exception 'Not a member of this clip''s pair';
+  end if;
+
+  if clip_row.sender_id = auth.uid() then
+    raise exception 'Cannot report your own clip';
+  end if;
+
+  insert into clip_reports (
+    reporter_id, reported_user_id, clip_id, reason,
+    caption_snapshot, recorded_for_date, storage_path_snapshot
+  ) values (
+    auth.uid(), clip_row.sender_id, clip_row.id, reason,
+    clip_row.caption_text, clip_row.recorded_for_date, clip_row.storage_path
+  )
+  returning id into new_report_id;
+
+  -- Best-effort developer notification. Same Vault-degrades-rather-than-
+  -- blocks reasoning as delete_own_account(): the report above is already
+  -- committed by the time this runs, so a missing credential must not undo
+  -- it -- a warning, not an exception.
+  select decrypted_secret into bot_token
+    from vault.decrypted_secrets where name = 'telegram_bot_token';
+  select decrypted_secret into chat_id
+    from vault.decrypted_secrets where name = 'telegram_chat_id';
+
+  if bot_token is null or chat_id is null then
+    raise warning 'report_clip: missing telegram_bot_token or telegram_chat_id Vault secret -- report % saved with no notification', new_report_id;
+  else
+    -- Deliberately no caption, storage path, or signed URL in the message --
+    -- Telegram is a notify-and-look-it-up channel, not where the reported
+    -- content itself travels. The reviewer opens clip_reports in Supabase
+    -- Studio for the rest.
+    perform net.http_post(
+      url := 'https://api.telegram.org/bot' || bot_token || '/sendMessage',
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'chat_id', chat_id,
+        'text', 'While You Sleep: clip reported (' || reason || '). Report ' || new_report_id || '. Review within 24h.'
+      )
+    );
+  end if;
+end;
+$$;
+
+grant execute on function report_clip(uuid, text) to authenticated;
+
+-- Ends your pairing and blocks the person you were paired with, so they can
+-- never pair with you again (see join_pair_by_code's guard above). Takes no
+-- arguments, same discipline as delete_own_account() and get_pet_state():
+-- the target is always derived from auth.uid(), so there is no parameter a
+-- caller could point at someone else's pairing.
+create or replace function block_partner()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_pair pairs;
+  other_user uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+
+  select * into target_pair from pairs
+    where user_a = auth.uid() or user_b = auth.uid();
+
+  if target_pair is null then
+    raise exception 'Not paired';
+  end if;
+
+  other_user := case
+    when target_pair.user_a = auth.uid() then target_pair.user_b
+    else target_pair.user_a
+  end;
+
+  -- Null while an invite is still unclaimed: there's no partner yet, so
+  -- there's nobody to block -- just the dangling invite to remove below.
+  if other_user is not null then
+    insert into blocks (blocker_id, blocked_id)
+    values (auth.uid(), other_user)
+    on conflict do nothing;
+  end if;
+
+  -- Everything shared cascades from here exactly as it does for
+  -- delete_own_account(): clips, daily_answers, pair_trips,
+  -- pair_anniversary, pair_pet, clip_reactions, clip_favorites.
+  --
+  -- Deliberately NOT purging storage here, unlike delete_own_account().
+  -- The nightly cleanup_orphaned_clip_files sweep picks up the now-orphaned
+  -- clip files on its usual schedule, and that delay is deliberate, not a
+  -- gap: a reported clip's video needs to still exist long enough for the
+  -- developer to actually review it before the block (the obvious next
+  -- step after reporting) sweeps it away.
+  delete from pairs where id = target_pair.id;
+end;
+$$;
+
+grant execute on function block_partner() to authenticated;
+
+-- Verify after applying, in the SQL editor -- each should return true:
+--   select prosrc like '%from blocks%' from pg_proc where proname = 'join_pair_by_code';
+--   select prosrc like '%insert into blocks%' from pg_proc where proname = 'block_partner';
+--   select prosrc like '%telegram_bot_token%' from pg_proc where proname = 'report_clip';

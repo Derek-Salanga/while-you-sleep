@@ -12,18 +12,21 @@ import { supabase } from '@/lib/supabase';
 import { unregisterPushToken } from '@/lib/notifications';
 import { usePairing } from '@/lib/PairingContext';
 import { usePartnerName } from '@/hooks/usePartnerName';
-import { useDeleteAccount } from '@/hooks/mutations';
+import { useBlockPartner, useDeleteAccount } from '@/hooks/mutations';
+import { confirmBlockPartner } from '@/lib/blockPartner';
 import { Theme } from '@/theme/themes';
 import { useTheme } from '@/theme/ThemeContext';
 import { fonts, fontSizes } from '@/theme/typography';
 import Screen from '@/components/ui/Screen';
 import BackLink from '@/components/ui/BackLink';
 
-// The policy lives as PRIVACY.md in the public repo; GitHub renders it. Also
-// the URL to give App Store Connect. Swap for a GitHub Pages URL if one is set
-// up later -- only this constant changes.
+// Both live as plain Markdown in the public repo; GitHub renders them. Also
+// the URLs to give App Store Connect. Swap for GitHub Pages URLs if one is
+// set up later -- only these constants change.
 const PRIVACY_POLICY_URL =
   'https://github.com/Derek-Salanga/while-you-sleep/blob/main/PRIVACY.md';
+const TERMS_OF_USE_URL =
+  'https://github.com/Derek-Salanga/while-you-sleep/blob/main/TERMS.md';
 
 // Signing out drops the session, which unmounts this whole stack via
 // RootNavigator's gate -- there's no undo and no confirmation elsewhere in
@@ -91,9 +94,10 @@ function confirmDeleteAccount(
 export default function AccountSettingsScreen() {
   const t = useTheme();
   const styles = useMemo(() => makeStyles(t), [t]);
-  const { session } = usePairing();
+  const { session, pair } = usePairing();
   const partnerName = usePartnerName();
   const deleteAccount = useDeleteAccount();
+  const blockPartner = useBlockPartner();
 
   return (
     <Screen padding={20} topInset>
@@ -121,11 +125,59 @@ export default function AccountSettingsScreen() {
       </Pressable>
 
       <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        onPress={() =>
+          Linking.openURL(TERMS_OF_USE_URL).catch(() =>
+            Alert.alert("Couldn't open the terms of use")
+          )
+        }
+        accessibilityRole="link"
+      >
+        <Text style={styles.rowLabel}>Terms of Use</Text>
+        <Text style={styles.rowValue}>›</Text>
+      </Pressable>
+
+      <Pressable
         style={({ pressed }) => [styles.dangerRow, pressed && styles.pressed]}
         onPress={() => confirmSignOut(session?.user.id)}
       >
         <Text style={styles.dangerText}>Sign out</Text>
       </Pressable>
+
+      {/* Only shown once paired -- there's nobody to block before user_b is
+          set, and block_partner() would just raise "Not paired". Above
+          Delete account, same reasoning as the two delete-account alerts
+          below: ending a pairing is one notch less destructive than wiping
+          your own account, so it reads as the lighter option first. */}
+      {!!pair?.user_b && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.dangerRow,
+            styles.blockRow,
+            pressed && styles.pressed,
+          ]}
+          disabled={blockPartner.isPending}
+          onPress={() =>
+            confirmBlockPartner(partnerName, () =>
+              blockPartner.mutate(undefined, {
+                // No success branch: a successful block deletes the pairs
+                // row, ['pair'] is invalidated, and RootNavigator's isPaired
+                // gate swaps this whole stack out for PairingScreen on its
+                // own -- same shape as useDeleteAccount's onSuccess above.
+                onError: (err) => Alert.alert("Couldn't block", err.message),
+              })
+            )
+          }
+        >
+          {blockPartner.isPending ? (
+            <ActivityIndicator color={t.danger} />
+          ) : (
+            <Text style={styles.dangerText}>
+              Block {partnerName ?? 'your partner'}
+            </Text>
+          )}
+        </Pressable>
+      )}
 
       <Pressable
         style={({ pressed }) => [
@@ -208,6 +260,9 @@ const makeStyles = (t: Theme) =>
       fontFamily: fonts.bodySemiBold,
       fontSize: fontSizes.md,
       color: t.danger,
+    },
+    blockRow: {
+      marginTop: 12,
     },
     deleteRow: {
       marginTop: 12,

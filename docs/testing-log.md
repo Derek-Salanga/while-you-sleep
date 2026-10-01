@@ -2377,3 +2377,44 @@ The consent check was deliberately not moved into `queue_clip_for_ai`:
 `schema.sql` holds a placeholder n8n URL (the real one is set only on the
 live function), so re-running that function from the file would break the
 pipeline. Not yet seen on a device.
+
+## 2026-09-30 — Report and block (App Store guideline 1.2)
+
+Built for the guideline's user-generated-content requirement: a report path,
+a block path, and terms with zero tolerance for either. Added to
+`supabase/schema.sql` (not applied to the live project this pass): the
+`blocks` and `clip_reports` tables, both RLS-enabled with no client
+policies; `report_clip()`, which snapshots the clip's caption/storage
+path/date before inserting a `clip_reports` row and then best-effort
+notifies the developer on Telegram via `net.http_post`, degrading to a
+`raise warning` (report still saved) when the `telegram_bot_token` or
+`telegram_chat_id` Vault secret is missing; `block_partner()`, which inserts
+a `blocks` row (caller to the other user) and deletes the pairs row, same
+cascade as `delete_own_account()` but deliberately leaving storage for the
+nightly `cleanup_orphaned_clip_files` sweep, which gives the developer a
+window to review a reported clip's video before it's gone; and a new guard
+in `join_pair_by_code()`'s `update ... where` so a block also prevents
+re-pairing, checked in both directions.
+
+On the client: `useReportClip()` and `useBlockPartner()` in
+`src/hooks/mutations.ts` (no retry override on either, matching the
+existing `useDeleteAccount()` precedent, since neither RPC is meaningfully
+retriable); a shared two-chained-Alert block confirmation in the new
+`src/lib/blockPartner.ts`, used from both `ClipViewScreen` (offered after a
+successful report) and `AccountSettingsScreen`'s new "Block {name}" row
+(shown only while `pair?.user_b` is set, placed above "Delete account");
+a muted "Report" text button on `ClipViewScreen` next to the date line,
+shown only for the partner's clip and re-derived per clip so it tracks
+correctly in reel (`queue`) mode; a "Terms of Use" row next to Privacy
+Policy on `AccountSettingsScreen`; and a muted "By continuing you agree to
+the Terms of Use" line under the Send Code button on `AuthScreen`'s email
+stage, linking to `TERMS.md` on GitHub the same way Privacy Policy already
+does. `useBlockPartner`'s success invalidates `['pair']` and `['clips']`;
+the former is what `RootNavigator`'s `isPaired` gate reads, so the
+invalidation re-routes the blocker to `PairingScreen` on its own, the same
+mechanism `usePair`'s existing poll already relies on.
+
+Not yet verified anywhere: none of this SQL has been applied to the live
+project, so nothing here has been exercised against a real pair, a real
+Telegram send, or a real block/re-join attempt. See the matching "Not
+verified" bullet in CLAUDE.md's Testing status.
