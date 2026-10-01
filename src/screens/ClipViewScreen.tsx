@@ -5,21 +5,28 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePairing } from '@/lib/PairingContext';
+import { usePartnerName } from '@/hooks/usePartnerName';
 import { useClip, useFavorites, useReactions } from '@/hooks/queries';
 import {
+  useBlockPartner,
   useMarkClipViewed,
+  useReportClip,
   useSetFavorite,
   useSetReaction,
 } from '@/hooks/mutations';
+import { confirmBlockPartner } from '@/lib/blockPartner';
 import { REACTION_EMOJI } from '@/data/reactions';
 import ReactionBurst from '@/components/ReactionBurst';
 import { AI_MOOD_EMOJI } from '@/lib/aiMood';
 import { media } from '@/theme/themes';
 import { fonts, fontSizes } from '@/theme/typography';
+
+type ReportReason = 'inappropriate' | 'harassment' | 'other';
 
 export default function ClipViewScreen({ route, navigation }: any) {
   const { clipId, queue } = route.params as {
@@ -87,6 +94,62 @@ export default function ClipViewScreen({ route, navigation }: any) {
     favorites?.some(
       (f) => f.clip_id === activeClipId && f.user_id === session?.user.id
     ) ?? false;
+
+  // Only a partner's clip is reportable -- there's no reason to report your
+  // own, and report_clip() rejects it server-side too (see schema.sql).
+  // Re-derived from activeClipId's row rather than the route's clipId, so
+  // the Report button tracks whoever's clip is actually on screen in reel
+  // (queue) mode.
+  const isPartnerClip =
+    !!clip && !!session?.user && clip.sender_id !== session.user.id;
+  const partnerName = usePartnerName();
+  const { mutate: reportClip, isPending: isReporting } = useReportClip();
+  const blockPartner = useBlockPartner();
+
+  function submitReport(reason: ReportReason) {
+    if (!clip) return;
+    const name = partnerName ?? 'your partner';
+    reportClip(
+      { clipId: clip.id, reason },
+      {
+        onSuccess: () =>
+          Alert.alert(
+            'Thanks for reporting',
+            `We review every report within 24 hours. You can also block ${name}, which ends your pairing.`,
+            [
+              { text: 'Done' },
+              {
+                text: `Block ${name}`,
+                style: 'destructive',
+                onPress: () =>
+                  confirmBlockPartner(partnerName, () =>
+                    blockPartner.mutate(undefined, {
+                      onError: (err) =>
+                        Alert.alert("Couldn't block", err.message),
+                    })
+                  ),
+              },
+            ]
+          ),
+        onError: (err) => Alert.alert("Couldn't send report", err.message),
+      }
+    );
+  }
+
+  function handleReportPress() {
+    Alert.alert('Report this clip?', undefined, [
+      {
+        text: 'Inappropriate or explicit',
+        onPress: () => submitReport('inappropriate'),
+      },
+      {
+        text: 'Harassment or abuse',
+        onPress: () => submitReport('harassment'),
+      },
+      { text: 'Something else', onPress: () => submitReport('other') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   const favoriteButton = (
     <Pressable
@@ -219,10 +282,27 @@ export default function ClipViewScreen({ route, navigation }: any) {
       {clip.ai_status === 'completed' && clip.ai_summary && (
         <Text style={styles.caption}>{clip.ai_summary}</Text>
       )}
-      <Text style={styles.dateLabel}>
-        {clip.recorded_for_date}
-        {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
-      </Text>
+      <View style={styles.dateRow}>
+        <Text style={styles.dateLabel}>
+          {clip.recorded_for_date}
+          {queue ? `  ·  ${queueIndex + 1} of ${queue.length}` : ''}
+        </Text>
+        {/* Partner's clip only -- see isPartnerClip above. Unobtrusive by
+            design: a muted text link next to the date, not a button
+            competing with the reactions or the video itself. */}
+        {isPartnerClip && (
+          <Pressable
+            onPress={handleReportPress}
+            disabled={isReporting}
+            hitSlop={8}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="button"
+            accessibilityLabel="Report this clip"
+          >
+            <Text style={styles.reportText}>Report</Text>
+          </Pressable>
+        )}
+      </View>
       {/* Last child and a sibling of the whole layout, not of the reaction
           row: it draws over the video, and Android clips absolutely
           positioned children that extend past their parent. */}
@@ -292,11 +372,25 @@ const styles = StyleSheet.create({
     backgroundColor: media.selected,
   },
   reactionEmoji: { fontSize: 22 },
+  // Row rather than a single centred Text, so the muted Report link can sit
+  // right next to the date without needing its own absolutely-positioned
+  // spot -- the date line was already the least crowded row on this screen.
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 16,
+  },
   dateLabel: {
     fontFamily: fonts.body,
     color: media.text,
-    textAlign: 'center',
-    padding: 16,
+  },
+  reportText: {
+    fontFamily: fonts.body,
+    fontSize: fontSizes.sm,
+    color: media.textMuted,
+    textDecorationLine: 'underline',
   },
   errorText: {
     fontFamily: fonts.body,

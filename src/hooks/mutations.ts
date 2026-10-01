@@ -253,6 +253,54 @@ export function useSetAiEnabled() {
   });
 }
 
+// Reports a clip for the developer to review (App Store guideline 1.2). RPC
+// rather than a table insert -- clip_reports has no client insert policy,
+// and report_clip() is what snapshots the caption/storage path before a
+// block can cascade the clips row away. No explicit `retry` override: v5
+// already defaults mutations to 0 (see "Known transient error" in
+// CLAUDE.md), which is what we want here -- a retried report after a
+// transient failure would just duplicate it.
+export function useReportClip() {
+  return useMutation({
+    mutationFn: async ({
+      clipId,
+      reason,
+    }: {
+      clipId: string;
+      reason: 'inappropriate' | 'harassment' | 'other';
+    }) => {
+      const { error } = await supabase.rpc('report_clip', {
+        target_clip_id: clipId,
+        reason,
+      });
+      if (error) throw error;
+    },
+  });
+}
+
+// Ends the pairing and blocks the partner so they can never pair with you
+// again (see join_pair_by_code's guard in schema.sql). Invalidates ['pair']
+// -- which RootNavigator's isPaired gate reads -- so the app re-routes to
+// PairingScreen on its own, the same mechanism usePair's refetch already
+// drives; ['clips'] too, since the shared history is gone along with the
+// pairing. No explicit `retry` override, same reasoning as useReportClip:
+// block_partner() deletes the pairs row, so a retried call after a
+// transient failure would just raise "Not paired" against a pairing that
+// no longer exists.
+export function useBlockPartner() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('block_partner');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pair'] });
+      queryClient.invalidateQueries({ queryKey: ['clips'] });
+    },
+  });
+}
+
 // Pause the pet: "we're travelling", not "we gave up". Either partner can
 // set it, since it's shared state like pair_trips.
 //

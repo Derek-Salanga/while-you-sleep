@@ -1628,6 +1628,20 @@ Current state only. Dated verification history: [docs/testing-log.md](docs/testi
 - `clips_update_own_as_sender` and `storage.objects`' UPDATE policy (RLS
   hardening, see that section above) — not reachable through the app's
   current UI, since there's no re-record-after-send path
+- Report and block (2026-09-30), entirely: `report_clip()` inserting a
+  `clip_reports` row with the right snapshots and raising on your own clip
+  or a non-member clip; the Telegram notification firing (and degrading
+  with a warning when the Vault secrets are absent); `block_partner()`
+  deleting the pairs row, inserting the `blocks` row in the right
+  direction, and the shared history actually cascading; `join_pair_by_code()`'s
+  new block guard actually refusing a re-join in both directions; the
+  Report button only showing on a partner's clip and tracking correctly
+  through a reel (`queue`); both Alert chains (report's "Thanks for
+  reporting" → Block, and the shared block confirmation from both entry
+  points); `useBlockPartner` actually re-routing `RootNavigator` to
+  `PairingScreen` via the `['pair']` invalidation; the Terms of Use links
+  on `AccountSettingsScreen` and `AuthScreen`. None of this SQL has been
+  applied to the live project.
 
 ## Design tooling installed
 
@@ -2029,6 +2043,84 @@ One-time setup, outside the repo:
    - post from both accounts over the preceding days if possible: the pet
      loses points each idle day, and a reviewer's first Home screen
      shouldn't be a withdrawn pet.
+
+## Report and block (2026-09-30)
+
+For App Store guideline 1.2 (user-generated content): a way to report
+objectionable content, a way to block an abusive user, and terms with zero
+tolerance for either (`TERMS.md`, linked from `AccountSettingsScreen` next
+to Privacy Policy and from `AuthScreen`'s email stage). There's no public
+feed and no strangers in this app -- exactly two people per pair, joined by
+an invite code they share themselves -- so both features are built around
+that constraint rather than a general moderation system.
+
+**Block means unpair, not mute.** `block_partner()` (`supabase/schema.sql`)
+finds the caller's pair, inserts a `blocks` row (caller -> the other user),
+then deletes the pairs row -- everything shared cascades exactly as it does
+for `delete_own_account()`: clips, daily_answers, pair_trips,
+pair_anniversary, pair_pet, reactions, favorites. `join_pair_by_code()` now
+also refuses to join a pair if a `blocks` row exists between the joiner and
+the pair's creator in either direction, so a blocked person can't just
+re-invite or re-join their way back in. `blocks` and `clip_reports` both
+have RLS enabled with no client policies at all -- they're written only by
+`block_partner()` and `report_clip()`, never directly.
+
+**Reporting snapshots what it needs, then degrades gracefully on the
+notification.** `report_clip()` copies the clip's caption, storage path and
+date into `clip_reports` at report time, because the obvious next step
+after reporting is blocking the sender, and that cascades the clips row
+away -- without the snapshot there'd be nothing left to review. It then
+best-effort notifies the developer on Telegram via `net.http_post`, reading
+the bot token and chat id from Vault secrets (`telegram_bot_token`,
+`telegram_chat_id`). Missing either one `raise warning`s and keeps the
+report rather than failing it, mirroring `delete_own_account()`'s Vault
+handling -- a notification failure should never undo a report that already
+landed. The Telegram message is deliberately just the reason and the report
+id, never the caption, storage path, or a signed URL; the developer opens
+`clip_reports` in Supabase Studio for the rest.
+
+**Storage is deliberately left for the nightly sweep, unlike account
+deletion.** `delete_own_account()` purges clip files immediately because
+nobody is coming back to look at them. `block_partner()` does not -- the
+24-48h window before `cleanup_orphaned_clip_files` finds the now-orphaned
+files is the developer's window to actually watch a reported clip before
+it's gone. Purging on block would delete the evidence the report exists to
+preserve.
+
+**The blocked partner's running app goes stale until relaunch**, the same
+gap `delete_own_account()` already has: nothing refetches `['pair', userId]`
+once a pair is complete, so until they force-quit they keep a stale `pair`
+and see what looks like a fresh empty pairing rather than being told why.
+On next launch the gate routes them to `PairingScreen` normally.
+
+**Moderation workflow (manual, by design -- there's no admin UI):** a
+Telegram message means a new row in `clip_reports`. Look it up in the
+Supabase dashboard's table editor, open the clip's video from its
+`storage_path_snapshot` in the Storage browser if you need to see it, and
+if it warrants action, ban the reported user from Authentication -> Users
+(disable or delete them) -- there's no in-app ban, this is a dashboard
+action.
+
+On the client: `src/hooks/mutations.ts` adds `useReportClip()` and
+`useBlockPartner()`, the latter invalidating `['pair']` and `['clips']` on
+success -- `['pair']` is what `RootNavigator`'s `isPaired` gate reads, so
+invalidating it re-routes the blocker to `PairingScreen` on its own, the
+same mechanism `usePair`'s poll already relies on. The two-chained-Alert
+block confirmation (same shape as `useDeleteAccount`'s) is written once, in
+`src/lib/blockPartner.ts`, and used from both `ClipViewScreen` (offered
+after a report) and `AccountSettingsScreen`'s "Block" row. The Report
+button on `ClipViewScreen` sits next to the date line, muted, and only
+renders for the partner's clip -- re-derived from the clip actually on
+screen, so it tracks correctly in reel (`queue`) mode too.
+
+`block_partner()` acts on every pairs row the caller is in, and
+`clip_reports` is unique per (clip, reporter) so a repeat report is a quiet
+no-op. Both came from review. The first exists because **`create_invite()`
+never checks for an existing pair**, so a user can hold two rows (two
+devices tapping Create at once, or a direct RPC call); `usePair`'s
+`.maybeSingle()` would then error too. That gap predates this feature and is
+a follow-up: reject in `create_invite()` when the caller is already in a
+pairs row.
 
 ## Explicitly out of scope for now
 
