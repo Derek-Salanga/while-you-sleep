@@ -2002,8 +2002,8 @@ email" from the original ask, not an in-app digest.
 ## App Review demo accounts (2026-09-28)
 
 App Review can't receive the emailed sign-in code, so two demo accounts sign
-in with a **password** instead: `appreview@whileyousleep.app` and
-`appreview-partner@whileyousleep.app` (`REVIEW_EMAILS` in `AuthScreen.tsx`).
+in with a **password** instead: `appreview@whileyousleepapp.com` and
+`appreview-partner@whileyousleepapp.com` (`REVIEW_EMAILS` in `AuthScreen.tsx`).
 Typing either address on the email screen goes to a password stage; every
 other address gets the normal code flow, and normal accounts have no
 password, so the password grant does nothing for them.
@@ -2013,7 +2013,11 @@ One-time setup, outside the repo:
    user", for each address, with a strong password (20+ random characters:
    the addresses ship in the app bundle, so assume they're known and the
    password is the only lock) and **Auto Confirm User** ticked.
-   `whileyousleep.app` is the user's own domain. **Set up email forwarding**
+   `whileyousleepapp.com` is the user's own domain (Cloudflare, registered
+   2026-08-25). **Not `whileyousleep.app`**, which belongs to someone else:
+   the addresses briefly pointed there (fixed 2026-09-30, before any account
+   was created), and a stranger receiving a review account's password-reset
+   mail would own it. **Set up email forwarding**
    for both addresses to an inbox the user reads, and **keep the domain
    renewed** -- control of these addresses' mail is part of what protects
    the accounts. The addresses are compiled into `AuthScreen.tsx`, so
